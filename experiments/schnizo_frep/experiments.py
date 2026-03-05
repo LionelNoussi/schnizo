@@ -31,45 +31,45 @@ class FrepExperimentManager(eu.ExperimentManager):
 def gen_experiments():
     experiments = []
     for mode in ['scalar', 'superscalar']:
-        # for n in [256, 512, 1024, 2048, 4096]:
-        #     experiments.extend([
-        #         {
-        #             'app': 'sz_dot',
-        #             'mode': mode,
-        #             'data_cfg': {
-        #                 'n': n,
-        #                 'funcptr': 'dot_schnizo',
-        #             },
-        #             'cmd': [str(MK_DIR / 'sw/kernels/blas/sz_dot/scripts/verify.py'),
-        #                     "${sim_bin}", "${elf}"],
-        #             'roi': Path("roi/sz_dot_roi.json.tpl")
-        #         },
-        #         {
-        #             'app': 'sz_axpy',
-        #             'mode': mode,
-        #             'data_cfg': {
-        #                 'n': n,
-        #                 'funcptr': 'axpy_baseline' if mode == 'scalar' else 'axpy_schnizo',
-        #             },
-        #             'cmd': [str(MK_DIR / 'sw/kernels/blas/sz_axpy/scripts/verify.py'),
-        #                     "${sim_bin}", "${elf}"],
-        #             'roi': Path("roi/sz_axpy_roi.json.tpl")
-        #         },
-        #     ])
-        for n in [64]:
+        for n in [4096]:
             experiments.extend([
                 {
-                    'app': 'exp',
+                    'app': 'sz_dot',
                     'mode': mode,
                     'data_cfg': {
-                        'len': n,
-                        'batch_size': n,
+                        'n': n,
+                        'funcptr': 'dot_schnizo',
                     },
-                    'cmd': [str(MK_DIR / 'sw/kernels/misc/exp/scripts/verify.py'),
+                    'cmd': [str(MK_DIR / 'sw/kernels/blas/sz_dot/scripts/verify.py'),
                             "${sim_bin}", "${elf}"],
-                    'roi': Path("roi/exp.json.tpl")
-                }
+                    'roi': Path("roi/sz_dot_roi.json.tpl")
+                },
+                {
+                    'app': 'sz_axpy',
+                    'mode': mode,
+                    'data_cfg': {
+                        'n': n,
+                        'funcptr': 'axpy_baseline' if mode == 'scalar' else 'axpy_schnizo',
+                    },
+                    'cmd': [str(MK_DIR / 'sw/kernels/blas/sz_axpy/scripts/verify.py'),
+                            "${sim_bin}", "${elf}"],
+                    'roi': Path("roi/sz_axpy_roi.json.tpl")
+                },
             ])
+        # for n in [64]:
+        #     experiments.extend([
+        #         {
+        #             'app': 'exp',
+        #             'mode': mode,
+        #             'data_cfg': {
+        #                 'len': n,
+        #                 'batch_size': n,
+        #             },
+        #             'cmd': [str(MK_DIR / 'sw/kernels/misc/exp/scripts/verify.py'),
+        #                     "${sim_bin}", "${elf}"],
+        #             'roi': Path("roi/exp.json.tpl")
+        #         }
+        #     ])
     return experiments
 
 

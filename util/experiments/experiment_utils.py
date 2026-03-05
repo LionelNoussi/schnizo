@@ -15,10 +15,11 @@ import pandas as pd
 from pathlib import Path
 from snitch.util.experiments.SimResults import SimResults
 from snitch.util.experiments import run, build, common
-from snitch.util.sim import sim_utils
+from snitch.util.sim import sim_utils, Simulator
 import sys
 from termcolor import colored
 import yaml
+import shutil
 
 # Try importing PowerResults module (not available in open-source repo)
 try:
@@ -35,6 +36,8 @@ except ImportError as e:
 
 ACTIONS = ['sw', 'hw', 'run', 'traces', 'annotate', 'perf', 'roi', 'visual-trace', 'power', 'all',
            'none']
+
+CLEAN_ACTIONS = ['sw', 'hw', 'runs', 'all', 'none']
 
 
 class ExperimentManager:
@@ -55,6 +58,14 @@ class ExperimentManager:
             self.actions = actions
         elif self.args is not None:
             self.actions = self.args.actions
+        else:
+            self.actions = ['none']
+
+        # Get clean actions
+        if self.args is not None:
+            self.clean_actions = self.args.clean
+        else:
+            self.clean_actions = ['none']
 
         # Save callbacks
         self.callbacks = callbacks
@@ -92,6 +103,8 @@ class ExperimentManager:
     def parser():
         parser = run.get_parser()
         parser.add_argument('--actions', nargs='+', default='none', choices=ACTIONS,
+                            help='List of actions')
+        parser.add_argument('--clean', nargs='+', default='none', choices=CLEAN_ACTIONS,
                             help='List of actions')
         return parser
 
@@ -143,54 +156,125 @@ class ExperimentManager:
         dry_run = self.args.dry_run
         n_procs = self.args.n_procs
         experiments = self.experiments
+        # We keep a list of different simulators, since different hardware configs
+        # need different vsim binary paths.
+        simulators = {'default': run.SIMULATORS[self.args.simulator]}
 
-        # Build hardware
-        if 'hw' in self.actions or 'all' in self.actions:
-            for experiment in experiments:
-                bin = self.derive_hw_bin(experiment)
-                print(colored('Generate hardware', 'black', attrs=['bold']),
-                      colored(bin, 'cyan', attrs=['bold']))
-                vars = {
-                    'SN_BIN_DIR': bin.parent,
-                    'VSIM_BUILDDIR': self.derive_vsim_builddir(experiment),
-                    'CFG_OVERRIDE': self.derive_hw_cfg(experiment),
-                    'DEBUG': 'ON'
-                }
-                flags = ['-j']
-                common.make(bin, vars, flags=flags, dry_run=dry_run)
+        # Clean hardware
+        if 'hw' in self.clean_actions or 'all' in self.clean_actions:
+            folder_path = Path('./hw/')
+            if folder_path.exists() and folder_path.is_dir():
+                shutil.rmtree(folder_path)
+                print(colored(f"Cleaned hardware build folder: {folder_path}", 'cyan'))
+            else:
+                print(colored("Nothing to clean for hardware", 'blue'))
+            folder_path = self.dir / "../../hw/generated/"
+            if folder_path.exists() and folder_path.is_dir():
+                shutil.rmtree(folder_path)
+                print(colored(f"Cleaned generated rtl folder: {folder_path}", 'cyan'))
+            else:
+                print(colored("Nothing to clean for generated rtl", 'blue'))
+        
+        # Clean software
+        if 'sw' in self.clean_actions or 'all' in self.clean_actions:
+            folder_path = Path('./build/')
+            if folder_path.exists() and folder_path.is_dir():
+                shutil.rmtree(folder_path)
+                print(colored(f"Cleaned software build folder: {folder_path}", 'cyan'))
+            else:
+                print(colored("Nothing to clean for software", 'blue'))
 
-        # Build software
-        if 'sw' in self.actions or 'all' in self.actions:
-            processes = []
-            for experiment in experiments:
-                target = experiment['app']
-                build_dir = experiment['elf'].parent
-                defines = self.derive_cdefines(experiment)
-                data_cfg = self.derive_data_cfg(experiment)
-                hw_cfg = self.derive_hw_cfg(experiment)
-                if 'sw' in self.callbacks:
-                    func = self.callbacks['sw']
-                else:
-                    func = build.build
-                print(colored('Build app', 'black', attrs=['bold']),
-                      colored(target, 'cyan', attrs=['bold']),
-                      colored('in', 'black', attrs=['bold']),
-                      colored(build_dir, 'cyan', attrs=['bold']))
-                process = func(
-                    target=target, build_dir=build_dir, defines=defines,
-                    data_cfg=data_cfg, hw_cfg=hw_cfg, dry_run=dry_run,
-                    sync=True if self.args.n_procs == 1 else False
-                )
-                processes.append(process)
-            common.wait_processes(processes, dry_run=dry_run)
+        # Clean logs
+        if 'runs' in self.clean_actions or 'all' in self.clean_actions:
+            folder_path = Path('./runs/')
+            if folder_path.exists() and folder_path.is_dir():
+                shutil.rmtree(folder_path)
+                print(colored(f"Cleaned runs folder: {folder_path}", 'cyan'))
+            else:
+                print(colored("Nothing to run data to clean", 'blue'))
+
+        # Since generating the hardware depends on the generated RTL files,
+        # the hardware needs to be built sequentially. Also, since the hardware configuration
+        # can affect the software, the software also always needs to be built directly after each
+        # hardware was just built.
+        keys = set.union(*[set(experiment.keys()) for experiment in experiments])
+        if 'hw' in keys:
+            hardware_configs = list(set([e['hw'] for e in experiments]))
+        else:
+            for e in experiments:
+                e['hw'] = 'default'
+            hardware_configs = ['default']
+
+        # Loop over different hardware configs
+        for hardware_cfg in hardware_configs:
+
+            # Build hardware
+            if 'hw' in self.actions or 'all' in self.actions:
+                print(colored(f"Generating hw for cfg: {hardware_cfg}", "green"))
+                for experiment in experiments:
+                    if experiment['hw'] != hardware_cfg:
+                        continue
+                    bin = self.derive_hw_bin(experiment)
+                    print(colored('Generate hardware', 'black', attrs=['bold']),
+                        colored(bin, 'cyan', attrs=['bold']))
+                    vars = {
+                        'SN_BIN_DIR': bin.parent,
+                        'SN_VSIM_BUILDDIR': self.derive_vsim_builddir(experiment),
+                        'SN_WORK_DIR': bin.parent.parent / 'work',
+                        'CFG_OVERRIDE': self.derive_hw_cfg(experiment),
+                        'DEBUG': 'OFF'
+                    }
+                    flags = ['-j']
+                    common.make(bin, vars, flags=flags, dry_run=dry_run)
+
+            if hardware_cfg not in simulators:
+                # We use the first experiment matching this cfg to get the binary path
+                rep_experiment = next(e for e in experiments if e['hw'] == hardware_cfg)
+                hw_bin_path = str(self.derive_hw_bin(rep_experiment))
+                
+                # Pass the binary path to the constructor as required by QuestaSimulator
+                simulators[hardware_cfg] = run.Simulator.QuestaSimulator(hw_bin_path)
+
+            # Build software
+            if 'sw' in self.actions or 'all' in self.actions:
+                print(colored(f"Generating sw for cfg: {hardware_cfg}", "green"))
+                processes = []
+                for experiment in experiments:
+                    if experiment['hw'] != hardware_cfg:
+                        continue
+                    target = experiment['app']
+                    build_dir = experiment['elf'].parent
+                    defines = self.derive_cdefines(experiment)
+                    data_cfg = self.derive_data_cfg(experiment)
+                    hw_cfg = self.derive_hw_cfg(experiment)
+                    if 'sw' in self.callbacks:
+                        func = self.callbacks['sw']
+                    else:
+                        func = build.build
+                    print(colored('Build app', 'black', attrs=['bold']),
+                        colored(target, 'cyan', attrs=['bold']),
+                        colored('in', 'black', attrs=['bold']),
+                        colored(build_dir, 'cyan', attrs=['bold']))
+                    process = func(
+                        target=target, build_dir=build_dir, defines=defines,
+                        data_cfg=data_cfg, hw_cfg=hw_cfg, dry_run=dry_run,
+                        sync=True if self.args.n_procs == 1 else False
+                    )
+                    processes.append(process)
+                common.wait_processes(processes, dry_run=dry_run)
 
         # Run experiments
         if 'run' in self.actions or 'all' in self.actions:
-            simulations = sim_utils.get_simulations(
-                experiments,
-                run.SIMULATORS[self.args.simulator],
-                self.run_dir
-            )
+            simulations = []
+            for experiment in experiments:
+                simulator = simulators[experiment['hw']]
+                simulations.extend(
+                    sim_utils.get_simulations(
+                        [experiment],
+                        simulator,
+                        self.run_dir
+                    )
+                )
             for i, experiment in enumerate(experiments):
                 simulations[i].env = self.derive_env(experiment)
             failed_sims = run.run_simulations(simulations, self.args)
@@ -353,7 +437,7 @@ class ExperimentManager:
             results.rename('results', inplace=True)
             self.perf_results_available = True
         except FileNotFoundError:
-            pass
+            print("No performance data found. Run 'perf' and 'roi' to generate.")
 
         # Create PowerResults objects
         if 'PowerResults' in globals():
