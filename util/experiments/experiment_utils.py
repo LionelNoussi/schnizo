@@ -81,6 +81,7 @@ class ExperimentManager:
             self.run_dir = self.dir / 'runs'
         self.power_dir = self.dir / 'power'
         self.area_dir = self.dir / 'area'
+        self.schnizo_dir = next(p for p in self.dir.parents if p.name == 'experiments').parent
 
         # Get experiments
         if experiments is not None:
@@ -143,10 +144,27 @@ class ExperimentManager:
         return None
 
     def derive_hw_cfg(self, experiment):
-        return None
+        if 'hw' not in experiment or experiment['hw'] == 'default':
+            return self.schnizo_dir / 'cfg/default.json'
+        return self.dir / 'configs' / experiment['hw']
 
     def derive_hw_bin(self, experiment):
         return self.dir / 'hw' / experiment['hw'] / 'bin/snitch_cluster.vsim'
+
+    def derive_all_hw_cfgs(self) -> list[str]:
+        """This function should return a list of names of all different used hardware configs.
+        If no hw is specified in the experiments. It uses the default simulator for each.
+        If hw is specified for one experiment, it needs to be specified for each one."""
+        hardware_configs = []
+        keys = set.union(*[set(experiment.keys()) for experiment in self.experiments])
+        if 'hw' in keys:
+            assert all(['hw' in set(e.keys()) for e in self.experiments])
+            hardware_configs = list(set([e['hw'] for e in self.experiments]))
+        else:
+            hardware_configs = ['default']
+            for e in self.experiments:
+                e['hw'] = 'default'     # add default hw key for each experiment
+        return hardware_configs
 
     def derive_vsim_builddir(self, experiment):
         return self.dir / 'hw' / experiment['hw'] / 'work-vsim'
@@ -156,9 +174,14 @@ class ExperimentManager:
         dry_run = self.args.dry_run
         n_procs = self.args.n_procs
         experiments = self.experiments
-        # We keep a list of different simulators, since different hardware configs
-        # need different vsim binary paths.
-        simulators = {'default': run.SIMULATORS[self.args.simulator]}
+        sync = True if self.args.n_procs == 1 else False
+        # We keep a dictionary of different simulators, since different
+        # hardware configs need different vsim binary paths.
+        simulators = {
+            'default': run.Simulator.QuestaSimulator(
+                self.dir / 'hw/default/bin/snitch_cluster.vsim'
+            )
+        }
 
         # Clean hardware
         if 'hw' in self.clean_actions or 'all' in self.clean_actions:
@@ -174,7 +197,7 @@ class ExperimentManager:
                 print(colored(f"Cleaned generated rtl folder: {folder_path}", 'cyan'))
             else:
                 print(colored("Nothing to clean for generated rtl", 'blue'))
-        
+
         # Clean software
         if 'sw' in self.clean_actions or 'all' in self.clean_actions:
             folder_path = Path('./build/')
@@ -193,19 +216,12 @@ class ExperimentManager:
             else:
                 print(colored("Nothing to run data to clean", 'blue'))
 
+        # LOOP OVER DIFFERENT HARDWARE CONFIGS
         # Since generating the hardware depends on the generated RTL files,
         # the hardware needs to be built sequentially. Also, since the hardware configuration
         # can affect the software, the software also always needs to be built directly after each
         # hardware was just built.
-        keys = set.union(*[set(experiment.keys()) for experiment in experiments])
-        if 'hw' in keys:
-            hardware_configs = list(set([e['hw'] for e in experiments]))
-        else:
-            for e in experiments:
-                e['hw'] = 'default'
-            hardware_configs = ['default']
-
-        # Loop over different hardware configs
+        hardware_configs = self.derive_all_hw_cfgs()
         for hardware_cfg in hardware_configs:
 
             # Build hardware
@@ -216,24 +232,22 @@ class ExperimentManager:
                         continue
                     bin = self.derive_hw_bin(experiment)
                     print(colored('Generate hardware', 'black', attrs=['bold']),
-                        colored(bin, 'cyan', attrs=['bold']))
+                          colored(bin, 'cyan', attrs=['bold']))
                     vars = {
                         'SN_BIN_DIR': bin.parent,
                         'SN_VSIM_BUILDDIR': self.derive_vsim_builddir(experiment),
                         'SN_WORK_DIR': bin.parent.parent / 'work',
                         'CFG_OVERRIDE': self.derive_hw_cfg(experiment),
-                        'DEBUG': 'OFF'
+                        'DEBUG': 'ON'
                     }
                     flags = ['-j']
                     common.make(bin, vars, flags=flags, dry_run=dry_run)
 
-            if hardware_cfg not in simulators:
-                # We use the first experiment matching this cfg to get the binary path
-                rep_experiment = next(e for e in experiments if e['hw'] == hardware_cfg)
-                hw_bin_path = str(self.derive_hw_bin(rep_experiment))
-                
-                # Pass the binary path to the constructor as required by QuestaSimulator
-                simulators[hardware_cfg] = run.Simulator.QuestaSimulator(hw_bin_path)
+                    # Pass bin path to the QuestaSimulator and add to the list of simulators
+                    simulators[hardware_cfg] = run.Simulator.QuestaSimulator(bin)
+                    # we only need to built the hardware once.
+                    # Note: make wouldn't have done anything anyways since lru_cfg is the same.
+                    break
 
             # Build software
             if 'sw' in self.actions or 'all' in self.actions:
@@ -252,9 +266,9 @@ class ExperimentManager:
                     else:
                         func = build.build
                     print(colored('Build app', 'black', attrs=['bold']),
-                        colored(target, 'cyan', attrs=['bold']),
-                        colored('in', 'black', attrs=['bold']),
-                        colored(build_dir, 'cyan', attrs=['bold']))
+                          colored(target, 'cyan', attrs=['bold']),
+                          colored('in', 'black', attrs=['bold']),
+                          colored(build_dir, 'cyan', attrs=['bold']))
                     process = func(
                         target=target, build_dir=build_dir, defines=defines,
                         data_cfg=data_cfg, hw_cfg=hw_cfg, dry_run=dry_run,
@@ -265,16 +279,11 @@ class ExperimentManager:
 
         # Run experiments
         if 'run' in self.actions or 'all' in self.actions:
-            simulations = []
-            for experiment in experiments:
-                simulator = simulators[experiment['hw']]
-                simulations.extend(
-                    sim_utils.get_simulations(
-                        [experiment],
-                        simulator,
-                        self.run_dir
-                    )
-                )
+            simulations = sim_utils.get_simulations(
+                experiments,
+                simulators,
+                self.run_dir
+            )
             for i, experiment in enumerate(experiments):
                 simulations[i].env = self.derive_env(experiment)
             failed_sims = run.run_simulations(simulations, self.args)
@@ -319,6 +328,7 @@ class ExperimentManager:
         # TODO(colluca): write in more compact way
         if 'visual-trace' in self.actions or 'roi' in self.actions or 'all' in self.actions:
 
+            processes = []
             for experiment in experiments:
 
                 # Take ROI spec from experiment or default location
@@ -353,13 +363,15 @@ class ExperimentManager:
                             'SIM_DIR': experiment['run_dir'],
                             'ROI_SPEC': rendered_spec
                         }
-                        common.make('roi', vars, dry_run=dry_run)
+                        process = common.make('roi', vars, dry_run=dry_run, sync=sync)
+                        processes.append(process)
 
                     if 'visual-trace' in self.actions:
                         # Build visual trace
                         hw_cfg = self.derive_hw_cfg(experiment)
                         build.build_visual_trace(experiment['run_dir'], rendered_spec,
                                                  hw_cfg=hw_cfg)
+            common.wait_processes(processes)
 
         # Generate joint performance dump
         if 'power' in self.actions or 'all' in self.actions:
