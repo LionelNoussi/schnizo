@@ -555,6 +555,18 @@
                                             "description": "Number of Slots to capture instructions per LSU. Only relevant if Xfrep is enabled.",
                                             "default": 1
                                         },
+                                        "num_alu_lsus": {
+                                            "type": "number",
+                                            "title": "Number of LSUs",
+                                            "description": "Number of ALU+LSUs per Schnizo core. If Xfrep or UseAluLsu is disabled all configured FUs are still instantiated but only one is used.",
+                                            "default": 1
+                                        },
+                                        "num_alu_lsu_slots": {
+                                            "type": "number",
+                                            "title": "Number of Slots per LSU",
+                                            "description": "Number of Slots to capture instructions per ALU+LSU. Only relevant if Xfrep and UseAluLsu is enabled.",
+                                            "default": 1
+                                        },
                                         "num_fpus": {
                                             "type": "number",
                                             "title": "Number of FPUs",
@@ -566,6 +578,12 @@
                                             "title": "Number of Slots per FPU",
                                             "description": "Number of Slots to capture instructions per FPU. Only relevant if Xfrep is enabled.",
                                             "default": 1
+                                        },
+                                        "use_alu_lsu": {
+                                            "type": "number",
+                                            "title": "Enable ALU+LSU",
+                                            "description": "If enabled, the ALU+LSU will be used instead of the normal ALUs and LSUs.",
+                                            "default": 0
                                         },
                                         "xdma": {
                                             "type": "boolean",

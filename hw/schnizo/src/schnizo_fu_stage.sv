@@ -28,12 +28,19 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   parameter int unsigned LsuNofOpPorts   = 1,
   parameter int unsigned LsuNofResReqIfs = 3,
   parameter int unsigned LsuNofResRspIfs = 1,
+  parameter int unsigned NofAluLsus         = 1,
+  parameter int unsigned AluLsuNofRss       = 3,
+  parameter int unsigned AluLsuNofOperands  = 3,
+  parameter int unsigned AluLsuNofOpPorts   = 1,
+  parameter int unsigned AluLsuNofResReqIfs = 3,
+  parameter int unsigned AluLsuNofResRspIfs = 1,
   parameter int unsigned NofFpus         = 1,
   parameter int unsigned FpuNofRss       = 2,
   parameter int unsigned FpuNofOperands  = 3,
   parameter int unsigned FpuNofOpPorts   = 1,
   parameter int unsigned FpuNofResReqIfs = 3,
   parameter int unsigned FpuNofResRspIfs = 1,
+  parameter logic UseAluLsu = 0,
   // The following 3 NofIfs parameters depend directly on the previous FU specific Nof parameters
   // but they must be defined on the outer scope as they are needed there as well.
   // Make sure to match them!
@@ -82,6 +89,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   parameter type         instr_tag_t    = logic,
   parameter type         alu_result_t   = logic,
   parameter type         alu_res_val_t  = logic,
+  parameter type         alu_lsu_result_t   = logic,
+  parameter type         alu_lsu_res_val_t  = logic,
   parameter type         dreq_t         = logic,
   parameter type         drsp_t         = logic,
   localparam type addr_t = logic [AddrWidth-1:0],
@@ -115,11 +124,14 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // The FU blocks do not require a commit signal as when we won't commit we have an exception
   // and thus anyway abort the LxP and reset the RS and RSSs.
   input  logic                    instr_exec_commit_i,
+
+  // ALU
   input  logic      [NofAlus-1:0] alu_disp_reqs_valid_i,
   output logic      [NofAlus-1:0] alu_disp_reqs_ready_o,
   output disp_rsp_t [NofAlus-1:0] alu_disp_rsp_o,
   output logic      [NofAlus-1:0] alu_rs_full_o,
 
+  // LSU
   input  logic      [NofLsus-1:0] lsu_disp_reqs_valid_i,
   output logic      [NofLsus-1:0] lsu_disp_reqs_ready_o,
   output disp_rsp_t [NofLsus-1:0] lsu_disp_rsp_o,
@@ -135,6 +147,15 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   input  logic      [NofLsus-1:0] caq_rsp_valid_i,
   output logic      [NofLsus-1:0] caq_rsp_valid_o,
 
+  // ALU + LSU
+  input  logic      [NofAluLsus-1:0] alu_lsu_disp_reqs_valid_i,
+  output logic      [NofAluLsus-1:0] alu_lsu_disp_reqs_ready_o,
+  output disp_rsp_t [NofAluLsus-1:0] alu_lsu_disp_rsp_o,
+  output dreq_t     [NofAluLsus-1:0] alu_lsu_dreq_o,
+  input  drsp_t     [NofAluLsus-1:0] alu_lsu_drsp_i,
+  output logic      [NofAluLsus-1:0] alu_lsu_rs_full_o,
+
+  // FPU
   input  logic               [NofFpus-1:0] fpu_disp_reqs_valid_i,
   output logic               [NofFpus-1:0] fpu_disp_reqs_ready_o,
   output disp_rsp_t          [NofFpus-1:0] fpu_disp_rsp_o,
@@ -154,6 +175,11 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   output instr_tag_t lsu_wb_result_tag_o,
   output logic       lsu_wb_result_valid_o,
   input  logic       lsu_wb_result_ready_i,
+
+  output alu_lsu_result_t      alu_lsu_wb_result_o,
+  output instr_tag_t alu_lsu_wb_result_tag_o,
+  output logic       alu_lsu_wb_result_valid_o,
+  input  logic       alu_lsu_wb_result_ready_i,
 
   output logic [FLEN-1:0] fpu_wb_result_o,
   output instr_tag_t      fpu_wb_result_tag_o,
@@ -184,6 +210,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // TODO: Add consumer count restriction to achieve a feasible bit width.
   localparam integer unsigned ConsumerCount = AluNofOperands * AluNofRss * NofAlus +
                                               LsuNofOperands * LsuNofRss * NofLsus +
+                                              AluLsuNofOperands * AluLsuNofRss * NofAluLsus +
                                               FpuNofOperands * FpuNofRss * NofFpus;
 
   // ---------------------------
@@ -231,15 +258,18 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // Each RS needs a globally unique ID. We simply count all RS.
   localparam integer unsigned AluRsIdOffset = 0;
   localparam integer unsigned LsuRsIdOffset = AluRsIdOffset + NofAlus;
-  localparam integer unsigned FpuRsIdOffset = LsuRsIdOffset + NofLsus;
+  localparam integer unsigned AluLsuRsIdOffset = LsuRsIdOffset + NofAluLsus;
+  localparam integer unsigned FpuRsIdOffset = AluLsuRsIdOffset + NofLsus;
 
   // Each RS needs a globally unique ID for its operand request ports.
   // These IDs are shared between the RSSs of a reservation station.
   localparam integer unsigned AluOpIdOffset = 0;
   localparam integer unsigned LsuOpIdOffset = AluOpIdOffset +
                                               NofAlus * (AluNofOperands * AluNofOpPorts);
-  localparam integer unsigned FpuOpIdOffset = LsuOpIdOffset +
+  localparam integer unsigned AluLsuOpIdOffset = LsuOpIdOffset +
                                               NofLsus * (LsuNofOperands * LsuNofOpPorts);
+  localparam integer unsigned FpuOpIdOffset = AluLsuOpIdOffset +
+                                              NofAluLsus * (AluLsuNofOperands * AluLsuNofOpPorts);
 
   ////////////////////////////////////////
   // Operand distribution network (ODN) //
@@ -272,6 +302,19 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   operand_t     [NofLsus-1:0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_rsps;
   logic         [NofLsus-1:0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_rsps_valid;
   logic         [NofLsus-1:0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_rsps_ready;
+
+  operand_req_t [NofAluLsus-1:0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs;
+  logic         [NofAluLsus-1:0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs_valid;
+  logic         [NofAluLsus-1:0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs_ready;
+  res_req_t     [NofAluLsus-1:0][AluLsuNofResReqIfs-1:0][NofOperandIfs-1:0] alu_lsu_res_reqs;
+  logic         [NofAluLsus-1:0][AluLsuNofResReqIfs-1:0][NofOperandIfs-1:0] alu_lsu_res_reqs_valid;
+  logic         [NofAluLsus-1:0][AluLsuNofResReqIfs-1:0][NofOperandIfs-1:0] alu_lsu_res_reqs_ready;
+  res_rsp_t     [NofAluLsus-1:0][AluLsuNofResRspIfs-1:0]                       alu_lsu_res_rsps;
+  logic         [NofAluLsus-1:0][AluLsuNofResRspIfs-1:0]                       alu_lsu_res_rsps_valid;
+  logic         [NofAluLsus-1:0][AluLsuNofResRspIfs-1:0]                       alu_lsu_res_rsps_ready;
+  operand_t     [NofAluLsus-1:0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_rsps;
+  logic         [NofAluLsus-1:0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_rsps_valid;
+  logic         [NofAluLsus-1:0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_rsps_ready;
 
   operand_req_t [NofFpus-1:0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_reqs;
   logic         [NofFpus-1:0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_reqs_valid;
@@ -320,6 +363,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
       op_reqs_valid     = '0;
       alu_op_reqs_ready = '0;
       lsu_op_reqs_ready = '0;
+      alu_lsu_op_reqs_ready = '0;
       fpu_op_reqs_ready = '0;
 
       op_rsps_ready     = '0;
@@ -327,6 +371,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
       alu_op_rsps_valid = '0;
       lsu_op_rsps       = '0;
       lsu_op_rsps_valid = '0;
+      alu_lsu_op_rsps       = '0;
+      alu_lsu_op_rsps_valid = '0;
       fpu_op_rsps       = '0;
       fpu_op_rsps_valid = '0;
 
@@ -360,6 +406,21 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
           end
         end
       end
+      for (int alu_lsu = 0; alu_lsu < NofAluLsus; alu_lsu++) begin
+        for (int port = 0; port < AluLsuNofOpPorts; port++) begin
+          for (int op = 0; op < AluLsuNofOperands; op++) begin
+            // operand requests
+            op_reqs[ope_if]                  = alu_lsu_op_reqs[alu_lsu][port][op];
+            op_reqs_valid[ope_if]            = alu_lsu_op_reqs_valid[alu_lsu][port][op];
+            alu_lsu_op_reqs_ready[alu_lsu][port][op] = op_reqs_ready[ope_if];
+            // operand responses
+            alu_lsu_op_rsps[alu_lsu][port][op]       = op_rsps[ope_if];
+            alu_lsu_op_rsps_valid[alu_lsu][port][op] = op_rsps_valid[ope_if];
+            op_rsps_ready[ope_if]            = alu_lsu_op_rsps_ready[alu_lsu][port][op];
+            ope_if = ope_if + 1;
+          end
+        end
+      end
       for (int fpu = 0; fpu < NofFpus; fpu++) begin
         for (int port = 0; port < FpuNofOpPorts; port++) begin
           for (int op = 0; op < FpuNofOperands; op++) begin
@@ -389,12 +450,15 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
       alu_res_reqs       = '0;
       alu_res_reqs_valid = '0;
       lsu_res_reqs       = '0;
+      alu_lsu_res_reqs   = '0;
+      alu_lsu_res_reqs_valid = '0;
       fpu_res_reqs       = '0;
 
       res_rsps           = '0;
       res_rsps_valid     = '0;
       alu_res_rsps_ready = '0;
       lsu_res_rsps_ready = '0;
+      alu_lsu_res_rsps_ready = '0;
       fpu_res_rsps_ready = '0;
 
       for (int alu = 0; alu < NofAlus; alu++) begin
@@ -428,6 +492,22 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
           res_rsps[rsp_if]             = lsu_res_rsps[lsu][rsp];
           res_rsps_valid[rsp_if]       = lsu_res_rsps_valid[lsu][rsp];
           lsu_res_rsps_ready[lsu][rsp] = res_rsps_ready[rsp_if];
+          rsp_if = rsp_if + 1;
+        end
+      end
+      for (int alu_lsu = 0; alu_lsu < NofAluLsus; alu_lsu++) begin
+        for (int alu_lsu_req_if = 0; alu_lsu_req_if < AluLsuNofResReqIfs; alu_lsu_req_if++) begin
+          // requests
+          alu_lsu_res_reqs[alu_lsu][alu_lsu_req_if]       = res_reqs[req_if];
+          alu_lsu_res_reqs_valid[alu_lsu][alu_lsu_req_if] = res_reqs_valid[req_if];
+          res_reqs_ready[req_if]              = alu_lsu_res_reqs_ready[alu_lsu][alu_lsu_req_if];
+          req_if = req_if + 1;
+        end
+        for (int rsp = 0; rsp < AluLsuNofResRspIfs; rsp++) begin
+          // responses
+          res_rsps[rsp_if]             = alu_lsu_res_rsps[alu_lsu][rsp];
+          res_rsps_valid[rsp_if]       = alu_lsu_res_rsps_valid[alu_lsu][rsp];
+          alu_lsu_res_rsps_ready[alu_lsu][rsp] = res_rsps_ready[rsp_if];
           rsp_if = rsp_if + 1;
         end
       end
@@ -504,6 +584,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     assign op_reqs_valid     = '0;
     assign alu_op_reqs_ready = '0;
     assign lsu_op_reqs_ready = '0;
+    assign alu_lsu_op_reqs_ready = '0;
     assign fpu_op_reqs_ready = '0;
 
     assign op_rsps_ready     = '0;
@@ -511,6 +592,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     assign alu_op_rsps_valid = '0;
     assign lsu_op_rsps       = '0;
     assign lsu_op_rsps_valid = '0;
+    assign alu_lsu_op_rsps       = '0;
+    assign alu_lsu_op_rsps_valid = '0;
     assign fpu_op_rsps       = '0;
     assign fpu_op_rsps_valid = '0;
 
@@ -518,12 +601,15 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     assign alu_res_reqs       = '0;
     assign alu_res_reqs_valid = '0;
     assign lsu_res_reqs       = '0;
+    assign alu_lsu_res_reqs       = '0;
+    assign alu_lsu_res_reqs_valid = '0;
     assign fpu_res_reqs       = '0;
 
     assign res_rsps           = '0;
     assign res_rsps_valid     = '0;
     assign alu_res_rsps_ready = '0;
     assign lsu_res_rsps_ready = '0;
+    assign alu_lsu_res_rsps_ready = '0;
     assign fpu_res_rsps_ready = '0;
 
     assign op_reqs_ready  = '0;
@@ -741,7 +827,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // fallback into the HW loop mode. If we decide to crash if an unsupported instruction is
   // encountered, it is possible to optimize the timing by only forwarding the ALU result in
   // regular mode. This will gain around 10ps for a 1ns target clock cycle.
-  assign branch_result_o = alu_wbs_result_and_tag[0].result;
+  // assign branch_result_o = alu_wbs_result_and_tag[0].result;
+  // NOTE(lnoussi): moved below ALU_LSU to mux in ALU_LSU result
 
   // ALU writeback arbiter
   // The stream_arbiter has a feed through for 1 input so no special handling for disabled FREP
@@ -948,8 +1035,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   end
 
   // LSU empty & misalign signal combination
-  assign lsu_empty_o = (&lsu_empty);
-  assign lsu_addr_misaligned_o =(|lsu_addr_misaligned);
+  // NOTE(lnoussi): Moved below ALU+LSU and mux between the two depending on UseAluLsu
+  // assign lsu_empty_o = (&lsu_empty);
+  // assign lsu_addr_misaligned_o =(|lsu_addr_misaligned);
 
   // LSU writeback arbiter
   // The stream_arbiter has a feed through for 1 input so no special handling for disabled FREP
@@ -972,6 +1060,232 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
 
   assign lsu_wb_result_o     = lsu_wb_result_and_tag_out.result;
   assign lsu_wb_result_tag_o = lsu_wb_result_and_tag_out.tag;
+
+  //////////////
+  // ALU+LSUs //
+  //////////////
+
+  // localparam int ISSUE_REQ_T_MAX_W = ($bits(alu_issue_req_t) > $bits(issue_req_t)) ?
+  //                                 $bits(alu_issue_req_t) : $bits(issue_req_t);
+  // typedef logic [ISSUE_REQ_T_MAX_W-1:0] alu_lsu_issue_req_t;
+
+  localparam int INSTR_TAG_T_MAX_W = ($bits(alu_instr_tag_t) > $bits(instr_tag_t)) ?
+                                      $bits(alu_instr_tag_t) : $bits(instr_tag_t);
+  typedef logic [INSTR_TAG_T_MAX_W-1:0] alu_lsu_instr_tag_t;
+
+  typedef struct packed {
+    fu_data_t fu_data;
+    alu_lsu_instr_tag_t tag;
+  } alu_lsu_issue_req_t;
+
+  typedef struct packed {
+    alu_lsu_result_t result;
+    alu_lsu_instr_tag_t tag;
+  } alu_lsu_result_and_tag_t;
+
+  logic                [NofAluLsus-1:0] alu_lsu_empty;
+  logic                [NofAluLsus-1:0] alu_lsu_addr_misaligned;
+  alu_lsu_result_and_tag_t [NofAluLsus-1:0] alu_lsu_wbs_result_and_tag;
+  logic                [NofAluLsus-1:0] alu_lsu_wbs_result_valid;
+  logic                [NofAluLsus-1:0] alu_lsu_wbs_result_ready;
+
+  logic [NofAluLsus-1:0] alu_lsu_loop_finish;
+
+  for (genvar alu_lsu = 0; alu_lsu < NofAluLsus; alu_lsu++) begin : gen_alu_lsus
+    // Helper signals to merge the result and tag
+    alu_lsu_res_val_t   alu_lsu_wb_result_value;
+    alu_lsu_instr_tag_t alu_lsu_wb_result_tag;
+
+    // Signals connecting the FU block and the actual FU
+    alu_lsu_issue_req_t   alu_lsu_issue_req;
+    logic                 alu_lsu_issue_req_valid;
+    logic                 alu_lsu_issue_req_ready;
+    logic                 alu_lsu_exec_commit;
+    logic                 alu_lsu_addr_misaligned_raw;
+    alu_lsu_result_t      alu_lsu_result;
+    alu_lsu_instr_tag_t   alu_lsu_result_tag;
+    logic                 alu_lsu_result_valid;
+    logic                 alu_lsu_result_ready;
+    logic                 alu_lsu_busy;
+
+    producer_id_t producer_start_id;
+    assign producer_start_id = producer_id_t'{
+      slot_id: '0, // does not matter
+      rs_id:   rs_id_t'(AluLsuRsIdOffset + alu_lsu)
+    };
+
+    // pragma translate_off
+    // TODO Add trace signal
+    // pragma translate_on
+
+    schnizo_fu_block #(
+      .Xfrep         (Xfrep),
+      .disp_req_t    (disp_req_t),
+      .disp_rsp_t    (disp_rsp_t),
+      .issue_req_t   (alu_lsu_issue_req_t),
+      .result_t      (alu_lsu_res_val_t),
+      .instr_tag_t   (alu_lsu_instr_tag_t),
+      .NofRss        (AluLsuNofRss),
+      .NofOperands   (AluLsuNofOperands),
+      .NofOpPorts    (AluLsuNofOpPorts),
+      .NofOperandIfs (NofOperandIfs),
+      .NofResRspIfs  (AluLsuNofResRspIfs),
+      .ConsumerCount (ConsumerCount),
+      .RegAddrWidth  (RegAddrWidth),
+      .MaxIterationsW(MaxIterationsW),
+      .producer_id_t (producer_id_t),
+      .slot_id_t     (slot_id_t),
+      .operand_req_t (operand_req_t),
+      .operand_t     (operand_t),
+      .res_req_t     (res_req_t),
+      .dest_mask_t   (dest_mask_t),
+      .res_rsp_t     (res_rsp_t)
+    ) i_fu_block (
+      .clk_i,
+      .rst_i,
+      /// RS control signals
+      .producer_id_i      (producer_start_id),
+      .restart_i          (restart_i),
+      .loop_state_i       (loop_state_i),
+      .in_lxp_i           (in_lxp),
+      .lep_iterations_i   (lep_iterations_i),
+      .goto_lcp2_i        (goto_lcp2_i),
+      .fu_busy_i          (alu_lsu_busy),
+      .loop_finish_o      (alu_lsu_loop_finish[alu_lsu]),
+      .rs_full_o          (alu_lsu_rs_full_o[alu_lsu]),
+      /// Instruction stream
+      // From dispatcher
+      .disp_req_i         (disp_req_i),
+      .disp_req_valid_i   (alu_lsu_disp_reqs_valid_i[alu_lsu]),
+      .disp_req_ready_o   (alu_lsu_disp_reqs_ready_o[alu_lsu]),
+      .instr_exec_commit_i(instr_exec_commit_i),
+      .disp_rsp_o         (alu_lsu_disp_rsp_o[alu_lsu]),
+      // To FU
+      .issue_req_o        (alu_lsu_issue_req),
+      .issue_req_valid_o  (alu_lsu_issue_req_valid),
+      .issue_req_ready_i  (alu_lsu_issue_req_ready),
+      .instr_exec_commit_o(alu_lsu_exec_commit),
+      // From FU
+      .result_i           (alu_lsu_result.value),
+      .result_tag_i       (alu_lsu_result_tag),
+      .result_valid_i     (alu_lsu_result_valid),
+      .result_ready_o     (alu_lsu_result_ready),
+      // To writeback
+      .wb_result_o        (alu_lsu_wb_result_value),
+      .wb_result_tag_o    (alu_lsu_wb_result_tag),
+      .wb_result_valid_o  (alu_lsu_wbs_result_valid[alu_lsu]),
+      .wb_result_ready_i  (alu_lsu_wbs_result_ready[alu_lsu]),
+      /// Operand distribution network
+      .op_reqs_o          (alu_lsu_op_reqs[alu_lsu]),
+      .op_reqs_valid_o    (alu_lsu_op_reqs_valid[alu_lsu]),
+      .op_reqs_ready_i    (alu_lsu_op_reqs_ready[alu_lsu]),
+      .res_reqs_i         (alu_lsu_res_reqs[alu_lsu]),
+      .res_reqs_valid_i   (alu_lsu_res_reqs_valid[alu_lsu]), 
+      .res_reqs_ready_o   (alu_lsu_res_reqs_ready[alu_lsu]), 
+      .res_rsps_o         (alu_lsu_res_rsps[alu_lsu]),
+      .res_rsps_valid_o   (alu_lsu_res_rsps_valid[alu_lsu]), 
+      .res_rsps_ready_i   (alu_lsu_res_rsps_ready[alu_lsu]), 
+      .op_rsps_i          (alu_lsu_op_rsps[alu_lsu]),
+      .op_rsps_valid_i    (alu_lsu_op_rsps_valid[alu_lsu]),
+      .op_rsps_ready_o    (alu_lsu_op_rsps_ready[alu_lsu]) 
+    );
+
+    assign alu_lsu_wbs_result_and_tag[alu_lsu].result = '{
+      value:       alu_lsu_wb_result_value,
+      compare_res: alu_lsu_result.compare_res
+    };
+    assign alu_lsu_wbs_result_and_tag[alu_lsu].tag    = alu_lsu_wb_result_tag;
+
+    schnizo_alu_lsu #(
+      .XLEN               (XLEN),
+      .alu_lsu_issue_req_t  (alu_lsu_issue_req_t),
+      .alu_lsu_instr_tag_t  (alu_lsu_instr_tag_t),
+      .alu_lsu_res_val_t    (alu_lsu_res_val_t),
+
+      .HasBranch    (alu_lsu == '0), // only the first ALU has the branch logic
+      .HasMultiplier(alu_lsu == '0), // only the first ALU has the multiplier
+
+      .alu_res_val_t(alu_res_val_t),
+      .alu_issue_req_t(alu_issue_req_t),
+      .alu_instr_tag_t(alu_instr_tag_t),
+
+      .AddrWidth          (AddrWidth),
+      .DataWidth          (DataWidth),
+      .NumOutstandingMem  (NumOutstandingMem),
+      .NumOutstandingLoads(NumOutstandingLoads),
+
+      .Caq                (0), // TODO: Enable. What is it?
+      .CaqDepth           (CaqDepth),
+      .CaqTagWidth        (CaqTagWidth),
+      .CaqRespSrc         (0),
+      .CaqRespTrackSeq    (0),
+      
+      .lsu_issue_req_t(issue_req_t),
+      .lsu_instr_tag_t(instr_tag_t),
+      .dreq_t             (dreq_t),
+      .drsp_t             (drsp_t)
+    ) i_alu_lsu (
+      .clk_i,
+      .rst_i,
+      .issue_req_i      (alu_lsu_issue_req),
+      .issue_req_valid_i(alu_lsu_issue_req_valid),
+      .issue_commit_i   (alu_lsu_exec_commit),
+      .issue_req_ready_o(alu_lsu_issue_req_ready),
+      .result_o         (alu_lsu_result.value),
+      .compare_res_o    (alu_lsu_result.compare_res),
+      .tag_o            (alu_lsu_result_tag),
+      .result_error_o   (), // ignored
+      .result_valid_o   (alu_lsu_result_valid),
+      .result_ready_i   (alu_lsu_result_ready),
+      .busy_o           (alu_lsu_busy),
+      .empty_o          (alu_lsu_empty[alu_lsu]),
+      .addr_misaligned_o(alu_lsu_addr_misaligned_raw),
+      .data_req_o       (alu_lsu_dreq_o[alu_lsu]),
+      .data_rsp_i       (alu_lsu_drsp_i[alu_lsu]),
+      // TODO Mux and demux caq
+      .caq_addr_i       ('0),
+      .caq_track_write_i('0),
+      .caq_req_valid_i  ('0),
+      .caq_req_ready_o  (),
+      .caq_rsp_valid_i  ('0),
+      .caq_rsp_valid_o  ()
+    );
+
+    assign alu_lsu_addr_misaligned[alu_lsu] = alu_lsu_addr_misaligned_raw & !in_lxp;
+    
+  end
+
+  // ALU+LSU writeback arbiter
+  // The stream_arbiter has a feed through for 1 input so no special handling for disabled FREP
+  // is required.
+  alu_lsu_result_and_tag_t alu_lsu_wb_result_and_tag_out;
+  stream_arbiter #(
+    .DATA_T (alu_lsu_result_and_tag_t),
+    .N_INP  (NofAluLsus),
+    .ARBITER("prio")
+  ) i_alu_lsu_wb_arbiter (
+    .clk_i,
+    .rst_ni     (~rst_i),
+    .inp_data_i (alu_lsu_wbs_result_and_tag),
+    .inp_valid_i(alu_lsu_wbs_result_valid),
+    .inp_ready_o(alu_lsu_wbs_result_ready),
+    .oup_data_o (alu_lsu_wb_result_and_tag_out),
+    .oup_valid_o(alu_lsu_wb_result_valid_o),
+    .oup_ready_i(alu_lsu_wb_result_ready_i)
+  );
+
+  assign alu_lsu_wb_result_o     = alu_lsu_wb_result_and_tag_out.result;
+  assign alu_lsu_wb_result_tag_o = alu_lsu_wb_result_and_tag_out.tag;
+
+  // Mux forwarded ALU and LSU signals
+  assign branch_result_o = UseAluLsu ? alu_result_t'(alu_lsu_wbs_result_and_tag[0].result) : alu_wbs_result_and_tag[0].result;
+
+  
+  assign lsu_empty_o = UseAluLsu ? (&alu_lsu_empty) : (&lsu_empty);
+  assign lsu_addr_misaligned_o = UseAluLsu ? (|alu_lsu_addr_misaligned) : (|lsu_addr_misaligned);
+  // assign branch_result_o = alu_wbs_result_and_tag[0].result;
+  // assign lsu_empty_o = (&lsu_empty);
+  // assign lsu_addr_misaligned_o = (|lsu_addr_misaligned);
 
   //////////
   // FPUs //

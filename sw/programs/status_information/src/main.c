@@ -11,8 +11,16 @@
 #define NUM_RUNS 2
 
 int main() {
+    volatile uint32_t a, b, c;
+    c = 0;
+    a = 5;
+    b = 10;
+    
     if (snrt_is_compute_core()) {
         printf("Hello World from %x \n", snrt_cluster_core_idx());
+        printf("C before: %u \n", c);
+        c = a + b;
+        printf("C after: %u \n", c);
     }
 
     return 0;
