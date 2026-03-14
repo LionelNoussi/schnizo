@@ -55,10 +55,13 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   /// FU configuration
   parameter int unsigned NofAlus    = 3,
   parameter int unsigned NofLsus    = 1,
+  parameter int unsigned NofAluLsus = 1,
   parameter int unsigned NofFpus    = 1,
   parameter int unsigned AluNofRss  = 3,
   parameter int unsigned LsuNofRss  = 2,
+  parameter int unsigned AluLsuNofRss = 1,
   parameter int unsigned FpuNofRss  = 4,
+  parameter logic UseAluLsu = 0,
   parameter bit          MulInAlu0  = 1'b1,
   /// How many issued loads the LSU and thus the CAQ (consistency address queue) can hold.
   // This applies to all LSUs (each LSU can handle NumOutstandingLoads loads).
@@ -110,8 +113,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   /// TCDM Data Interface
   /// Write transactions do not return data on the `P Channel`
   /// Transactions need to be handled strictly in-order.
-  output dreq_t [NofLsus-1:0] data_req_o,
-  input  drsp_t [NofLsus-1:0] data_rsp_i,
+  output dreq_t [NofLsus+NofAluLsus-1:0] data_req_o,
+  input  drsp_t [NofLsus+NofAluLsus-1:0] data_rsp_i,
   /// Core events for performance counters
   output snitch_pkg::core_events_t core_events_o,
   /// Cluster HW barrier
@@ -222,6 +225,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // ---------------------------
   localparam integer unsigned AluNofOperands = 2;
   localparam integer unsigned LsuNofOperands = 3; // the 3rd operand is the address offset
+  localparam integer unsigned AluLsuNofOperands = 3; // Max of Alu and Lsu
   localparam integer unsigned FpuNofOperands = 3;
 
   // ---------------------------
@@ -243,14 +247,17 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // I.e. if the ALU has 2 operands, 1 port generates 2 operand interfaces
   localparam integer unsigned AluNofOpPorts = 1;
   localparam integer unsigned LsuNofOpPorts = 1;
+  localparam integer unsigned AluLsuNofOpPorts = 1;
   localparam integer unsigned FpuNofOpPorts = 1;
 
   localparam integer unsigned AluNofOperandIfs = AluNofOperands * AluNofOpPorts;
   localparam integer unsigned LsuNofOperandIfs = LsuNofOperands * LsuNofOpPorts;
+  localparam integer unsigned AluLsuNofOperandIfs = AluLsuNofOperands * AluLsuNofOpPorts;
   localparam integer unsigned FpuNofOperandIfs = FpuNofOperands * FpuNofOpPorts;
 
   localparam integer unsigned NofOperandIfs = NofAlus * AluNofOperandIfs +
                                               NofLsus * LsuNofOperandIfs +
+                                              NofAluLsus * AluLsuNofOperandIfs +
                                               NofFpus * FpuNofOperandIfs;
 
   // We differentiate between result requests and result responses.
@@ -260,19 +267,23 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   //                for consistency
   localparam integer unsigned AluNofResReqIfs = 1;
   localparam integer unsigned LsuNofResReqIfs = 1;
+  localparam integer unsigned AluLsuNofResReqIfs = 1;
   localparam integer unsigned FpuNofResReqIfs = 1;
 
   localparam integer unsigned NofResReqIfs = NofAlus * AluNofResReqIfs +
                                              NofLsus * LsuNofResReqIfs +
+                                             NofAluLsus * AluLsuNofResReqIfs +
                                              NofFpus * FpuNofResReqIfs;
 
   // Each slot has its dedicated response crossbar input.
   localparam integer unsigned AluNofResRspIfs = AluNofRss;
   localparam integer unsigned LsuNofResRspIfs = LsuNofRss;
+  localparam integer unsigned AluLsuNofResRspIfs = AluLsuNofRss;
   localparam integer unsigned FpuNofResRspIfs = FpuNofRss;
 
   localparam integer unsigned NofResRspIfs = NofAlus * AluNofResRspIfs +
                                              NofLsus * LsuNofResRspIfs +
+                                             NofAluLsus * AluLsuNofResRspIfs +
                                              NofFpus * FpuNofResRspIfs;
 
   // The operands of multiple RSS share their operand ID per RS.
@@ -282,11 +293,12 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   typedef logic [NofOperandIfsW-1:0] operand_id_t;
 
   // Each RS has an unique number. The slots have unique numbers within the RS.
-  localparam integer unsigned MaxNofRss = (AluNofRss > LsuNofRss) ?
+  localparam integer unsigned _tmp_max_nof_rss = (AluNofRss > LsuNofRss) ?
                                           // AluNofRss > LsuNofRss
                                           ((AluNofRss > FpuNofRss) ? AluNofRss : FpuNofRss)
                                           : // AluNofRss < LsuNofRss
                                           ((LsuNofRss > FpuNofRss) ? LsuNofRss : FpuNofRss);
+  localparam integer unsigned MaxNofRss = (_tmp_max_nof_rss > AluLsuNofRss) ? _tmp_max_nof_rss : AluLsuNofRss;
 
   localparam integer unsigned SlotIdWidth = cf_math_pkg::idx_width(MaxNofRss);
 
@@ -332,6 +344,16 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     alu_res_val_t result;
     logic         compare_res;
   } alu_result_t;
+
+  // ALU+LSU
+  localparam int RES_VAL_MAX_W = ($bits(data_t) > $bits(alu_res_val_t)) ?
+                                  $bits(data_t) : $bits(alu_res_val_t);
+  typedef logic [RES_VAL_MAX_W-1:0] alu_lsu_res_val_t;
+
+  typedef struct packed {
+    alu_lsu_res_val_t value;
+    logic compare_res;
+  } alu_lsu_result_t;
 
   /////////////////
   // Connections //
@@ -579,6 +601,10 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   logic      [NofLsus-1:0] lsu_disp_req_ready;
   disp_rsp_t [NofLsus-1:0] lsu_disp_rsp;
   logic      [NofLsus-1:0] lsu_rs_full;
+  logic      [NofAluLsus-1:0] alu_lsu_disp_req_valid;
+  logic      [NofAluLsus-1:0] alu_lsu_disp_req_ready;
+  disp_rsp_t [NofAluLsus-1:0] alu_lsu_disp_rsp;
+  logic      [NofAluLsus-1:0] alu_lsu_rs_full;
   logic                    csr_disp_req_valid;
   logic                    csr_disp_req_ready;
   logic      [NofFpus-1:0] fpu_disp_req_valid;
@@ -590,7 +616,9 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     .RegAddrSize(RegAddrSize),
     .NofAlus    (NofAlus),
     .NofLsus    (NofLsus),
+    .NofAluLsus (NofAluLsus),
     .NofFpus    (NofFpus),
+    .UseAluLsu  (UseAluLsu),
     .instr_dec_t(instr_dec_t),
     .rmt_entry_t(rmt_entry_t),
     .disp_req_t (disp_req_t),
@@ -618,6 +646,11 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     .lsu_disp_req_ready_i(lsu_disp_req_ready),
     .lsu_disp_rsp_i      (lsu_disp_rsp),
     .lsu_rs_full_i       (lsu_rs_full),
+    // ALU + LSU
+    .alu_lsu_disp_req_valid_o(alu_lsu_disp_req_valid),
+    .alu_lsu_disp_req_ready_i(alu_lsu_disp_req_ready),
+    .alu_lsu_disp_rsp_i      (alu_lsu_disp_rsp),
+    .alu_lsu_rs_full_i       (alu_lsu_rs_full),
     // CSR
     .csr_disp_req_valid_o(csr_disp_req_valid),
     .csr_disp_req_ready_i(csr_disp_req_ready),
@@ -650,22 +683,41 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
 
   logic            alu_result_valid;
   logic            alu_result_ready;
+
   logic            lsu_result_valid;
   logic            lsu_result_ready;
   instr_tag_t      lsu_result_tag;
   data_t           lsu_result;
+
+  logic             alu_lsu_result_valid;
+  logic             alu_lsu_result_ready;
+  instr_tag_t       alu_lsu_result_tag;
+  alu_lsu_result_t  alu_lsu_result;
+
   logic [FLEN-1:0] fpu_result;
   logic            fpu_result_valid;
   logic            fpu_result_ready;
   instr_tag_t      fpu_result_tag;
 
+  dreq_t [NofLsus-1:0] lsu_dreq_o;
+  dreq_t [NofAluLsus-1:0] alu_lsu_dreq_o;
+  assign data_req_o[NofLsus+NofAluLsus-1:NofAluLsus] = lsu_dreq_o;
+  assign data_req_o[NofAluLsus-1:0]                  = alu_lsu_dreq_o;
+
+  drsp_t [NofLsus-1:0] lsu_drsp_i;
+  drsp_t [NofAluLsus-1:0] alu_lsu_drsp_i;
+  assign lsu_drsp_i = data_rsp_i[NofLsus+NofAluLsus-1:NofAluLsus];
+  assign alu_lsu_drsp_i = data_rsp_i[NofAluLsus-1:0];
+
   // Trace signals
   // pragma translate_off
   issue_alu_trace_t  alu_trace       [NofAlus];
   issue_lsu_trace_t  lsu_trace       [NofLsus];
+  issue_lsu_trace_t  alu_lsu_trace   [NofAluLsus];
   issue_fpu_trace_t  fpu_trace       [NofFpus];
   retire_fu_trace_t  alu_retirements [NofAlus];
   retire_fu_trace_t  lsu_retirements [NofLsus];
+  retire_fu_trace_t  alu_lsu_retirements [NofAluLsus];
   retire_fu_trace_t  fpu_retirements [NofFpus];
   // pragma translate_on
 
@@ -684,12 +736,19 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     .LsuNofOpPorts      (LsuNofOpPorts),
     .LsuNofResReqIfs    (LsuNofResReqIfs),
     .LsuNofResRspIfs    (LsuNofResRspIfs),
+    .NofAluLsus         (NofAluLsus),
+    .AluLsuNofRss       (AluLsuNofRss),
+    .AluLsuNofOperands  (AluLsuNofOperands),
+    .AluLsuNofOpPorts   (AluLsuNofOpPorts),
+    .AluLsuNofResReqIfs (AluLsuNofResReqIfs),
+    .AluLsuNofResRspIfs (AluLsuNofResRspIfs),
     .NofFpus            (NofFpus),
     .FpuNofRss          (FpuNofRss),
     .FpuNofOperands     (FpuNofOperands),
     .FpuNofOpPorts      (FpuNofOpPorts),
     .FpuNofResReqIfs    (FpuNofResReqIfs),
     .FpuNofResRspIfs    (FpuNofResRspIfs),
+    .UseAluLsu          (UseAluLsu),
     .NofOperandIfs      (NofOperandIfs),
     .NofResReqIfs       (NofResReqIfs),
     .NofResRspIfs       (NofResRspIfs),
@@ -724,6 +783,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     .instr_tag_t        (instr_tag_t),
     .alu_result_t       (alu_result_t),
     .alu_res_val_t      (alu_res_val_t),
+    .alu_lsu_result_t   (alu_lsu_result_t),
+    .alu_lsu_res_val_t  (alu_lsu_res_val_t),
     .dreq_t             (dreq_t),
     .drsp_t             (drsp_t)
   ) i_fu_stage (
@@ -758,8 +819,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     .lsu_disp_rsp_o       (lsu_disp_rsp),
     .lsu_empty_o          (lsu_empty),
     .lsu_addr_misaligned_o(lsu_addr_misaligned),
-    .lsu_dreq_o           (data_req_o), // Each LSU has its own reqrsp port
-    .lsu_drsp_i           (data_rsp_i), // Each LSU has its own reqrsp port
+    .lsu_dreq_o           (lsu_dreq_o), // Each LSU has its own reqrsp port
+    .lsu_drsp_i           (lsu_drsp_i), // Each LSU has its own reqrsp port
     .lsu_rs_full_o        (lsu_rs_full),
     .caq_addr_i           ('0),
     .caq_track_write_i    ('0),
@@ -767,6 +828,13 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     .caq_req_ready_o      (),
     .caq_rsp_valid_i      ('0),
     .caq_rsp_valid_o      (),
+    // ALU+LSU
+    .alu_lsu_disp_reqs_valid_i(alu_lsu_disp_req_valid),
+    .alu_lsu_disp_reqs_ready_o(alu_lsu_disp_req_ready),
+    .alu_lsu_disp_rsp_o       (alu_lsu_disp_rsp),
+    .alu_lsu_dreq_o           (alu_lsu_dreq_o), // Each LSU has its own reqrsp port
+    .alu_lsu_drsp_i           (alu_lsu_drsp_i), // Each LSU has its own reqrsp port
+    .alu_lsu_rs_full_o        (alu_lsu_rs_full),
     //FPU
     .fpu_disp_reqs_valid_i(fpu_disp_req_valid),
     .fpu_disp_reqs_ready_o(fpu_disp_req_ready),
@@ -785,6 +853,11 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     .lsu_wb_result_tag_o  (lsu_result_tag),
     .lsu_wb_result_valid_o(lsu_result_valid),
     .lsu_wb_result_ready_i(lsu_result_ready),
+    // ALU+LSU WB
+    .alu_lsu_wb_result_o      (alu_lsu_result),
+    .alu_lsu_wb_result_tag_o  (alu_lsu_result_tag),
+    .alu_lsu_wb_result_valid_o(alu_lsu_result_valid),
+    .alu_lsu_wb_result_ready_i(alu_lsu_result_ready),
     // FPU WB
     .fpu_wb_result_o      (fpu_result),
     .fpu_wb_result_tag_o  (fpu_result_tag),
@@ -886,7 +959,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     .RegAddrSize    (RegAddrSize),
     .instr_tag_t    (instr_tag_t),
     .alu_result_t   (alu_result_t),
-    .data_t         (data_t)
+    .data_t         (data_t),
+    .alu_lsu_result_t (alu_lsu_result_t)
   ) i_writeback (
     // ALU interface
     .alu_result_i      (alu_result),
@@ -904,6 +978,11 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     .lsu_result_tag_i  (lsu_result_tag),
     .lsu_result_valid_i(lsu_result_valid),
     .lsu_result_ready_o(lsu_result_ready),
+    // ALU+LSU interface
+    .alu_lsu_result_i      (alu_lsu_result),
+    .alu_lsu_result_tag_i  (alu_lsu_result_tag),
+    .alu_lsu_result_valid_i(alu_lsu_result_valid),
+    .alu_lsu_result_ready_o(alu_lsu_result_ready),
     // FPU interface
     .fpu_result_i      (fpu_result),
     .fpu_result_tag_i  (fpu_result_tag),
@@ -959,6 +1038,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   assign core_events_o.retired_i     = instr_retired_single_cycle_q;
   assign core_events_o.retired_load  = instr_retired_load_q;
   assign core_events_o.retired_acc   = instr_retired_acc_q;
+  assign core_events_o.retired_x     = '0;
 
   assign core_events_o.issue_fpu         = issue_fpu_q;
   assign core_events_o.issue_core_to_fpu = issue_core_to_fpu_q;
@@ -1022,6 +1102,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // Traces for RSS issues
   issue_alu_trace_t rss_alu_traces [NofAlus][AluNofRss];
   issue_lsu_trace_t rss_lsu_traces [NofLsus][LsuNofRss];
+  issue_lsu_trace_t rss_alu_lsu_traces [NofAluLsus][AluLsuNofRss];
   issue_fpu_trace_t rss_fpu_traces [NofFpus][FpuNofRss];
 
   // Traces for retirements
@@ -1036,11 +1117,13 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // Traces for result requests (each RSS has one signal per request crossbar output)
   resreq_trace_t alu_resreq_traces [NofAlus][AluNofRss][NofOperandIfs];
   resreq_trace_t lsu_resreq_traces [NofLsus][LsuNofRss][NofOperandIfs];
+  resreq_trace_t alu_lsu_resreq_traces [NofAluLsus][AluLsuNofRss][NofOperandIfs];
   resreq_trace_t fpu_resreq_traces [NofFpus][FpuNofRss][NofOperandIfs];
 
   // Traces for result captures (each RSS has one signal)
   rescap_trace_t alu_rescap_traces [NofAlus][AluNofRss];
   rescap_trace_t lsu_rescap_traces [NofLsus][LsuNofRss];
+  rescap_trace_t alu_lsu_rescap_traces [NofAluLsus][AluLsuNofRss];
   rescap_trace_t fpu_rescap_traces [NofFpus][FpuNofRss];
 
   assign core_trace = '{
