@@ -77,14 +77,17 @@ module ${cfg['cluster']['name']}_wrapper (
 
   localparam int unsigned NumAlus [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_alus')}};
   localparam int unsigned NumLsus [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_lsus')}};
+  localparam int unsigned NumAluLsus [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_alu_lsus')}};
   localparam int unsigned NumFpus [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_fpus')}};
   localparam int unsigned NumAluRss [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_alu_slots')}};
   localparam int unsigned NumLsuRss [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_lsu_slots')}};
+  localparam int unsigned NumAluLsuRss [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_alu_lsu_slots')}};
   localparam int unsigned NumFpuRss [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_fpu_slots')}};
   localparam int unsigned NumIntOutstandingLoads [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_int_outstanding_loads')}};
   localparam int unsigned NumIntOutstandingMem [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_int_outstanding_mem')}};
   localparam int unsigned NumSequencerInstr [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_sequencer_instructions')}};
   localparam int unsigned NumSequencerLoops [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_sequencer_loops')}};
+  localparam logic UseAluLsus [${cfg['cluster']['nr_cores']}] = '{${core_cfg('use_alu_lsu')}};
 
   // Snitch cluster under test.
   snitch_cluster #(

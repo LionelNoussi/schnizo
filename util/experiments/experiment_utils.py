@@ -243,11 +243,15 @@ class ExperimentManager:
                     flags = ['-j']
                     common.make(bin, vars, flags=flags, dry_run=dry_run)
 
-                    # Pass bin path to the QuestaSimulator and add to the list of simulators
-                    simulators[hardware_cfg] = run.Simulator.QuestaSimulator(bin)
                     # we only need to built the hardware once.
                     # Note: make wouldn't have done anything anyways since lru_cfg is the same.
                     break
+            
+            # Pass bin path to the QuestaSimulator and add to the list of simulators
+            simulators[hardware_cfg] = run.Simulator.QuestaSimulator(
+                self.derive_hw_bin(next(e for e in experiments 
+                                        if e['hw'] == hardware_cfg))
+            )
 
             # Build software
             if 'sw' in self.actions or 'all' in self.actions:
