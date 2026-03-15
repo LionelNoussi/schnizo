@@ -8,8 +8,7 @@
     {
         "thread": "${f'hart_{j}'}",
         "roi": [
-            {"idx": 0, "label": "program_start"},
-            {"idx": 1, "label": "program_end"},
+            {"idx": 1, "label": "program_start"},
         ]
     },
     % endfor

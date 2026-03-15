@@ -27,9 +27,9 @@ def extract_fu_details(fu_string):
     # Return the fu_type, fu_id and slot_id
 
     # Define regex patterns
-    fu_type_pattern = r"^[A-Za-z]+$"
-    fu_id_pattern = r"^([A-Za-z]+)(\d+)$"
-    fu_slot_pattern = r"^([A-Za-z]+)(\d+)\.(\d+)$"
+    fu_type_pattern = r"^[A-Za-z_]+$"
+    fu_id_pattern = r"^([A-Za-z_]+)(\d+)$"
+    fu_slot_pattern = r"^([A-Za-z_]+)(\d+)\.(\d+)$"
 
     fu_type, fu_id, slot_id = None, None, None
 

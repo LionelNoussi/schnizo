@@ -1,0 +1,24 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: sz_gen_trace (Snitch)",
+            "type": "python",
+            "request": "launch",
+            "program": "/home/sem26f5/schnizo/util/sz_trace/sz_gen_trace.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "/home/sem26f5/schnizo/experiments/alu_lsu/runs/status_information/sz_opt/logs/sz_trace_hart_00001.dasm",
+                "--mc-exec", "/usr/scratch2/vulcano/colluca/tools/riscv32-snitch-llvm-almalinux8-15.0.0-snitch-0.5.0/bin/llvm-mc",
+                "--mc-flags", "-disassemble -mcpu=snitch",
+                "--permissive",
+                "--dma-trace", "/home/sem26f5/schnizo/experiments/alu_lsu/runs/status_information/sz_opt/dma_trace_00001_00000.log",
+                "--dump-hart-perf", "/home/sem26f5/schnizo/experiments/alu_lsu/runs/status_information/sz_opt/logs/sz_hart_00001_perf.json",
+                "--dump-dma-perf", "/home/sem26f5/schnizo/experiments/alu_lsu/runs/status_information/sz_opt/logs/dma_00001_perf.json",
+                "--perfetto-trace", "/home/sem26f5/schnizo/experiments/alu_lsu/runs/status_information/sz_opt/logs/sz_perfetto_hart_00001.tb",
+                "-o", "/home/sem26f5/schnizo/experiments/alu_lsu/runs/status_information/sz_opt/logs/sz_trace_hart_00001.txt"
+            ]
+        }
+    ]
+}

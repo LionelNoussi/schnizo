@@ -69,6 +69,14 @@ package schnizo_tracer_pkg;
     logic   valid; // high if handshake happens
     longint instr_iter;
     string  producer;
+    longint alu_opa;
+    longint alu_opb;
+  } issue_alu_lsu_trace_t;
+
+  typedef struct {
+    logic   valid; // high if handshake happens
+    longint instr_iter;
+    string  producer;
     longint fpu_opa;
     longint fpu_opb;
     longint fpu_opc;
@@ -187,6 +195,18 @@ package schnizo_tracer_pkg;
     extras = $sformatf("%s'%s':0x%08x, ", extras, "lsu_addr", trace.lsu_addr);
     extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_size", trace.lsu_size);
     extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_amo", trace.lsu_amo);
+    return extras;
+  endfunction
+
+  function automatic string format_alu_lsu_trace(issue_alu_lsu_trace_t trace);
+    string extras = "";
+    if (!trace.valid) begin
+      return "";
+    end
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "instr_iter", trace.instr_iter);
+    extras = $sformatf("%s'%s':\"%s\", ", extras, "producer", trace.producer);
+    extras = $sformatf("%s'%s':0x%08x, ", extras, "alu_opa", trace.alu_opa);
+    extras = $sformatf("%s'%s':0x%08x, ", extras, "alu_opb", trace.alu_opb);
     return extras;
   endfunction
 

@@ -68,10 +68,13 @@ module schnizo_cc #(
   /// Xfrep config
   parameter int unsigned NumAlus            = 3,
   parameter int unsigned NumLsus            = 3,
+  parameter int unsigned NumAluLsus         = 1,
   parameter int unsigned NumFpus            = 1,
   parameter int unsigned NumAluRss          = 3,
   parameter int unsigned NumLsuRss          = 2,
+  parameter int unsigned NumAluLsuRss       = 1,
   parameter int unsigned NumFpuRss          = 4,
+  parameter logic UseAluLsu = 0,
   // LSU parameters
   parameter int unsigned NumIntOutstandingLoads = 0,
   parameter int unsigned NumIntOutstandingMem   = 0,
@@ -229,10 +232,13 @@ module schnizo_cc #(
     // FU configuration
     .NofAlus               (NumAlus),
     .NofLsus               (NumLsus),
+    .NofAluLsus            (NumAluLsus),
     .NofFpus               (NumFpus),
     .AluNofRss             (NumAluRss),
     .LsuNofRss             (NumLsuRss),
+    .AluLsuNofRss          (NumAluLsuRss),
     .FpuNofRss             (NumFpuRss),
+    .UseAluLsu             (UseAluLsu),
     .NumOutstandingLoads   (NumIntOutstandingLoads), // Use the int value for all LSUs
     .NumOutstandingMem     (NumIntOutstandingMem),
     .SnitchPMACfg          (SnitchPMACfg),

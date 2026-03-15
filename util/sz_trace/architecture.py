@@ -267,6 +267,7 @@ CSR_NAMES = {
 
 FU_ALU = "ALU"
 FU_LSU = "LSU"
+FU_ALU_LSU = "ALU_LSU"
 FU_FPU = "FPU"
 FU_CSR = "CSR"
 FU_ACC = "ACC"

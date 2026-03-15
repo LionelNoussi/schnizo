@@ -33,7 +33,8 @@ module schnizo_writeback import schnizo_pkg::*; #(
   parameter int unsigned RegAddrSize     = 5,
   parameter type         instr_tag_t     = logic,
   parameter type         alu_result_t    = logic,
-  parameter type         data_t          = logic
+  parameter type         data_t          = logic,
+  parameter type         alu_lsu_result_t = logic
 ) (
   // ALU interface
   input  alu_result_t     alu_result_i,
@@ -52,6 +53,12 @@ module schnizo_writeback import schnizo_pkg::*; #(
   input  instr_tag_t lsu_result_tag_i,
   input  logic       lsu_result_valid_i,
   output logic       lsu_result_ready_o,
+
+  // ALU+LSU interface
+  input  alu_result_t     alu_lsu_result_i,
+  input  instr_tag_t      alu_lsu_result_tag_i,
+  input  logic            alu_lsu_result_valid_i,
+  output logic            alu_lsu_result_ready_o,
 
   // FPU interface
   input  logic [FLEN-1:0] fpu_result_i,
@@ -84,6 +91,8 @@ module schnizo_writeback import schnizo_pkg::*; #(
   logic csr_gpr_ready;
   logic lsu_gpr_valid, lsu_fpr_valid;
   logic lsu_gpr_ready, lsu_fpr_ready;
+  logic alu_lsu_gpr_valid;
+  logic alu_lsu_gpr_ready;
   logic fpu_gpr_valid, fpu_fpr_valid;
   logic fpu_gpr_ready, fpu_fpr_ready;
   logic acc_gpr_valid; // The accelerator only writes to the GPR
@@ -104,6 +113,10 @@ module schnizo_writeback import schnizo_pkg::*; #(
   assign lsu_fpr_valid = lsu_result_tag_i.dest_reg_is_fp ? lsu_result_valid_i : 1'b0;
   assign lsu_result_ready_o = lsu_result_tag_i.dest_reg_is_fp ? lsu_fpr_ready : lsu_gpr_ready;
 
+  // TODO(lnoussi): Add distinction between ALU and LSU instruction here, since ALU can't write to FPU
+  assign alu_lsu_gpr_valid = alu_lsu_result_tag_i.dest_reg_is_fp ? 1'b0               : alu_lsu_result_valid_i;
+  assign alu_lsu_result_ready_o = alu_lsu_result_tag_i.dest_reg_is_fp ? 1'b0 : alu_lsu_gpr_ready;
+
   assign fpu_gpr_valid = fpu_result_tag_i.dest_reg_is_fp ? 1'b0               : fpu_result_valid_i;
   assign fpu_fpr_valid = fpu_result_tag_i.dest_reg_is_fp ? fpu_result_valid_i : 1'b0;
   assign fpu_result_ready_o = fpu_result_tag_i.dest_reg_is_fp ? fpu_fpr_ready : fpu_gpr_ready;
@@ -123,6 +136,7 @@ module schnizo_writeback import schnizo_pkg::*; #(
     alu_gpr_ready = '0;
     csr_gpr_ready = '0;
     lsu_gpr_ready = '0;
+    alu_lsu_gpr_ready = '0;
     fpu_gpr_ready = '0;
     acc_gpr_ready = '0;
 
@@ -168,6 +182,15 @@ module schnizo_writeback import schnizo_pkg::*; #(
           gpr_waddr_o = lsu_result_tag_i.dest_reg;
           gpr_wdata_o = lsu_result_i[XLEN-1:0];
           lsu_gpr_ready = 1'b1;
+        end else if (alu_lsu_gpr_valid) begin
+          if (alu_lsu_result_tag_i.dest_reg != '0) begin
+            gpr_we_o = 1'b1;
+            gpr_waddr_o = alu_lsu_result_tag_i.dest_reg;
+            gpr_wdata_o = alu_lsu_result_i.result;
+            alu_lsu_gpr_ready = 1'b1;
+          end else begin
+            csr_gpr_ready = 1'b1;
+          end
         end else if (fpu_gpr_valid) begin
           gpr_we_o = 1'b1;
           gpr_waddr_o = fpu_result_tag_i.dest_reg;
@@ -209,6 +232,7 @@ module schnizo_writeback import schnizo_pkg::*; #(
   // Core Events
   // ---------------------------
   // Capture all retirements in regard to their type.
+  // TODO(lnoussi): Add ALU_LSU to core events
   assign retired_single_cycle_o = (alu_gpr_valid & alu_gpr_ready) ||
                                   (csr_gpr_valid & csr_gpr_ready);
   assign retired_load_o         = (lsu_gpr_valid & lsu_gpr_ready) ||

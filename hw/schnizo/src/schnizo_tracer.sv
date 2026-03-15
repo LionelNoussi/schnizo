@@ -8,9 +8,11 @@
 module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   parameter int unsigned NofAlus    = 3,
   parameter int unsigned NofLsus    = 1,
+  parameter int unsigned NofAluLsus    = 1,
   parameter int unsigned NofFpus    = 1,
   parameter int unsigned AluNofRss  = 3,
   parameter int unsigned LsuNofRss  = 2,
+  parameter int unsigned AluLsuNofRss  = 3,
   parameter int unsigned FpuNofRss  = 4,
   parameter int unsigned NofOperandIfs = 1,
   parameter bit          Xfrep      = 1
@@ -23,27 +25,33 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   input  schnizo_dispatch_trace_t dispatch_trace,
   input  issue_alu_trace_t        alu_trace [NofAlus],
   input  issue_lsu_trace_t        lsu_trace [NofLsus],
+  input  issue_alu_lsu_trace_t    alu_lsu_trace [NofAluLsus],
   input  issue_fpu_trace_t        fpu_trace [NofFpus],
   input  issue_alu_trace_t        rss_alu_traces [NofAlus][AluNofRss],
   input  issue_lsu_trace_t        rss_lsu_traces [NofLsus][LsuNofRss],
+  input  issue_alu_lsu_trace_t    rss_alu_lsu_traces [NofAluLsus][AluLsuNofRss],
   input  issue_fpu_trace_t        rss_fpu_traces [NofFpus][FpuNofRss],
   input  issue_csr_trace_t        csr_trace,
   input  issue_acc_trace_t        acc_trace,
   input  retire_fu_trace_t        alu_retirements [NofAlus],
   input  retire_fu_trace_t        lsu_retirements [NofLsus],
+  input  retire_fu_trace_t        alu_lsu_retirements [NofAluLsus],
   input  retire_fu_trace_t        fpu_retirements [NofFpus],
   input  retire_fu_trace_t        csr_retirement,
   input  retire_fu_trace_t        acc_retirement,
   input  wb_fu_trace_t            alu_wb_trace,
   input  wb_fu_trace_t            lsu_wb_trace,
+  input  wb_fu_trace_t            alu_lsu_wb_trace,
   input  wb_fu_trace_t            fpu_wb_trace,
   input  wb_fu_trace_t            csr_wb_trace,
   input  wb_fu_trace_t            acc_wb_trace,
   input  resreq_trace_t           alu_resreq_traces [NofAlus][AluNofRss][NofOperandIfs],
   input  resreq_trace_t           lsu_resreq_traces [NofLsus][LsuNofRss][NofOperandIfs],
+  input  resreq_trace_t           alu_lsu_resreq_traces [NofAluLsus][AluLsuNofRss][NofOperandIfs],
   input  resreq_trace_t           fpu_resreq_traces [NofFpus][FpuNofRss][NofOperandIfs],
   input  rescap_trace_t           alu_rescap_traces [NofAlus][AluNofRss],
   input  rescap_trace_t           lsu_rescap_traces [NofLsus][LsuNofRss],
+  input  rescap_trace_t           alu_lsu_rescap_traces [NofAluLsus][AluLsuNofRss],
   input  rescap_trace_t           fpu_rescap_traces [NofFpus][FpuNofRss]
 );
 
@@ -79,7 +87,7 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     schnizo_dispatch_trace_t dispatch_trace;
   } lcp_dispatch_detail_t;
 
-  localparam integer unsigned NofFus = NofAlus + NofLsus + NofFpus;
+  localparam integer unsigned NofFus = NofAlus + NofLsus + NofAluLsus + NofFpus;
 
   lcp_dispatch_detail_t lcp_dispatch_queue[NofFus][$];
 
@@ -126,6 +134,15 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
           end
         end
       end
+      for (int alu_lsu = 0; alu_lsu < NofAluLsus; alu_lsu++) begin
+        for (int rss = 0; rss < AluLsuNofRss; rss++) begin
+          for (int con = 0; con < NofOperandIfs; con++) begin
+            write_trace_event(file_id, trace_header, "resreq",
+                              format_resreq_trace(alu_lsu_resreq_traces[alu_lsu][rss][con]),
+                              alu_lsu_resreq_traces[alu_lsu][rss][con].valid);
+          end
+        end
+      end
       for (int fpu = 0; fpu < NofFpus; fpu++) begin
         for (int rss = 0; rss < FpuNofRss; rss++) begin
           for (int con = 0; con < NofOperandIfs; con++) begin
@@ -149,6 +166,9 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
         end
         for (int lsu = 0; lsu < NofLsus; lsu++) begin
           dispatch_event = $sformatf("%s%s", dispatch_event, format_lsu_trace(lsu_trace[lsu]));
+        end
+        for (int alu_lsu = 0; alu_lsu < NofAluLsus; alu_lsu++) begin
+          dispatch_event = $sformatf("%s%s", dispatch_event, format_alu_lsu_trace(alu_lsu_trace[alu_lsu]));
         end
         for (int fpu = 0; fpu < NofFpus; fpu++) begin
           dispatch_event = $sformatf("%s%s", dispatch_event, format_fpu_trace(fpu_trace[fpu]));
@@ -191,10 +211,24 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
           end
         end
 
+        for (int alu_lsu = 0; alu_lsu < NofAluLsus; alu_lsu++) begin
+          for (int rss = 0; rss < AluLsuNofRss; rss++) begin
+            if (rss_alu_lsu_traces[alu_lsu][rss].valid) begin
+              details = lcp_dispatch_queue[NofAlus + NofLsus + alu_lsu].pop_front();
+              dispatch_event = format_dispatch_extras(details.dispatch_trace);
+
+              dispatch_event = $sformatf("%s%s", dispatch_event,
+                                        format_alu_lsu_trace(rss_alu_lsu_traces[alu_lsu][rss]));
+              write_trace_event(file_id, details.header, "dispatch",
+                                dispatch_event, details.dispatch_trace.valid);
+            end
+          end
+        end
+
         for (int fpu = 0; fpu < NofFpus; fpu++) begin
           for (int rss = 0; rss < FpuNofRss; rss++) begin
             if (rss_fpu_traces[fpu][rss].valid) begin
-              details = lcp_dispatch_queue[NofAlus + NofLsus + fpu].pop_front();
+              details = lcp_dispatch_queue[NofAlus + NofLsus + NofAluLsus + fpu].pop_front();
               dispatch_event = format_dispatch_extras(details.dispatch_trace);
 
               dispatch_event = $sformatf("%s%s", dispatch_event,
@@ -230,6 +264,13 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
                              rss_lsu_traces[lsu][rss].valid);
           end
         end
+        for (int alu_lsu = 0; alu_lsu < NofAluLsus; alu_lsu++) begin
+          for (int rss = 0; rss < AluLsuNofRss; rss++) begin
+            write_trace_event(file_id, trace_header, "dispatch",
+                             format_alu_lsu_trace(rss_alu_lsu_traces[alu_lsu][rss]),
+                             rss_alu_lsu_traces[alu_lsu][rss].valid);
+          end
+        end
         for (int fpu = 0; fpu < NofFpus; fpu++) begin
           for (int rss = 0; rss < FpuNofRss; rss++) begin
             write_trace_event(file_id, trace_header, "dispatch",
@@ -250,6 +291,9 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
       write_trace_event(file_id, trace_header, "writeback",
                         format_wb_fu_trace(lsu_wb_trace, "LSU"),
                         lsu_wb_trace.valid);
+      write_trace_event(file_id, trace_header, "writeback",
+                        format_wb_fu_trace(alu_lsu_wb_trace, "ALU+LSU"),
+                        alu_lsu_wb_trace.valid);
       write_trace_event(file_id, trace_header, "writeback",
                         format_wb_fu_trace(fpu_wb_trace, "FPU"),
                         fpu_wb_trace.valid);
@@ -280,6 +324,16 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
           write_trace_event(file_id, trace_header, "rescap",
                             format_rescap_trace(lsu_rescap_traces[lsu][rss]),
                             lsu_rescap_traces[lsu][rss].valid);
+        end
+      end
+      for (int alu_lsu = 0; alu_lsu < NofAluLsus; alu_lsu++) begin
+        write_trace_event(file_id, trace_header, "retirement",
+                          format_fu_retire_trace(alu_lsu_retirements[alu_lsu]),
+                          alu_lsu_retirements[alu_lsu].valid);
+        for (int rss = 0; rss < AluLsuNofRss; rss++) begin
+          write_trace_event(file_id, trace_header, "rescap",
+                            format_rescap_trace(alu_lsu_rescap_traces[alu_lsu][rss]),
+                            alu_lsu_rescap_traces[alu_lsu][rss].valid);
         end
       end
       for (int fpu = 0; fpu < NofFpus; fpu++) begin

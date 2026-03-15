@@ -147,14 +147,21 @@ module snitch_cluster
   parameter int unsigned NumAlus [NrCores] = '{default: 1},
   /// Per-core number of LSUs
   parameter int unsigned NumLsus [NrCores] = '{default: 1},
+  /// Per-core number of combined ALU_LSUs
+  parameter int unsigned NumAluLsus [NrCores] = '{default: 1},
   /// Per-core number of FPUs
   parameter int unsigned NumFpus [NrCores] = '{default: 0},
   /// Per-core number of Slots per ALU
   parameter int unsigned NumAluRss [NrCores] = '{default: 0},
   /// Per-core number of Slots per LSU
   parameter int unsigned NumLsuRss [NrCores] = '{default: 0},
+  /// Per-core number of Slots per combined ALU_LSU
+  parameter int unsigned NumAluLsuRss [NrCores] = '{default: 0},
   /// Per-core number of Slots per FPU
   parameter int unsigned NumFpuRss [NrCores] = '{default: 0},
+  /// Per-core if the core should use the combined ALU+LSU or not
+  /// TODO(lnoussi): Factor out this variable to allow simply allocating 0 normal ALUs or LSUs
+  parameter logic UseAluLsus [NrCores] = '{default: 0},
   /// Per-core integer outstanding loads
   parameter int unsigned NumIntOutstandingLoads [NrCores] = '{default: 0},
   /// Per-core integer outstanding memory operations (load and stores)
@@ -1170,10 +1177,13 @@ module snitch_cluster
       .Xfrep (Xfrep[i]),
       .NumAlus(NumAlus[i]),
       .NumLsus(NumLsus[i]),
+      .NumAluLsus(NumAluLsus[i]),
       .NumFpus(NumFpus[i]),
       .NumAluRss(NumAluRss[i]),
       .NumLsuRss(NumLsuRss[i]),
+      .NumAluLsuRss(NumAluLsuRss[i]),
       .NumFpuRss(NumFpuRss[i]),
+      .UseAluLsu(UseAluLsus[i]),
       // TODO(colluca): add Xpulpv2 to Schnizo
       // .Xpulppostmod (Xpulppostmod[i]),
       // .Xpulpabs (Xpulpabs[i]),
