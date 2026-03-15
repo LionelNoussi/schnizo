@@ -16,8 +16,9 @@ int main() {
     if (snrt_is_compute_core()) {
         snrt_mcycle();  // program_start
         c = a + b;
+        c = c * a;
         snrt_mcycle(); // program_end
-        retcode = c != 15;
+        retcode = c != 75;
     } else {
         retcode = 0;
     }

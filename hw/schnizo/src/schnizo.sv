@@ -225,7 +225,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // ---------------------------
   localparam integer unsigned AluNofOperands = 2;
   localparam integer unsigned LsuNofOperands = 3; // the 3rd operand is the address offset
-  localparam integer unsigned AluLsuNofOperands = 2;  // TODO(lnoussi)
+  localparam integer unsigned AluLsuNofOperands = 3;
   localparam integer unsigned FpuNofOperands = 3;
 
   // ---------------------------
@@ -345,7 +345,10 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     logic         compare_res;
   } alu_result_t;
 
-  typedef logic [XLEN-1:0] alu_lsu_res_val_t;
+  // ALU+LSU Types
+  localparam int RES_VAL_MAX_W = ($bits(data_t) > $bits(alu_res_val_t)) ?
+                                  $bits(data_t) : $bits(alu_res_val_t);
+  typedef logic [RES_VAL_MAX_W-1:0] alu_lsu_res_val_t;
 
   typedef struct packed {
     alu_lsu_res_val_t result;
@@ -693,6 +696,17 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   logic            fpu_result_ready;
   instr_tag_t      fpu_result_tag;
 
+  // TODO(lnoussi)
+  dreq_t [NofLsus-1:0] lsu_dreq;
+  dreq_t [NofAluLsus-1:0] alu_lsu_dreq;
+  assign data_req_o[NofLsus-1:0]                  = lsu_dreq;
+  // assign data_req_o[NofLsus+NofAluLsus-1:NofLsus] = alu_lsu_dreq_o;
+
+  drsp_t [NofLsus-1:0] lsu_drsp;
+  drsp_t [NofAluLsus-1:0] alu_lsu_drsp;
+  assign lsu_drsp = data_rsp_i[NofLsus-1:0];
+  // assign alu_lsu_drsp_i = data_rsp_i[NofAluLsus+NofAluLsus-1:+NofAluLsus];
+
   // Trace signals
   // pragma translate_off
   issue_alu_trace_t     alu_trace           [NofAlus];
@@ -767,8 +781,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     .instr_tag_t        (instr_tag_t),
     .alu_result_t       (alu_result_t),
     .alu_res_val_t      (alu_res_val_t),
-    .alu_lsu_result_t   (alu_result_t),   // TODO(lnoussi)
-    .alu_lsu_res_val_t  (alu_res_val_t),  // TODO(lnoussi)
+    .alu_lsu_result_t   (alu_lsu_result_t),
+    .alu_lsu_res_val_t  (alu_lsu_res_val_t),
     .dreq_t             (dreq_t),
     .drsp_t             (drsp_t)
   ) i_fu_stage (
@@ -805,8 +819,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     .lsu_disp_rsp_o       (lsu_disp_rsp),
     .lsu_empty_o          (lsu_empty),
     .lsu_addr_misaligned_o(lsu_addr_misaligned),
-    .lsu_dreq_o           (data_req_o), // Each LSU has its own reqrsp port
-    .lsu_drsp_i           (data_rsp_i), // Each LSU has its own reqrsp port
+    .lsu_dreq_o           (lsu_dreq), // Each LSU has its own reqrsp port
+    .lsu_drsp_i           (lsu_drsp), // Each LSU has its own reqrsp port
     .lsu_rs_full_o        (lsu_rs_full),
     .caq_addr_i           ('0),
     .caq_track_write_i    ('0),
@@ -819,6 +833,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     .alu_lsu_disp_reqs_ready_o(alu_lsu_disp_req_ready),
     .alu_lsu_disp_rsp_o       (alu_lsu_disp_rsp),
     .alu_lsu_rs_full_o        (alu_lsu_rs_full),
+    .alu_lsu_dreq_o           (alu_lsu_dreq),
+    .alu_lsu_drsp_i           (alu_lsu_drsp),
     //FPU
     .fpu_disp_reqs_valid_i(fpu_disp_req_valid),
     .fpu_disp_reqs_ready_o(fpu_disp_req_ready),
