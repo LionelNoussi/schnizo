@@ -695,14 +695,14 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
 
   // Trace signals
   // pragma translate_off
-  issue_alu_trace_t  alu_trace       [NofAlus];
-  issue_lsu_trace_t  lsu_trace       [NofLsus];
-  issue_alu_lsu_trace_t  alu_lsu_trace   [NofAluLsus];    // TODO(lnoussi)
-  issue_fpu_trace_t  fpu_trace       [NofFpus];
-  retire_fu_trace_t  alu_retirements [NofAlus];
-  retire_fu_trace_t  lsu_retirements [NofLsus];
-  retire_fu_trace_t  alu_lsu_retirements [NofAluLsus];
-  retire_fu_trace_t  fpu_retirements [NofFpus];
+  issue_alu_trace_t     alu_trace           [NofAlus];
+  issue_lsu_trace_t     lsu_trace           [NofLsus];
+  issue_alu_lsu_trace_t alu_lsu_trace       [NofAluLsus];
+  issue_fpu_trace_t     fpu_trace           [NofFpus];
+  retire_fu_trace_t     alu_retirements     [NofAlus];
+  retire_fu_trace_t     lsu_retirements     [NofLsus];
+  retire_fu_trace_t     alu_lsu_retirements [NofAluLsus];
+  retire_fu_trace_t     fpu_retirements     [NofFpus];
   // pragma translate_on
 
   schnizo_fu_stage #(

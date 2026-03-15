@@ -193,7 +193,11 @@ module schnizo_dispatcher import schnizo_pkg::*; #(
       schnizo_pkg::MUL,
       schnizo_pkg::CTRL_FLOW: begin
         // always select ALU0 for branch and MUL instructions
-        alu_disp_req_valid_o[0] = dispatch_valid_i;
+        if (UseAluLsu) begin
+          alu_lsu_disp_req_valid_o[0] = dispatch_valid_i;
+        end else begin
+          alu_disp_req_valid_o[0] = dispatch_valid_i;
+        end
       end
       schnizo_pkg::ALU: begin
         if (UseAluLsu) begin
@@ -250,9 +254,15 @@ module schnizo_dispatcher import schnizo_pkg::*; #(
       schnizo_pkg::MUL,
       schnizo_pkg::CTRL_FLOW: begin
         // always select ALU0 for branch and MUL instructions
-        fu_response = alu_disp_rsp_i[0];
-        fu_ready    = alu_disp_req_ready_i[0];
-        fu_rs_full  = alu_rs_full_i[0];
+        if (UseAluLsu) begin
+          fu_response = alu_lsu_disp_rsp_i[0];
+          fu_ready    = alu_lsu_disp_req_ready_i[0];
+          fu_rs_full  = alu_lsu_rs_full_i[0];
+        end else begin
+          fu_response = alu_disp_rsp_i[0];
+          fu_ready    = alu_disp_req_ready_i[0];
+          fu_rs_full  = alu_rs_full_i[0];
+        end
       end
       schnizo_pkg::ALU: begin
         if (UseAluLsu) begin

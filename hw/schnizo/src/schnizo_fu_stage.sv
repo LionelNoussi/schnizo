@@ -824,7 +824,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // fallback into the HW loop mode. If we decide to crash if an unsupported instruction is
   // encountered, it is possible to optimize the timing by only forwarding the ALU result in
   // regular mode. This will gain around 10ps for a 1ns target clock cycle.
-  assign branch_result_o = alu_wbs_result_and_tag[0].result;
+  // NOTE(lnoussi): Moved to ALU_LSU
+  // assign branch_result_o = alu_wbs_result_and_tag[0].result;
 
   // ALU writeback arbiter
   // The stream_arbiter has a feed through for 1 input so no special handling for disabled FREP
@@ -1196,7 +1197,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
 
     schnizo_alu #(
       .XLEN         (XLEN),
-      .HasBranch    ('0), // only the first ALU has the branch logic TODO(lnoussi): Add branch capability
+      .HasBranch    (alu_lsu == '0), // only the first ALU has the branch logic
       .HasMultiplier((alu_lsu == '0) && MulInAlu0), // only the first ALU has the multiplier
       .issue_req_t  (alu_lsu_issue_req_t),
       .instr_tag_t  (alu_lsu_instr_tag_t)
@@ -1253,7 +1254,6 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // fallback into the HW loop mode. If we decide to crash if an unsupported instruction is
   // encountered, it is possible to optimize the timing by only forwarding the ALU result in
   // regular mode. This will gain around 10ps for a 1ns target clock cycle.
-  // assign branch_result_o = alu_lsu_wbs_result_and_tag[0].result; TODO(lnoussi)
 
   // ALU writeback arbiter
   // The stream_arbiter has a feed through for 1 input so no special handling for disabled FREP
@@ -1277,6 +1277,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   assign alu_lsu_wb_result_o     = alu_lsu_wb_result_and_tag_out.result;
   assign alu_lsu_wb_result_tag_o = alu_lsu_wb_result_and_tag_out.tag;
 
+  // MUX IN SPECIAL SIGNALS
+  assign branch_result_o = (UseAluLsu) ? alu_lsu_wbs_result_and_tag[0].result : alu_wbs_result_and_tag[0].result;
 
   //////////
   // FPUs //

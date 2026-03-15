@@ -177,30 +177,35 @@ module schnizo_writeback import schnizo_pkg::*; #(
         if (csr_gpr_valid && csr_result_tag_i.dest_reg == '0) begin
           csr_gpr_ready = 1'b1;
         end
-        if (lsu_gpr_valid) begin
+        if (alu_lsu_gpr_valid && alu_lsu_result_tag_i.dest_reg != '0) begin
           gpr_we_o = 1'b1;
-          gpr_waddr_o = lsu_result_tag_i.dest_reg;
-          gpr_wdata_o = lsu_result_i[XLEN-1:0];
-          lsu_gpr_ready = 1'b1;
-        end else if (alu_lsu_gpr_valid) begin
-          if (alu_lsu_result_tag_i.dest_reg != '0) begin
-            gpr_we_o = 1'b1;
-            gpr_waddr_o = alu_lsu_result_tag_i.dest_reg;
-            gpr_wdata_o = alu_lsu_result_i.result;
-            alu_lsu_gpr_ready = 1'b1;
+          gpr_waddr_o = alu_lsu_result_tag_i.dest_reg;
+          if (alu_lsu_result_tag_i.is_jump) begin
+            gpr_wdata_o = consecutive_pc_i;
           end else begin
-            csr_gpr_ready = 1'b1;
+            gpr_wdata_o = alu_lsu_result_i.result;
           end
-        end else if (fpu_gpr_valid) begin
-          gpr_we_o = 1'b1;
-          gpr_waddr_o = fpu_result_tag_i.dest_reg;
-          gpr_wdata_o = fpu_result_i[XLEN-1:0];
-          fpu_gpr_ready = 1'b1;
-        end else if (acc_gpr_valid) begin
-          gpr_we_o = 1'b1;
-          gpr_waddr_o = acc_result_tag_i.dest_reg;
-          gpr_wdata_o = acc_result_i[XLEN-1:0];
-          acc_gpr_ready = 1'b1;
+          alu_lsu_gpr_ready = 1'b1;
+        end else begin
+          if (alu_lsu_gpr_valid && alu_lsu_result_tag_i.dest_reg == '0) begin
+            alu_lsu_gpr_ready = 1'b1;
+          end
+          if (lsu_gpr_valid) begin
+            gpr_we_o = 1'b1;
+            gpr_waddr_o = lsu_result_tag_i.dest_reg;
+            gpr_wdata_o = lsu_result_i[XLEN-1:0];
+            lsu_gpr_ready = 1'b1;
+          end else if (fpu_gpr_valid) begin
+            gpr_we_o = 1'b1;
+            gpr_waddr_o = fpu_result_tag_i.dest_reg;
+            gpr_wdata_o = fpu_result_i[XLEN-1:0];
+            fpu_gpr_ready = 1'b1;
+          end else if (acc_gpr_valid) begin
+            gpr_we_o = 1'b1;
+            gpr_waddr_o = acc_result_tag_i.dest_reg;
+            gpr_wdata_o = acc_result_i[XLEN-1:0];
+            acc_gpr_ready = 1'b1;
+          end
         end
       end
     end
