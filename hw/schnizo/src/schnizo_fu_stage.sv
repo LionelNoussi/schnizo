@@ -108,7 +108,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   output issue_fpu_trace_t  fpu_trace_o        [NofFpus-1:0],
   output retire_fu_trace_t  alu_retire_trace_o [NofAlus-1:0],
   output retire_fu_trace_t  lsu_retire_trace_o [NofLsus-1:0],
-  output retire_fu_trace_t  alu_lsu_retire_trace_o [NofAlus-1:0],
+  output retire_fu_trace_t  alu_lsu_retire_trace_o [NofAluLsus-1:0],
   output retire_fu_trace_t  fpu_retire_trace_o [NofFpus-1:0],
   // pragma translate_on
 
@@ -146,10 +146,10 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   input  logic      [NofLsus-1:0] caq_rsp_valid_i,
   output logic      [NofLsus-1:0] caq_rsp_valid_o,
 
-  input  logic      [NofAlus-1:0] alu_lsu_disp_reqs_valid_i,
-  output logic      [NofAlus-1:0] alu_lsu_disp_reqs_ready_o,
-  output disp_rsp_t [NofAlus-1:0] alu_lsu_disp_rsp_o,
-  output logic      [NofAlus-1:0] alu_lsu_rs_full_o,
+  input  logic      [NofAluLsus-1:0] alu_lsu_disp_reqs_valid_i,
+  output logic      [NofAluLsus-1:0] alu_lsu_disp_reqs_ready_o,
+  output disp_rsp_t [NofAluLsus-1:0] alu_lsu_disp_rsp_o,
+  output logic      [NofAluLsus-1:0] alu_lsu_rs_full_o,
   output dreq_t     [NofAluLsus-1:0] alu_lsu_dreq_o,
   input  drsp_t     [NofAluLsus-1:0] alu_lsu_drsp_i,
 
@@ -264,7 +264,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   localparam integer unsigned LsuOpIdOffset = AluOpIdOffset +
                                               NofAlus * (AluNofOperands * AluNofOpPorts);
   localparam integer unsigned AluLsuOpIdOffset = LsuOpIdOffset +
-                                              NofAluLsus * (LsuNofOperands * LsuNofOpPorts);
+                                              NofLsus * (LsuNofOperands * LsuNofOpPorts);
   localparam integer unsigned FpuOpIdOffset = AluLsuOpIdOffset +
                                               NofAluLsus * (AluLsuNofOperands * AluLsuNofOpPorts);
 
@@ -1034,8 +1034,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   end
 
   // LSU empty & misalign signal combination
-  assign lsu_empty_o = (&lsu_empty);
-  assign lsu_addr_misaligned_o =(|lsu_addr_misaligned);
+  // NOTE(lnoussi): Moved and combined at ALU+LSU
+  // assign lsu_empty_o = (&lsu_empty);
+  // assign lsu_addr_misaligned_o =(|lsu_addr_misaligned);
 
   // LSU writeback arbiter
   // The stream_arbiter has a feed through for 1 input so no special handling for disabled FREP
@@ -1064,11 +1065,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   ////////////////
 
   typedef logic [cf_math_pkg::idx_width(AluLsuNofRss)-1:0] alu_lsu_rs_tag_t;
-  typedef logic [cf_math_pkg::max($bits(alu_lsu_rs_tag_t),$bits(instr_tag_t))-1:0] _alu_lsu_instr_tag_t;
-
-  localparam int INSTR_TAG_T_MAX_W = ($bits(_alu_lsu_instr_tag_t) > $bits(instr_tag_t)) ?
-                                    $bits(_alu_lsu_instr_tag_t) : $bits(instr_tag_t);
-  typedef logic [INSTR_TAG_T_MAX_W-1:0] alu_lsu_instr_tag_t;
+  typedef logic [cf_math_pkg::max($bits(alu_lsu_rs_tag_t),$bits(instr_tag_t))-1:0] alu_lsu_instr_tag_t;
 
   typedef struct packed {
     fu_data_t       fu_data;
@@ -1208,8 +1205,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
       .XLEN                 (XLEN),
       .HasBranch            (alu_lsu == '0), // only the first ALU has the branch logic
       .HasMultiplier        ((alu_lsu == '0) && MulInAlu0), // only the first ALU has the multiplier
-      .alu_issue_req_t      (alu_issue_req_t),
-      .alu_instr_tag_t      (alu_instr_tag_t),
+      .alu_issue_req_t      (alu_lsu_issue_req_t),
+      .alu_instr_tag_t      (alu_lsu_instr_tag_t),
       .alu_res_val_t        (alu_res_val_t),
       // LSU
       .AddrWidth            (AddrWidth),
@@ -1246,8 +1243,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
       .busy_o           (alu_lsu_busy),
       .empty_o          (alu_lsu_empty[alu_lsu]),
       .addr_misaligned_o(alu_lsu_addr_misaligned_raw),
-      .data_req_o       (alu_lsu_dreq_o), // TODO(lnoussi)
-      .data_rsp_i       (alu_lsu_drsp_i), // TODO(lnoussi)
+      .data_req_o       (alu_lsu_dreq_o[alu_lsu]),
+      .data_rsp_i       (alu_lsu_drsp_i[alu_lsu]),
       // TODO(lnoussi): How would one handle these properly?
       .caq_addr_i       ('0),
       .caq_track_write_i('0),
@@ -1305,10 +1302,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
 
   // MUX IN SPECIAL SIGNALS
   assign branch_result_o = (UseAluLsu) ? alu_lsu_wbs_result_and_tag[0].result : alu_wbs_result_and_tag[0].result;
-
-  // TODO(lnoussi): Also remove from actual LSU
-  // assign lsu_empty_o = UseAluLsu ? (&alu_lsu_empty) : (&lsu_empty);
-  // assign lsu_addr_misaligned_o = UseAluLsu ? (|alu_lsu_addr_misaligned) : (|lsu_addr_misaligned);
+  assign lsu_empty_o = UseAluLsu ? (&alu_lsu_empty) : (&lsu_empty);
+  assign lsu_addr_misaligned_o = UseAluLsu ? (|alu_lsu_addr_misaligned) : (|lsu_addr_misaligned);
 
   //////////
   // FPUs //

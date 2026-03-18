@@ -113,8 +113,8 @@
         num_alu_slots: 32,
         num_lsus: 1,
         num_lsu_slots: 32,
-        num_alu_lsus: 1,
-        num_alu_lsu_slots: 32,
+        num_alu_lsus: 3,
+        num_alu_lsu_slots: 64,
         num_fpus: 1,
         num_fpu_slots: 64,
         use_alu_lsu: 1

@@ -292,7 +292,7 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
                         format_wb_fu_trace(lsu_wb_trace, "LSU"),
                         lsu_wb_trace.valid);
       write_trace_event(file_id, trace_header, "writeback",
-                        format_wb_fu_trace(alu_lsu_wb_trace, "ALU+LSU"),
+                        format_wb_fu_trace(alu_lsu_wb_trace, "ALU_LSU"),
                         alu_lsu_wb_trace.valid);
       write_trace_event(file_id, trace_header, "writeback",
                         format_wb_fu_trace(fpu_wb_trace, "FPU"),

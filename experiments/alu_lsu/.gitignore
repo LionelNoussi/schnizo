@@ -9,3 +9,5 @@
 /power.csv
 /area
 results_*
+my_session.log
+data/*/

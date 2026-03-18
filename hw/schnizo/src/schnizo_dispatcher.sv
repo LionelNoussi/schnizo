@@ -208,7 +208,11 @@ module schnizo_dispatcher import schnizo_pkg::*; #(
       end
       schnizo_pkg::LOAD,
       schnizo_pkg::STORE: begin
-        lsu_disp_req_valid_o[lsu_idx] = dispatch_valid_i;
+        if (UseAluLsu) begin
+          alu_lsu_disp_req_valid_o[alu_lsu_idx] = dispatch_valid_i;
+        end else begin
+          lsu_disp_req_valid_o[lsu_idx] = dispatch_valid_i;
+        end
       end
       schnizo_pkg::CSR : begin
         csr_disp_req_valid_o = dispatch_valid_i;
@@ -278,9 +282,15 @@ module schnizo_dispatcher import schnizo_pkg::*; #(
       schnizo_pkg::LOAD,
       schnizo_pkg::STORE: begin
         // per default take the non consistent mode.
-        fu_response = lsu_disp_rsp_i[lsu_idx];
-        fu_ready    = lsu_disp_req_ready_i[lsu_idx];
-        fu_rs_full  = lsu_rs_full_i[lsu_idx];
+        if (UseAluLsu) begin
+          fu_response = alu_lsu_disp_rsp_i[alu_lsu_idx];
+          fu_ready    = alu_lsu_disp_req_ready_i[alu_lsu_idx];
+          fu_rs_full  = alu_lsu_rs_full_i[alu_lsu_idx];
+        end else begin
+          fu_response = lsu_disp_rsp_i[lsu_idx];
+          fu_ready    = lsu_disp_req_ready_i[lsu_idx];
+          fu_rs_full  = lsu_rs_full_i[lsu_idx];
+        end
       end
       schnizo_pkg::CSR : begin
         // There is no response because there is no reservation station.

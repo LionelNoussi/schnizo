@@ -141,6 +141,7 @@ module schnizo_res_stat_slot import schnizo_pkg::*; #(
     // The instruction itself. Partially decoded. Depends on FU type.
     // TODO: Can we rely on the synthesis optimization to remove unused signals even if they are
     //       registered here?
+    fu_t                            fu;
     alu_op_e                        alu_op;
     lsu_op_e                        lsu_op;
     fpu_op_e                        fpu_op;
@@ -220,6 +221,7 @@ module schnizo_res_stat_slot import schnizo_pkg::*; #(
     consumer_count:       '0,
     consumed_by:          '0,
     do_capture_consumers: 1'b0,
+    fu:                   schnizo_pkg::NONE,
     alu_op:               AluOpAdd,
     lsu_op:               LsuOpLoad, // avoid store because the store flag has to be 0
     fpu_op:               FpuOpFadd,
@@ -461,6 +463,7 @@ module schnizo_res_stat_slot import schnizo_pkg::*; #(
       consumer_count:       '0,
       consumed_by:          '0,
       do_capture_consumers: 1'b0,
+      fu:                   disp_req_i.fu_data.fu,
       alu_op:               disp_req_i.fu_data.alu_op,
       lsu_op:               disp_req_i.fu_data.lsu_op,
       fpu_op:               disp_req_i.fu_data.fpu_op,
@@ -631,6 +634,7 @@ module schnizo_res_stat_slot import schnizo_pkg::*; #(
   // driving issue_req_o and issue_req_valid_o based on slot_op. 2) slot update
   // depending on slot_op, issued, etc.
   rs_slot_t slot_issue;
+  logic op_c_required;
   always_comb begin : slot_issue_update
     slot_issue = slot_op;
 
@@ -641,7 +645,7 @@ module schnizo_res_stat_slot import schnizo_pkg::*; #(
     // Tag used for the operation is the slot_id, to identify the result destination in case
     // results can come back OoO from the FU (as is the case for the FPU).
     issue_req_o                      = '0;
-    issue_req_o.fu_data.fu           = NONE; // Not required by FU
+    issue_req_o.fu_data.fu           = slot_issue.fu; // Not required by FU
     issue_req_o.fu_data.alu_op       = slot_issue.alu_op;
     issue_req_o.fu_data.lsu_op       = slot_issue.lsu_op;
     issue_req_o.fu_data.csr_op       = CsrOpNone; // Not supported in FREP
@@ -655,8 +659,16 @@ module schnizo_res_stat_slot import schnizo_pkg::*; #(
     issue_req_o.fu_data.fpu_rnd_mode = slot_issue.fpu_rnd_mode;
     issue_req_o.tag                  = slot_id_i;
 
+    // TODO(Lnoussi): Is this correct? Is this needed?
+    op_c_required = (slot_issue.fu inside {schnizo_pkg::LOAD, schnizo_pkg::STORE});
+
     for (int i = 0; i < NofOperands; i++) begin
-      op_valid[i] = slot_issue.operands[i].is_valid;
+      if (i == 2) begin
+        // If it's the 3rd operand and not required, treat it as valid
+        op_valid[i] = !op_c_required || slot_issue.operands[i].is_valid;
+      end else begin
+        op_valid[i] = slot_issue.operands[i].is_valid;
+      end
     end
     all_ops_valid = &op_valid;
 

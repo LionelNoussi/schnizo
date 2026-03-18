@@ -113,8 +113,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   /// TCDM Data Interface
   /// Write transactions do not return data on the `P Channel`
   /// Transactions need to be handled strictly in-order.
-  output dreq_t [NofLsus-1:0] data_req_o,
-  input  drsp_t [NofLsus-1:0] data_rsp_i,
+  output dreq_t [NofLsus+NofAluLsus-1:0] data_req_o,
+  input  drsp_t [NofLsus+NofAluLsus-1:0] data_rsp_i,
   /// Core events for performance counters
   output snitch_pkg::core_events_t core_events_o,
   /// Cluster HW barrier
@@ -696,16 +696,15 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   logic            fpu_result_ready;
   instr_tag_t      fpu_result_tag;
 
-  // TODO(lnoussi)
   dreq_t [NofLsus-1:0] lsu_dreq;
   dreq_t [NofAluLsus-1:0] alu_lsu_dreq;
   assign data_req_o[NofLsus-1:0]                  = lsu_dreq;
-  // assign data_req_o[NofLsus+NofAluLsus-1:NofLsus] = alu_lsu_dreq_o;
+  assign data_req_o[NofLsus+NofAluLsus-1:NofLsus] = alu_lsu_dreq;
 
   drsp_t [NofLsus-1:0] lsu_drsp;
   drsp_t [NofAluLsus-1:0] alu_lsu_drsp;
   assign lsu_drsp = data_rsp_i[NofLsus-1:0];
-  // assign alu_lsu_drsp_i = data_rsp_i[NofAluLsus+NofAluLsus-1:+NofAluLsus];
+  assign alu_lsu_drsp = data_rsp_i[NofLsus+NofAluLsus-1:NofLsus];
 
   // Trace signals
   // pragma translate_off
@@ -1272,7 +1271,16 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
           producer:       i_fu_stage.producer_to_string(
                             i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.gen_rss[rss].i_rss.own_producer_id_i),
           alu_opa:        i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.issue_reqs[rss].fu_data.operand_a[XLEN-1:0],
-          alu_opb:        i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.issue_reqs[rss].fu_data.operand_b[XLEN-1:0]
+          alu_opb:        i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.issue_reqs[rss].fu_data.operand_b[XLEN-1:0],
+          // Directly access the LSU because theses signals are decoded in the LSU. This requires
+          // that there is no cut between the RSS and the LSU.
+          lsu_store_data: i_fu_stage.gen_alu_lsus[alu_lsu].i_alu_lsu.i_lsu.store_data,
+          lsu_is_float:   i_fu_stage.gen_alu_lsus[alu_lsu].i_alu_lsu.i_lsu.do_nan_boxing, // misuse this signal
+          lsu_is_load:    !i_fu_stage.gen_alu_lsus[alu_lsu].i_alu_lsu.i_lsu.is_store,
+          lsu_is_store:   i_fu_stage.gen_alu_lsus[alu_lsu].i_alu_lsu.i_lsu.is_store,
+          lsu_addr:       i_fu_stage.gen_alu_lsus[alu_lsu].i_alu_lsu.i_lsu.address_sys,
+          lsu_size:       i_fu_stage.gen_alu_lsus[alu_lsu].i_alu_lsu.i_lsu.ls_size,
+          lsu_amo:        i_fu_stage.gen_alu_lsus[alu_lsu].i_alu_lsu.i_lsu.ls_amo
         };
         assign alu_lsu_rescap_traces[alu_lsu][rss] = '{
           valid:          (i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.gen_rss[rss].i_rss.rss_wb_valid &&

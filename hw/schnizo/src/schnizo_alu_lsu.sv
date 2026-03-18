@@ -148,22 +148,60 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
 
   logic lsu_result_valid, lsu_result_ready;
   result_and_tag_t lsu_result_and_tag;
-  logic [XLEN-1:0] lsu_result_value;
+  data_t lsu_result_value;
   instr_tag_t lsu_tag;
   logic lsu_busy;
+  issue_lsu_trace_t lsu_trace;
 
-  // lsu_issue_req_t lsu_issue_req;
-  // assign lsu_issue_req.fu_data = issue_req_i.fu_data;
-  // assign lsu_issue_req.tag = issue_req_i.tag[2:0]; // TODO(lnoussi)
+  lsu_issue_req_t lsu_issue_req;
+  assign lsu_issue_req.fu_data = issue_req_i.fu_data;
+  assign lsu_issue_req.tag = issue_req_i.tag[$bits(lsu_instr_tag_t)-1:0];
 
-  assign lsu_issue_req_ready = 1'b0;
-  assign lsu_result_value = '0;
-  assign lsu_tag = '0;
-  assign lsu_result_valid = '0;
-  assign lsu_busy = 1'b0;
+  schnizo_lsu #(
+    .XLEN               (XLEN),
+    .issue_req_t        (lsu_issue_req_t),
+    .AddrWidth          (AddrWidth),
+    .DataWidth          (DataWidth),
+    .dreq_t             (dreq_t),
+    .drsp_t             (drsp_t),
+    .tag_t              (lsu_instr_tag_t),
+    .NumOutstandingMem  (NumOutstandingMem),
+    .NumOutstandingLoads(NumOutstandingLoads),
+    .Caq                (0), // TODO: Enable
+    .CaqDepth           (CaqDepth),
+    .CaqTagWidth        (CaqTagWidth),
+    .CaqRespSrc         (0),
+    .CaqRespTrackSeq    (0)
+  ) i_lsu (
+    .clk_i,
+    .rst_i,
+    // pragma translate_off
+    .trace_o          (lsu_trace),
+    // pragma translate_on
+    .issue_req_i      (lsu_issue_req),
+    .issue_req_valid_i(lsu_issue_req_valid),
+    .issue_commit_i   (issue_commit_i),
+    .issue_req_ready_o(lsu_issue_req_ready),
+    .result_o         (lsu_result_value),
+    .tag_o            (lsu_tag),
+    .result_error_o   (result_error_o),
+    .result_valid_o   (lsu_result_valid),
+    .result_ready_i   (lsu_result_ready),
+    .busy_o           (lsu_busy),
+    .empty_o          (empty_o),
+    .addr_misaligned_o(addr_misaligned_o),
+    .data_req_o       (data_req_o),
+    .data_rsp_i       (data_rsp_i),
+    .caq_addr_i       (caq_addr_i),
+    .caq_track_write_i(caq_track_write_i),
+    .caq_req_valid_i  (caq_req_valid_i),
+    .caq_req_ready_o  (caq_req_ready_o),
+    .caq_rsp_valid_i  (caq_rsp_valid_i),
+    .caq_rsp_valid_o  (caq_rsp_valid_o)
+  );
 
-  assign lsu_result_and_tag.value = lsu_result_value;
-  assign lsu_result_and_tag.tag = lsu_tag;
+  assign lsu_result_and_tag.value = lsu_result_value;   // Fits perfectly
+  assign lsu_result_and_tag.tag = lsu_tag;              // Zero extended
 
   ////////////////////
   // Output Arbiter //
@@ -190,7 +228,20 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   assign busy_o = alu_busy || lsu_busy;
 
   // pragma translate_off
-  assign trace_o = issue_alu_lsu_trace_t'(alu_trace); // TODO(lnoussi): properly combine alu and lsu trace
+  assign trace_o = '{
+    valid: alu_trace.valid | lsu_trace.valid,
+    instr_iter: '0,
+    producer: "",
+    alu_opa: alu_trace.alu_opa,
+    alu_opb: alu_trace.alu_opb,
+    lsu_store_data: lsu_trace.lsu_store_data,
+    lsu_is_float: lsu_trace.lsu_is_float,
+    lsu_is_load: lsu_trace.lsu_is_load,
+    lsu_is_store: lsu_trace.lsu_is_store,
+    lsu_addr: lsu_trace.lsu_addr,
+    lsu_size: lsu_trace.lsu_size,
+    lsu_amo: lsu_trace.lsu_amo
+  };
   // pragma translate_on
 
 endmodule

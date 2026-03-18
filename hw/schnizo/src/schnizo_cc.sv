@@ -103,7 +103,7 @@ module schnizo_cc #(
   /// Optional fixed TCDM alias.
   parameter bit          TCDMAliasEnable = 1'b0,
   parameter logic [AddrWidth-1:0] TCDMAliasStart  = '0,
-  localparam int unsigned TCDMPorts = NumLsus,
+  localparam int unsigned TCDMPorts = NumLsus+NumAluLsus,
   localparam type addr_t = logic [AddrWidth-1:0],
   localparam type data_t = logic [DataWidth-1:0]
 ) (

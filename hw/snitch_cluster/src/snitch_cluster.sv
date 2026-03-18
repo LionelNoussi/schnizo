@@ -375,7 +375,7 @@ module snitch_cluster
   localparam int unsigned DcaLaneDataWidth = NarrowDataWidth;
 
   function automatic int unsigned get_tcdm_ports(int unsigned core);
-    return NumLsus[core];
+    return NumLsus[core] + NumAluLsus[core];
   endfunction
 
   function automatic int unsigned get_tcdm_port_offs(int unsigned core_idx);

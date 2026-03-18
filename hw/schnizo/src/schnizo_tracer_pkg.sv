@@ -71,6 +71,13 @@ package schnizo_tracer_pkg;
     string  producer;
     longint alu_opa;
     longint alu_opb;
+    longint lsu_store_data;
+    longint lsu_is_float;
+    longint lsu_is_load;
+    longint lsu_is_store;
+    longint lsu_addr; // the computed memory address
+    longint lsu_size;
+    longint lsu_amo;
   } issue_alu_lsu_trace_t;
 
   typedef struct {
@@ -207,6 +214,13 @@ package schnizo_tracer_pkg;
     extras = $sformatf("%s'%s':\"%s\", ", extras, "producer", trace.producer);
     extras = $sformatf("%s'%s':0x%08x, ", extras, "alu_opa", trace.alu_opa);
     extras = $sformatf("%s'%s':0x%08x, ", extras, "alu_opb", trace.alu_opb);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_store_data", trace.lsu_store_data);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_is_float", trace.lsu_is_float);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_is_load", trace.lsu_is_load);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_is_store", trace.lsu_is_store);
+    extras = $sformatf("%s'%s':0x%08x, ", extras, "lsu_addr", trace.lsu_addr);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_size", trace.lsu_size);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_amo", trace.lsu_amo);
     return extras;
   endfunction
 
