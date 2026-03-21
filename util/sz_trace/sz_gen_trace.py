@@ -238,7 +238,8 @@ def handle_dispatch_event(sim_time, cycle, priv_lvl, loop_state, extras,
     elif ('producer' in extras):
         is_lsu = extras['producer'].startswith(FU_LSU)
         lsu_id = extras['producer'].split('.')[0]
-
+    
+    # TODO(lnoussi) Create dedicated alu_lsu pipeline
     if (is_lsu):
         if (extras['lsu_is_load']):
             perf_metrics[-1]['load_issues'] += 1
