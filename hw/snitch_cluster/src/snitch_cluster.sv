@@ -159,6 +159,10 @@ module snitch_cluster
   parameter int unsigned NumAluLsuRss [NrCores] = '{default: 0},
   /// Per-core number of Slots per FPU
   parameter int unsigned NumFpuRss [NrCores] = '{default: 0},
+  parameter int unsigned NumAluRspPorts [NrCores] = '{default: 0},
+  parameter int unsigned NumLsuRspPorts [NrCores] = '{default: 0},
+  parameter int unsigned NumAluLsuRspPorts [NrCores] = '{default: 0},
+  parameter int unsigned NumFpuRspPorts [NrCores] = '{default: 0},
   /// Per-core if the core should use the combined ALU+LSU or not
   /// TODO(lnoussi): Factor out this variable to allow simply allocating 0 normal ALUs or LSUs
   parameter logic UseAluLsus [NrCores] = '{default: 0},
@@ -1183,6 +1187,10 @@ module snitch_cluster
       .NumLsuRss(NumLsuRss[i]),
       .NumAluLsuRss(NumAluLsuRss[i]),
       .NumFpuRss(NumFpuRss[i]),
+      .NumAluRspPorts(NumAluRspPorts[i]),
+      .NumLsuRspPorts(NumLsuRspPorts[i]),
+      .NumAluLsuRspPorts(NumAluLsuRspPorts[i]),
+      .NumFpuRspPorts(NumFpuRspPorts[i]),
       .UseAluLsu(UseAluLsus[i]),
       // TODO(colluca): add Xpulpv2 to Schnizo
       // .Xpulppostmod (Xpulppostmod[i]),

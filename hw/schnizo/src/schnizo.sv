@@ -63,6 +63,11 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   parameter int unsigned FpuNofRss  = 4,
   parameter logic UseAluLsu = 0,
   parameter bit          MulInAlu0  = 1'b1,
+  /// Response XBAR configuration
+  parameter integer unsigned AluNofResRspPorts = 1,
+  parameter integer unsigned LsuNofResRspPorts = 1,
+  parameter integer unsigned AluLsuNofResRspPorts = 1,
+  parameter integer unsigned FpuNofResRspPorts = 1,
   /// How many issued loads the LSU and thus the CAQ (consistency address queue) can hold.
   // This applies to all LSUs (each LSU can handle NumOutstandingLoads loads).
   parameter int unsigned NumOutstandingLoads = 0,
@@ -274,17 +279,6 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
                                              NofLsus * LsuNofResReqIfs +
                                              NofAluLsus * AluLsuNofResReqIfs +
                                              NofFpus * FpuNofResReqIfs;
-
-  // Each slot has its dedicated response crossbar input.
-  localparam integer unsigned AluNofResRspIfs = AluNofRss;
-  localparam integer unsigned LsuNofResRspIfs = LsuNofRss;
-  localparam integer unsigned AluLsuNofResRspIfs = AluLsuNofRss;
-  localparam integer unsigned FpuNofResRspIfs = FpuNofRss;
-
-  localparam integer unsigned NofResRspIfs = NofAlus * AluNofResRspIfs +
-                                             NofLsus * LsuNofResRspIfs +
-                                             NofAluLsus * AluLsuNofResRspIfs +
-                                             NofFpus * FpuNofResRspIfs;
 
   // The operands of multiple RSS share their operand ID per RS.
   localparam integer unsigned NofOperandIfsW = cf_math_pkg::idx_width(NofOperandIfs);
@@ -726,29 +720,28 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     .AluNofOperands     (AluNofOperands),
     .AluNofOpPorts      (AluNofOpPorts),
     .AluNofResReqIfs    (AluNofResReqIfs),
-    .AluNofResRspIfs    (AluNofResRspIfs),
+    .AluNofResRspPorts  (AluNofResRspPorts),
     .NofLsus            (NofLsus),
     .LsuNofRss          (LsuNofRss),
     .LsuNofOperands     (LsuNofOperands),
     .LsuNofOpPorts      (LsuNofOpPorts),
     .LsuNofResReqIfs    (LsuNofResReqIfs),
-    .LsuNofResRspIfs    (LsuNofResRspIfs),
+    .LsuNofResRspPorts  (LsuNofResRspPorts),
     .NofAluLsus         (NofAluLsus),
     .AluLsuNofRss       (AluLsuNofRss),
     .AluLsuNofOperands  (AluLsuNofOperands),
     .AluLsuNofOpPorts   (AluLsuNofOpPorts),
     .AluLsuNofResReqIfs (AluLsuNofResReqIfs),
-    .AluLsuNofResRspIfs (AluLsuNofResRspIfs),
+    .AluLsuNofResRspPorts (AluLsuNofResRspPorts),
     .NofFpus            (NofFpus),
     .FpuNofRss          (FpuNofRss),
     .FpuNofOperands     (FpuNofOperands),
     .FpuNofOpPorts      (FpuNofOpPorts),
     .FpuNofResReqIfs    (FpuNofResReqIfs),
-    .FpuNofResRspIfs    (FpuNofResRspIfs),
+    .FpuNofResRspPorts  (FpuNofResRspPorts),
     .UseAluLsu          (UseAluLsu),
     .NofOperandIfs      (NofOperandIfs),
     .NofResReqIfs       (NofResReqIfs),
-    .NofResRspIfs       (NofResRspIfs),
     .XLEN               (XLEN),
     .FLEN               (FLEN),
     .OpLen              (OpLen),
@@ -787,6 +780,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   ) i_fu_stage (
     .clk_i,
     .rst_i,
+    // TODO(colluca): typo
     .hard_id_i            (hart_id_i),
     .restart_i            (lxp_restart),
     .loop_state_i         (loop_state),

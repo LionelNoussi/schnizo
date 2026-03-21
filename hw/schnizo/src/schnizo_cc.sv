@@ -74,6 +74,10 @@ module schnizo_cc #(
   parameter int unsigned NumLsuRss          = 2,
   parameter int unsigned NumAluLsuRss       = 1,
   parameter int unsigned NumFpuRss          = 4,
+  parameter int unsigned NumAluRspPorts     = 1,
+  parameter int unsigned NumLsuRspPorts     = 1,
+  parameter int unsigned NumAluLsuRspPorts     = 1,
+  parameter int unsigned NumFpuRspPorts     = 1,
   parameter logic UseAluLsu = 0,
   // LSU parameters
   parameter int unsigned NumIntOutstandingLoads = 0,
@@ -238,6 +242,10 @@ module schnizo_cc #(
     .LsuNofRss             (NumLsuRss),
     .AluLsuNofRss          (NumAluLsuRss),
     .FpuNofRss             (NumFpuRss),
+    .AluNofResRspPorts     (NumAluRspPorts),
+    .LsuNofResRspPorts     (NumLsuRspPorts),
+    .AluLsuNofResRspPorts  (NumAluLsuRspPorts),
+    .FpuNofResRspPorts     (NumFpuRspPorts),
     .UseAluLsu             (UseAluLsu),
     .NumOutstandingLoads   (NumIntOutstandingLoads), // Use the int value for all LSUs
     .NumOutstandingMem     (NumIntOutstandingMem),

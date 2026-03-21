@@ -83,10 +83,8 @@ module schnizo_res_stat_slot import schnizo_pkg::*; #(
   output logic    result_ready_o,
 
   // RF writeback interface
-  output result_t     rf_wb_result_o,
   output result_tag_t rf_wb_tag_o,
-  output logic        rf_wb_valid_o,
-  input  logic        rf_wb_ready_i
+  output logic        rf_do_writeback_o
 );
 
   /////////////////////////////////////
@@ -203,7 +201,6 @@ module schnizo_res_stat_slot import schnizo_pkg::*; #(
   logic                   issued;
   logic                   retired;
   logic                   do_rf_writeback;
-  logic [1:0]             wb_sel;
   logic                   rss_wb_valid;
   logic                   rss_wb_ready;
 
@@ -423,8 +420,7 @@ module schnizo_res_stat_slot import schnizo_pkg::*; #(
     producer:             disp_req_i.producer_op_a.producer,
     is_produced:          disp_req_i.producer_op_a.valid,
     is_from_current_iter: disp_req_i.producer_op_a.valid,
-    value:                disp_req_i.producer_op_a.valid ?
-                            '0 : disp_req_i.fu_data.operand_a,
+    value:                disp_req_i.fu_data.operand_a,
     is_valid:             !disp_req_i.producer_op_a.valid,
     requested:            1'b0
   };
@@ -433,8 +429,7 @@ module schnizo_res_stat_slot import schnizo_pkg::*; #(
     producer:             disp_req_i.producer_op_b.producer,
     is_produced:          disp_req_i.producer_op_b.valid,
     is_from_current_iter: disp_req_i.producer_op_b.valid,
-    value:                disp_req_i.producer_op_b.valid ?
-                            '0 : disp_req_i.fu_data.operand_b,
+    value:                disp_req_i.fu_data.operand_b,
     is_valid:             !disp_req_i.producer_op_b.valid,
     requested:            1'b0
   };
@@ -443,8 +438,7 @@ module schnizo_res_stat_slot import schnizo_pkg::*; #(
     producer:             disp_req_i.producer_op_c.producer,
     is_produced:          disp_req_i.producer_op_c.valid,
     is_from_current_iter: disp_req_i.producer_op_c.valid,
-    value:                disp_req_i.producer_op_c.valid ?
-                            '0 : disp_req_i.fu_data.imm,
+    value:                disp_req_i.fu_data.imm,
     is_valid:             !disp_req_i.producer_op_c.valid,
     requested:            1'b0
   };
@@ -778,9 +772,6 @@ module schnizo_res_stat_slot import schnizo_pkg::*; #(
     rf_wb_tag.is_branch = disp_req_i.tag.is_branch;
     rf_wb_tag.is_jump   = disp_req_i.tag.is_jump;
 
-    rf_wb_result_o             = result_i;
-    rf_wb_tag_o                = rf_wb_tag;
-
     // Check if we want to write back to the RF. If so, enable the RF path for the dynamic stream
     // fork. A store has no writeback and the last result iteration is "immediately" reached.
     enable_rf_writeback = is_last_result_iter_i && !slot_wb.is_store;
@@ -788,7 +779,6 @@ module schnizo_res_stat_slot import schnizo_pkg::*; #(
     // be directly written as:
     // do_rf_writeback = (state_q == Lep) ? (slot_wb.do_writeback && enable_rf_writeback) : 1'b1`
     do_rf_writeback = (slot_wb.do_writeback && enable_rf_writeback) || enforce_rf_writeback;
-    wb_sel          = {do_rf_writeback, 1'b1}; // always write back to RSS
 
     // The result is consumed when all consumers read the result once
     result_consumed = (slot_wb.consumed_by == slot_wb.consumer_count) &&
@@ -848,76 +838,13 @@ module schnizo_res_stat_slot import schnizo_pkg::*; #(
   // within the same RS, e.g. due to the presence of pipelines with different latencies.
   assign retired_o = slot_wb.is_store ? 1'b1 : retired;
 
-  ////////////////////
-  // Writeback fork //
-  ////////////////////
+  ///////////////
+  // Writeback //
+  ///////////////
 
-  // Fork the request from the FU to the RSS and RF writeback. The RF writeback is only enabled if
-  // we are in LCP or the last LEP iteration. We must ensure that these streams handshake at the
-  // same time as otherwise the result is captured / written back before the instruction is issued.
-  // This is a problem if the FU is single cycle. If the issue request is valid, the result is also
-  // valid and distributed by the stream fork. Now if either the RSS or RF is ready, but the other
-  // not, the result is "captured" but the issue request is still pending.
-  // TODO(colluca): what does this mean "the issue request is still pending"?
-  // To keep the correct order, we must synchronize the two streams such that they handshake in the
-  // same cycle.
-  // TODO(colluca): understand why this is really necessary
-  // Therefore, the RSS must signal whether it is ready to accept the result. Only then the request
-  // may be forwarded to the RF. And the actual RSS handshake must be delayed until the RF
-  // handshakes.
-  //
-  //    +-----------+                               +-----------+
-  // +--|    RSS    |                               |   RF WB   |
-  // |  +-----------+                               +-----------+
-  // |    ^       |                                   ^       |
-  // |    |       o-----------------------+           |       |
-  // |    | V     | R     +-- do_rf_wb    |           |       |
-  // |    |       |       |               |   +---+   |       |
-  // |    |       v       v               |   |   |<--o       |
-  // |  +---+   +---+    /1|<-------------|---| & |   |       |
-  // |  | & |---| & |<---| |              |   |   |<--|-------o
-  // |  +---+   +---+    \0|<-- 1'b1      |   +---+   |       |
-  // |    ^       |                       |           | V     | R
-  // |    |       |                       |           |       v
-  // |    | V     | R                     |         +---+   +---+
-  // |    | raw   | raw                   +-------->| & |---| & |
-  // |    |       |                                 +---+   +---+
-  // |    |       |                                   ^       |
-  // |    |       |                                   | V raw | R raw
-  // |    |       +--------------------+    +---------+       |
-  // |    +-----------------------+    |    |    +------------+
-  // |                            |    |    |    |
-  // |                            |    v    |    v
-  // |     +----+               +------------------+
-  // +---->| FU |-------------->|   Stream Fork    |
-  //       +----+               +------------------+
-
-  logic rf_wb_valid_raw;
-  logic rf_wb_ready_raw;
-  logic rss_wb_valid_raw;
-  logic rss_wb_ready_raw;
-  logic rss_wb_enable;
-
-  assign rss_wb_enable = do_rf_writeback ? (rf_wb_valid_o && rf_wb_ready_i) : 1'b1;
-
-  assign rf_wb_ready_raw = rf_wb_ready_i & rss_wb_ready;
-  assign rf_wb_valid_o = rf_wb_valid_raw & rss_wb_ready;
-
-  assign rss_wb_valid = rss_wb_valid_raw & rss_wb_enable;
-  assign rss_wb_ready_raw = rss_wb_ready & rss_wb_enable;
-
-  stream_fork_dynamic #(
-    .N_OUP(32'd2)
-  ) i_result_fork (
-    .clk_i,
-    .rst_ni     (~rst_i),
-    .valid_i    (result_valid_i),
-    .ready_o    (result_ready_o),
-    .sel_i      (wb_sel),
-    .sel_valid_i(1'b1),
-    .sel_ready_o(),
-    .valid_o    ({rf_wb_valid_raw, rss_wb_valid_raw}),
-    .ready_i    ({rf_wb_ready_raw, rss_wb_ready_raw})
-  );
+  assign rss_wb_valid = result_valid_i;
+  assign result_ready_o = rss_wb_ready;
+  assign rf_do_writeback_o = do_rf_writeback;
+  assign rf_wb_tag_o = rf_wb_tag;
 
 endmodule

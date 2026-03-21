@@ -35,7 +35,7 @@ def gen_experiments():
     experiments = []
     for hw in ['sz_opt']:
         for mode in ['superscalar']:
-            for n in [1024]:
+            for n in [64]:
                 for app in ['sz_axpy']:
                     experiments.extend([
                         {
