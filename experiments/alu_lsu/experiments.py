@@ -33,6 +33,26 @@ class FrepExperimentManager(eu.ExperimentManager):
 
 def gen_experiments():
     experiments = []
+    for hw in ['sz_baseline', 'sz_opt']:
+        for mode in ['superscalar']:
+            for n in [512]:
+                for app in ['sz_axpy']:
+                    experiments.extend([
+                        {
+                            'app': app,
+                            'roi': Path(f"roi/{app}_roi.json.tpl"),
+                            'mode': mode,
+                            'data_cfg': {
+                                'n': n,
+                                'funcptr': f'{app.lstrip("sz_")}_baseline' if mode == 'scalar' else f'{app.lstrip("sz_")}_schnizo',
+                            },
+                            'hw': hw
+                        },
+                    ])
+    return experiments
+
+def gen_single_experiment():
+    experiments = []
     for hw in ['sz_opt']:
         for mode in ['superscalar']:
             for n in [64]:
@@ -51,43 +71,23 @@ def gen_experiments():
                     ])
     return experiments
 
-def gen_experiments_simple():
-    experiments = []
-    for hw in ['sz_baseline', 'sz_opt']:
-        for mode in ['scalar']:
-            for n in [1024, 2048, 4096]:
-                for app in ['status_information']:
-                    experiments.extend([
-                        {
-                            'app': app,
-                            'roi': Path(f"roi/{app}_roi.json.tpl"),
-                            'mode': mode,
-                            'data_cfg': {
-                                'n': n,
-                                'funcptr': f'{app.lstrip('sz_')}_baseline' if mode == 'scalar' else f'{app.lstrip('sz_')}_schnizo',
-                            },
-                            'hw': hw
-                        },
-                    ])
-    return experiments
-
 
 def main():
     experiments = gen_experiments()
+    # experiments = gen_single_experiment()
 
     manager = FrepExperimentManager(experiments=experiments)
     manager.run()
 
-    if 'run' in manager.actions:
-        df = manager.get_results()
-        roi = SimRegion('hart_0', 'compute')
-        df['ipc'] = df.apply(lambda row: row['results'].get_metric(roi, 'ipc'), axis=1)
-        df['fpu_util'] = df.apply(lambda row: row['results'].get_metric(roi, 'fpu_util'), axis=1)
-        print(df)
+    df = manager.get_results()
+    roi = SimRegion('hart_0', 'compute')
+    df['ipc'] = df.apply(lambda row: row['results'].get_metric(roi, 'ipc'), axis=1)
+    df['fpu_util'] = df.apply(lambda row: row['results'].get_metric(roi, 'fpu_util'), axis=1)
+    print(df)
 
-        # Export dataframe to CSV file
-        df.drop(columns=['results'], inplace=True)
-        df.to_csv('results.csv', index=False)
+    # Export dataframe to CSV file
+    df.drop(columns=['results'], inplace=True)
+    df.to_csv('results.csv', index=False)
 
 
 if __name__ == '__main__':

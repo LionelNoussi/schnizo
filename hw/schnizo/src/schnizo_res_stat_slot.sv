@@ -628,7 +628,6 @@ module schnizo_res_stat_slot import schnizo_pkg::*; #(
   // driving issue_req_o and issue_req_valid_o based on slot_op. 2) slot update
   // depending on slot_op, issued, etc.
   rs_slot_t slot_issue;
-  logic op_c_required;
   always_comb begin : slot_issue_update
     slot_issue = slot_op;
 
@@ -653,16 +652,8 @@ module schnizo_res_stat_slot import schnizo_pkg::*; #(
     issue_req_o.fu_data.fpu_rnd_mode = slot_issue.fpu_rnd_mode;
     issue_req_o.tag                  = slot_id_i;
 
-    // TODO(Lnoussi): Is this correct? Is this needed?
-    op_c_required = (slot_issue.fu inside {schnizo_pkg::LOAD, schnizo_pkg::STORE});
-
     for (int i = 0; i < NofOperands; i++) begin
-      if (i == 2) begin
-        // If it's the 3rd operand and not required, treat it as valid
-        op_valid[i] = !op_c_required || slot_issue.operands[i].is_valid;
-      end else begin
-        op_valid[i] = slot_issue.operands[i].is_valid;
-      end
+      op_valid[i] = slot_issue.operands[i].is_valid;
     end
     all_ops_valid = &op_valid;
 

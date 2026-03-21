@@ -69,6 +69,7 @@ package schnizo_tracer_pkg;
     logic   valid; // high if handshake happens
     longint instr_iter;
     string  producer;
+    longint sel_alu;
     longint alu_opa;
     longint alu_opb;
     longint lsu_store_data;
@@ -212,6 +213,7 @@ package schnizo_tracer_pkg;
     end
     extras = $sformatf("%s'%s':0x%0x, ", extras, "instr_iter", trace.instr_iter);
     extras = $sformatf("%s'%s':\"%s\", ", extras, "producer", trace.producer);
+    extras = $sformatf("%s'%s':0x%08x, ", extras, "sel_alu", trace.sel_alu);
     extras = $sformatf("%s'%s':0x%08x, ", extras, "alu_opa", trace.alu_opa);
     extras = $sformatf("%s'%s':0x%08x, ", extras, "alu_opb", trace.alu_opb);
     extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_store_data", trace.lsu_store_data);

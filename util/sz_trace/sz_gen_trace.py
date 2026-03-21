@@ -39,7 +39,7 @@ import formatter
 from formatter import int_lit, flt_lit, flt_fmt
 from architecture import REG_ABI_NAMES_I, REG_ABI_NAMES_F, get_fu_type, CSR_NAMES
 from architecture import LSU_SIZE_TO_FLOAT
-from architecture import FU_LSU, FU_FPU, FU_CSR, FU_ACC, FU_MULDIV, FU_DMA, FU_NONE
+from architecture import FU_LSU, FU_FPU, FU_ALU_LSU, FU_CSR, FU_ACC, FU_MULDIV, FU_DMA, FU_NONE
 from processor import ProcessorState
 
 
@@ -120,7 +120,10 @@ def gen_dispatch_trace(loop_state, extras, proc_state, mc_exec) -> str:
     # Recover the FU type from the LEP producer
     # TODO(colluca): can't we use the same extras format for both LEP and other states?
     if loop_state == LOOP_LEP:
-        extras['fu_type'] = get_fu_type(extras['producer'])
+        if 'sel_alu' not in extras:
+            extras['fu_type'] = get_fu_type(extras['producer'])
+        else:
+            extras['fu_type'] = "ALU" if extras['sel_alu'] else "LSU"
 
     # Format extras, returns a collection of comments
     comments = formatter.format_extras(extras)
@@ -224,7 +227,12 @@ def handle_dispatch_event(sim_time, cycle, priv_lvl, loop_state, extras,
     is_lsu = False
     lsu_id = ""
     if ('fu_type' in extras):
-        is_lsu = extras['disp_resp'].startswith(FU_LSU)
+        is_lsu = (
+            extras['disp_resp'].startswith(FU_LSU) or (
+                extras['disp_resp'].startswith(FU_ALU_LSU) and
+                extras['fu_type'] == FU_LSU
+            )
+        )
         # keep only the first characters and all number until the first .
         lsu_id = extras['disp_resp'].split('.')[0]
     elif ('producer' in extras):
@@ -251,10 +259,10 @@ def handle_dispatch_event(sim_time, cycle, priv_lvl, loop_state, extras,
 
 def handle_retirement_event(cycle, priv_lvl, loop_state, extras,
                             lsu_pipelines, fpu_pipelines, perf_metrics, permissive):
-    if (extras['producer'].startswith(FU_LSU) or extras['producer'].startswith(FU_FPU)):
+    if (extras['producer'].startswith(FU_LSU) or extras['producer'].startswith(FU_FPU) or extras['producer'].startswith(FU_ALU_LSU)):
         try:
             fu_id = extras['producer'].split('.')[0]
-            if (extras['producer'].startswith(FU_LSU)):
+            if (extras['producer'].startswith(FU_LSU) or extras['producer'].startswith(FU_ALU_LSU)):
                 start_time, is_fp = lsu_pipelines[fu_id].pop()
                 # We define the latency as the number of cycles we need, i.e., the duration
                 # Thus we do +1
@@ -269,6 +277,10 @@ def handle_retirement_event(cycle, priv_lvl, loop_state, extras,
                 latency = cycle - start_time + 1
                 perf_metrics[-1]['fpu_latency'] += latency
         except IndexError:
+            # TODO(lnoussi): If ALU_LSU ever becomes out of order, we 
+            # have to add fu_type to retirement trace to detect 
+            # if load retired or ALU instruction.
+            if extras['producer'].startswith(FU_ALU_LSU): return
             producer = extras['producer']
             message = (
                 f"Retirement: In cycle {cycle}, {producer} tried to "
@@ -320,7 +332,7 @@ def gen_dispatch_perfetto(sim_time, cycle, priv_lvl, loop_state, extras,
         # The instruction ends in this cycle. Thus the event is at the end of this cycle.
         trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS)
     # Immediately end store instructions as there is no retirement event.
-    if (fu_str.startswith(FU_LSU)):
+    if (fu_str.startswith(FU_LSU) or (fu_str.startswith(FU_ALU_LSU) and (extras['fu_type'] == FU_LSU))):
         if (extras['lsu_is_store']):
             # The instruction ends in this cycle. Thus the event is at the end of this cycle.
             trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS)

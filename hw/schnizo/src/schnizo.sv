@@ -1258,12 +1258,18 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     for (genvar rss = 0; rss < AluLsuNofRss; rss++) begin : gen_alu_lsu_traces_rss
       // verilog_lint: waive-start line-length
       if (Xfrep) begin : gen_alu_lsu_traces_rss_trace_resreq
+        logic sel_alu;
+        fu_t fu;
+        assign fu = i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.issue_reqs[rss].fu_data.fu;
+        assign sel_alu = ~(fu inside {schnizo_pkg::LOAD, schnizo_pkg::STORE}); 
+
         assign rss_alu_lsu_traces[alu_lsu][rss] = '{
           valid:          i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.issue_reqs_valid[rss] &&
                           i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.issue_reqs_ready[rss],
           instr_iter:     i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.gen_rss[rss].i_rss.slot_q.instruction_iter,
           producer:       i_fu_stage.producer_to_string(
                             i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.gen_rss[rss].i_rss.own_producer_id_i),
+          sel_alu:        sel_alu,
           alu_opa:        i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.issue_reqs[rss].fu_data.operand_a[XLEN-1:0],
           alu_opb:        i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.issue_reqs[rss].fu_data.operand_b[XLEN-1:0],
           // Directly access the LSU because theses signals are decoded in the LSU. This requires
