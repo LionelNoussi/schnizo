@@ -34,9 +34,9 @@ class FrepExperimentManager(eu.ExperimentManager):
 def gen_experiments():
     experiments = []
     for hw in ['sz_baseline', 'sz_opt']:
-        for mode in ['superscalar']:
-            for n in [512]:
-                for app in ['sz_axpy']:
+        for mode in ['scalar', 'superscalar']:
+            for n in [512, 1024, 2048]:
+                for app in ['sz_axpy', 'sz_dot']:
                     experiments.extend([
                         {
                             'app': app,
@@ -53,7 +53,7 @@ def gen_experiments():
 
 def gen_single_experiment():
     experiments = []
-    for hw in ['sz_opt']:
+    for hw in ['sz_noAlu']:
         for mode in ['superscalar']:
             for n in [64]:
                 for app in ['sz_axpy']:
@@ -87,7 +87,7 @@ def main():
 
     # Export dataframe to CSV file
     df.drop(columns=['results'], inplace=True)
-    df.to_csv('results.csv', index=False)
+    df.to_csv('runs/results.csv', index=False)
 
 
 if __name__ == '__main__':

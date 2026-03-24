@@ -11,3 +11,4 @@
 results_*
 my_session.log
 data/*/
+/plots
