@@ -12,7 +12,7 @@
 // decoded instruction. If more than one FU of the same type is available, it further selects the
 // specific FU of that type to dispatch the instruction to.
 // It itself instantiates the RMT and updates it based on the dispatch and write back information.
-module schnizo_dispatcher import schnizo_pkg::*; #(
+module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
   // Enable the superscalar feature
   parameter bit          EnableFrep  = 1,
   /// Size of both int and fp register file
@@ -43,32 +43,32 @@ module schnizo_dispatcher import schnizo_pkg::*; #(
   output disp_req_t disp_req_o,
   // Each FU has a response which must be valid at dispatch request handshake.
   // ALU
-  output logic      [NofAlus-1:0] alu_disp_req_valid_o,
-  input  logic      [NofAlus-1:0] alu_disp_req_ready_i,
-  input  disp_rsp_t [NofAlus-1:0] alu_disp_rsp_i,
-  input  logic      [NofAlus-1:0] alu_rs_full_i,
+  output logic      [iomsb(NofAlus):0] alu_disp_req_valid_o,
+  input  logic      [iomsb(NofAlus):0] alu_disp_req_ready_i,
+  input  disp_rsp_t [iomsb(NofAlus):0] alu_disp_rsp_i,
+  input  logic      [iomsb(NofAlus):0] alu_rs_full_i,
 
   // LSU
-  output logic      [NofLsus-1:0] lsu_disp_req_valid_o,
-  input  logic      [NofLsus-1:0] lsu_disp_req_ready_i,
-  input  disp_rsp_t [NofLsus-1:0] lsu_disp_rsp_i,
-  input  logic      [NofLsus-1:0] lsu_rs_full_i,
+  output logic      [iomsb(NofLsus):0] lsu_disp_req_valid_o,
+  input  logic      [iomsb(NofLsus):0] lsu_disp_req_ready_i,
+  input  disp_rsp_t [iomsb(NofLsus):0] lsu_disp_rsp_i,
+  input  logic      [iomsb(NofLsus):0] lsu_rs_full_i,
 
   // ALU + LSU
-  output logic      [NofAluLsus-1:0] alu_lsu_disp_req_valid_o,
-  input  logic      [NofAluLsus-1:0] alu_lsu_disp_req_ready_i,
-  input  disp_rsp_t [NofAluLsus-1:0] alu_lsu_disp_rsp_i,
-  input  logic      [NofAluLsus-1:0] alu_lsu_rs_full_i,
+  output logic      [iomsb(NofAluLsus):0] alu_lsu_disp_req_valid_o,
+  input  logic      [iomsb(NofAluLsus):0] alu_lsu_disp_req_ready_i,
+  input  disp_rsp_t [iomsb(NofAluLsus):0] alu_lsu_disp_rsp_i,
+  input  logic      [iomsb(NofAluLsus):0] alu_lsu_rs_full_i,
 
   // Handshake to the CSR FU. There is no response as it does not have a reservation station.
   output logic csr_disp_req_valid_o,
   input  logic csr_disp_req_ready_i,
 
   // FPU
-  output logic      [NofFpus-1:0] fpu_disp_req_valid_o,
-  input  logic      [NofFpus-1:0] fpu_disp_req_ready_i,
-  input  disp_rsp_t [NofFpus-1:0] fpu_disp_rsp_i,
-  input  logic      [NofFpus-1:0] fpu_rs_full_i,
+  output logic      [iomsb(NofFpus):0] fpu_disp_req_valid_o,
+  input  logic      [iomsb(NofFpus):0] fpu_disp_req_ready_i,
+  input  disp_rsp_t [iomsb(NofFpus):0] fpu_disp_rsp_i,
+  input  logic      [iomsb(NofFpus):0] fpu_rs_full_i,
 
   // Handshake to the accelerator interface
   output acc_req_t acc_req_o,
@@ -163,16 +163,16 @@ module schnizo_dispatcher import schnizo_pkg::*; #(
   logic       dispatched;
 
   // FU selection counters
-  logic [NofAlusW-1:0] alu_idx;
-  logic [NofAlusW-1:0] alu_idx_raw;
-  logic [NofLsusW-1:0] lsu_idx;
-  logic [NofLsusW-1:0] lsu_idx_raw;
-  logic [NofAluLsusW-1:0] alu_lsu_alu_idx;
-  logic [NofAluLsusW-1:0] alu_lsu_alu_idx_raw;
-  logic [NofAluLsusW-1:0] alu_lsu_lsu_idx;
-  logic [NofAluLsusW-1:0] alu_lsu_lsu_idx_raw;
-  logic [NofFpusW-1:0] fpu_idx;
-  logic [NofFpusW-1:0] fpu_idx_raw;
+  logic [iomsb(NofAlusW):0] alu_idx;
+  logic [iomsb(NofAlusW):0] alu_idx_raw;
+  logic [iomsb(NofLsusW):0] lsu_idx;
+  logic [iomsb(NofLsusW):0] lsu_idx_raw;
+  logic [iomsb(NofAluLsusW):0] alu_lsu_alu_idx;
+  logic [iomsb(NofAluLsusW):0] alu_lsu_alu_idx_raw;
+  logic [iomsb(NofAluLsusW):0] alu_lsu_lsu_idx;
+  logic [iomsb(NofAluLsusW):0] alu_lsu_lsu_idx_raw;
+  logic [iomsb(NofFpusW):0] fpu_idx;
+  logic [iomsb(NofFpusW):0] fpu_idx_raw;
 
   // Demux the dispatch request to the selected FU.
   // This FU selection must occur always independently of the validity of the instruction and it

@@ -76,13 +76,6 @@
                 },
                 cores: [
                     { $ref: "#/compute_core_template" },
-                    { $ref: "#/compute_core_template" },
-                    { $ref: "#/compute_core_template" },
-                    { $ref: "#/compute_core_template" },
-                    { $ref: "#/compute_core_template" },
-                    { $ref: "#/compute_core_template" },
-                    { $ref: "#/compute_core_template" },
-                    { $ref: "#/compute_core_template" },
                     { $ref: "#/dma_core_template" },
                 ]
             }
@@ -115,15 +108,15 @@
         num_int_outstanding_loads: 4,
         num_int_outstanding_mem: 4,
         // Superscalar configuration
-        num_alus: 0,
-        num_alu_slots: 0,
-        num_lsus: 0,
-        num_lsu_slots: 0,
-        num_alu_lsus: 3,
-        num_alu_lsu_slots: 32,
+        num_alus: 3,
+        num_alu_slots: 32,
+        num_lsus: 3,
+        num_lsu_slots: 32,
+        num_alu_lsus: 0,
+        num_alu_lsu_slots: 0,
         num_fpus: 1,
         num_fpu_slots: 64,
-        use_alu_lsu: 1
+        use_alu_lsu: 0
     },
     dma_core_template: {
         isa: "rv32imafd",

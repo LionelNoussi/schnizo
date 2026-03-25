@@ -73,8 +73,8 @@ def gen_single_experiment():
 
 
 def main():
-    experiments = gen_experiments()
-    # experiments = gen_single_experiment()
+    # experiments = gen_experiments()
+    experiments = gen_single_experiment()
 
     manager = FrepExperimentManager(experiments=experiments)
     manager.run()

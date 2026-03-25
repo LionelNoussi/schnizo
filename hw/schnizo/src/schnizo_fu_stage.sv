@@ -12,7 +12,7 @@
 //
 // Instantiates all the FUs and connects each FU to an FU block (containing the RS).
 // Further instantiates the operand distribution network (ODN) and connects FU blocks to it.
-module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
+module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   // Globally enable the superscalar feature
   parameter bit          Xfrep             = 1,
   parameter bit          MulInAlu0         = 1'b1,
@@ -101,14 +101,14 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
 
   // Trace outputs
   // pragma translate_off
-  output issue_alu_trace_t  alu_trace_o        [NofAlus-1:0],
-  output issue_lsu_trace_t  lsu_trace_o        [NofLsus-1:0],
-  output issue_alu_lsu_trace_t  alu_lsu_trace_o    [NofAluLsus-1:0],
-  output issue_fpu_trace_t  fpu_trace_o        [NofFpus-1:0],
-  output retire_fu_trace_t  alu_retire_trace_o [NofAlus-1:0],
-  output retire_fu_trace_t  lsu_retire_trace_o [NofLsus-1:0],
-  output retire_fu_trace_t  alu_lsu_retire_trace_o [NofAluLsus-1:0],
-  output retire_fu_trace_t  fpu_retire_trace_o [NofFpus-1:0],
+  output issue_alu_trace_t      alu_trace_o             [iomsb(NofAlus):0],
+  output issue_lsu_trace_t      lsu_trace_o             [iomsb(NofLsus):0],
+  output issue_alu_lsu_trace_t  alu_lsu_trace_o         [iomsb(NofAluLsus):0],
+  output issue_fpu_trace_t      fpu_trace_o             [iomsb(NofFpus):0],
+  output retire_fu_trace_t      alu_retire_trace_o      [iomsb(NofAlus):0],
+  output retire_fu_trace_t      lsu_retire_trace_o      [iomsb(NofLsus):0],
+  output retire_fu_trace_t      alu_lsu_retire_trace_o  [iomsb(NofAluLsus):0],
+  output retire_fu_trace_t      fpu_retire_trace_o      [iomsb(NofFpus):0],
   // pragma translate_on
 
   /// RS control signals
@@ -125,37 +125,37 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // The FU blocks do not require a commit signal as when we won't commit we have an exception
   // and thus anyway abort the LxP and reset the RS and RSSs.
   input  logic                    instr_exec_commit_i,
-  input  logic      [NofAlus-1:0] alu_disp_reqs_valid_i,
-  output logic      [NofAlus-1:0] alu_disp_reqs_ready_o,
-  output disp_rsp_t [NofAlus-1:0] alu_disp_rsp_o,
-  output logic      [NofAlus-1:0] alu_rs_full_o,
+  input  logic      [iomsb(NofAlus):0] alu_disp_reqs_valid_i,
+  output logic      [iomsb(NofAlus):0] alu_disp_reqs_ready_o,
+  output disp_rsp_t [iomsb(NofAlus):0] alu_disp_rsp_o,
+  output logic      [iomsb(NofAlus):0] alu_rs_full_o,
 
-  input  logic      [NofLsus-1:0] lsu_disp_reqs_valid_i,
-  output logic      [NofLsus-1:0] lsu_disp_reqs_ready_o,
-  output disp_rsp_t [NofLsus-1:0] lsu_disp_rsp_o,
+  input  logic      [iomsb(NofLsus):0] lsu_disp_reqs_valid_i,
+  output logic      [iomsb(NofLsus):0] lsu_disp_reqs_ready_o,
+  output disp_rsp_t [iomsb(NofLsus):0] lsu_disp_rsp_o,
   output logic                    lsu_empty_o,
   output logic                    lsu_addr_misaligned_o,
-  output dreq_t     [NofLsus-1:0] lsu_dreq_o,
-  input  drsp_t     [NofLsus-1:0] lsu_drsp_i,
-  output logic      [NofLsus-1:0] lsu_rs_full_o,
-  input  addr_t     [NofLsus-1:0] caq_addr_i,
-  input  logic      [NofLsus-1:0] caq_track_write_i,
-  input  logic      [NofLsus-1:0] caq_req_valid_i,
-  output logic      [NofLsus-1:0] caq_req_ready_o,
-  input  logic      [NofLsus-1:0] caq_rsp_valid_i,
-  output logic      [NofLsus-1:0] caq_rsp_valid_o,
+  output dreq_t     [iomsb(NofLsus):0] lsu_dreq_o,
+  input  drsp_t     [iomsb(NofLsus):0] lsu_drsp_i,
+  output logic      [iomsb(NofLsus):0] lsu_rs_full_o,
+  input  addr_t     [iomsb(NofLsus):0] caq_addr_i,
+  input  logic      [iomsb(NofLsus):0] caq_track_write_i,
+  input  logic      [iomsb(NofLsus):0] caq_req_valid_i,
+  output logic      [iomsb(NofLsus):0] caq_req_ready_o,
+  input  logic      [iomsb(NofLsus):0] caq_rsp_valid_i,
+  output logic      [iomsb(NofLsus):0] caq_rsp_valid_o,
 
-  input  logic      [NofAluLsus-1:0] alu_lsu_disp_reqs_valid_i,
-  output logic      [NofAluLsus-1:0] alu_lsu_disp_reqs_ready_o,
-  output disp_rsp_t [NofAluLsus-1:0] alu_lsu_disp_rsp_o,
-  output logic      [NofAluLsus-1:0] alu_lsu_rs_full_o,
-  output dreq_t     [NofAluLsus-1:0] alu_lsu_dreq_o,
-  input  drsp_t     [NofAluLsus-1:0] alu_lsu_drsp_i,
+  input  logic      [iomsb(NofAluLsus):0] alu_lsu_disp_reqs_valid_i,
+  output logic      [iomsb(NofAluLsus):0] alu_lsu_disp_reqs_ready_o,
+  output disp_rsp_t [iomsb(NofAluLsus):0] alu_lsu_disp_rsp_o,
+  output logic      [iomsb(NofAluLsus):0] alu_lsu_rs_full_o,
+  output dreq_t     [iomsb(NofAluLsus):0] alu_lsu_dreq_o,
+  input  drsp_t     [iomsb(NofAluLsus):0] alu_lsu_drsp_i,
 
-  input  logic               [NofFpus-1:0] fpu_disp_reqs_valid_i,
-  output logic               [NofFpus-1:0] fpu_disp_reqs_ready_o,
-  output disp_rsp_t          [NofFpus-1:0] fpu_disp_rsp_o,
-  output logic               [NofFpus-1:0] fpu_rs_full_o,
+  input  logic               [iomsb(NofFpus):0] fpu_disp_reqs_valid_i,
+  output logic               [iomsb(NofFpus):0] fpu_disp_reqs_ready_o,
+  output disp_rsp_t          [iomsb(NofFpus):0] fpu_disp_rsp_o,
+  output logic               [iomsb(NofFpus):0] fpu_rs_full_o,
   // Combined status of all FPUs
   output fpnew_pkg::status_t fpu_status_o,
   output logic               fpu_status_valid_o,
@@ -312,61 +312,61 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // Operand distribution network (ODN) //
   ////////////////////////////////////////
 
-  operand_req_t [NofAlus-1:0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_reqs;
-  logic         [NofAlus-1:0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_reqs_valid;
-  logic         [NofAlus-1:0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_reqs_ready;
-  operand_req_t [NofAlus-1:0][AluNofRss-1:0]                          alu_available_results;
-  dest_mask_t   [NofAlus-1:0][AluNofRss-1:0]                          alu_res_reqs;
-  logic         [NofAlus-1:0][AluNofRss-1:0]                          alu_res_reqs_valid;
-  logic         [NofAlus-1:0][AluNofRss-1:0]                          alu_res_reqs_ready;
-  res_rsp_t     [NofAlus-1:0][AluNofRss-1:0]                          alu_res_rsps;
-  logic         [NofAlus-1:0][AluNofRss-1:0]                          alu_res_rsps_valid;
-  logic         [NofAlus-1:0][AluNofRss-1:0]                          alu_res_rsps_ready;
-  operand_t     [NofAlus-1:0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_rsps;
-  logic         [NofAlus-1:0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_rsps_valid;
-  logic         [NofAlus-1:0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_rsps_ready;
+  operand_req_t [iomsb(NofAlus):0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_reqs;
+  logic         [iomsb(NofAlus):0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_reqs_valid;
+  logic         [iomsb(NofAlus):0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_reqs_ready;
+  operand_req_t [iomsb(NofAlus):0][iomsb(AluNofRss):0]                          alu_available_results;
+  dest_mask_t   [iomsb(NofAlus):0][iomsb(AluNofRss):0]                          alu_res_reqs;
+  logic         [iomsb(NofAlus):0][iomsb(AluNofRss):0]                          alu_res_reqs_valid;
+  logic         [iomsb(NofAlus):0][iomsb(AluNofRss):0]                          alu_res_reqs_ready;
+  res_rsp_t     [iomsb(NofAlus):0][iomsb(AluNofRss):0]                          alu_res_rsps;
+  logic         [iomsb(NofAlus):0][iomsb(AluNofRss):0]                          alu_res_rsps_valid;
+  logic         [iomsb(NofAlus):0][iomsb(AluNofRss):0]                          alu_res_rsps_ready;
+  operand_t     [iomsb(NofAlus):0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_rsps;
+  logic         [iomsb(NofAlus):0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_rsps_valid;
+  logic         [iomsb(NofAlus):0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_rsps_ready;
 
-  operand_req_t [NofLsus-1:0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_reqs;
-  logic         [NofLsus-1:0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_reqs_valid;
-  logic         [NofLsus-1:0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_reqs_ready;
-  operand_req_t [NofLsus-1:0][LsuNofRss-1:0]                          lsu_available_results;
-  dest_mask_t   [NofLsus-1:0][LsuNofRss-1:0]                          lsu_res_reqs;
-  logic         [NofLsus-1:0][LsuNofRss-1:0]                          lsu_res_reqs_valid;
-  logic         [NofLsus-1:0][LsuNofRss-1:0]                          lsu_res_reqs_ready;
-  res_rsp_t     [NofLsus-1:0][LsuNofRss-1:0]                          lsu_res_rsps;
-  logic         [NofLsus-1:0][LsuNofRss-1:0]                          lsu_res_rsps_valid;
-  logic         [NofLsus-1:0][LsuNofRss-1:0]                          lsu_res_rsps_ready;
-  operand_t     [NofLsus-1:0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_rsps;
-  logic         [NofLsus-1:0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_rsps_valid;
-  logic         [NofLsus-1:0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_rsps_ready;
+  operand_req_t [iomsb(NofLsus):0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_reqs;
+  logic         [iomsb(NofLsus):0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_reqs_valid;
+  logic         [iomsb(NofLsus):0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_reqs_ready;
+  operand_req_t [iomsb(NofLsus):0][iomsb(LsuNofRss):0]                          lsu_available_results;
+  dest_mask_t   [iomsb(NofLsus):0][iomsb(LsuNofRss):0]                          lsu_res_reqs;
+  logic         [iomsb(NofLsus):0][iomsb(LsuNofRss):0]                          lsu_res_reqs_valid;
+  logic         [iomsb(NofLsus):0][iomsb(LsuNofRss):0]                          lsu_res_reqs_ready;
+  res_rsp_t     [iomsb(NofLsus):0][iomsb(LsuNofRss):0]                          lsu_res_rsps;
+  logic         [iomsb(NofLsus):0][iomsb(LsuNofRss):0]                          lsu_res_rsps_valid;
+  logic         [iomsb(NofLsus):0][iomsb(LsuNofRss):0]                          lsu_res_rsps_ready;
+  operand_t     [iomsb(NofLsus):0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_rsps;
+  logic         [iomsb(NofLsus):0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_rsps_valid;
+  logic         [iomsb(NofLsus):0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_rsps_ready;
 
-  operand_req_t [NofAluLsus-1:0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs;
-  logic         [NofAluLsus-1:0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs_valid;
-  logic         [NofAluLsus-1:0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs_ready;
-  operand_req_t [NofAluLsus-1:0][AluLsuNofRss-1:0]                             alu_lsu_available_results;
-  dest_mask_t   [NofAluLsus-1:0][AluLsuNofRss-1:0]                             alu_lsu_res_reqs;
-  logic         [NofAluLsus-1:0][AluLsuNofRss-1:0]                             alu_lsu_res_reqs_valid;
-  logic         [NofAluLsus-1:0][AluLsuNofRss-1:0]                             alu_lsu_res_reqs_ready;
-  res_rsp_t     [NofAluLsus-1:0][AluLsuNofRss-1:0]                             alu_lsu_res_rsps;
-  logic         [NofAluLsus-1:0][AluLsuNofRss-1:0]                             alu_lsu_res_rsps_valid;
-  logic         [NofAluLsus-1:0][AluLsuNofRss-1:0]                             alu_lsu_res_rsps_ready;
-  operand_t     [NofAluLsus-1:0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_rsps;
-  logic         [NofAluLsus-1:0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_rsps_valid;
-  logic         [NofAluLsus-1:0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_rsps_ready;
+  operand_req_t [iomsb(NofAluLsus):0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs;
+  logic         [iomsb(NofAluLsus):0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs_valid;
+  logic         [iomsb(NofAluLsus):0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs_ready;
+  operand_req_t [iomsb(NofAluLsus):0][iomsb(AluLsuNofRss):0]                             alu_lsu_available_results;
+  dest_mask_t   [iomsb(NofAluLsus):0][iomsb(AluLsuNofRss):0]                             alu_lsu_res_reqs;
+  logic         [iomsb(NofAluLsus):0][iomsb(AluLsuNofRss):0]                             alu_lsu_res_reqs_valid;
+  logic         [iomsb(NofAluLsus):0][iomsb(AluLsuNofRss):0]                             alu_lsu_res_reqs_ready;
+  res_rsp_t     [iomsb(NofAluLsus):0][iomsb(AluLsuNofRss):0]                             alu_lsu_res_rsps;
+  logic         [iomsb(NofAluLsus):0][iomsb(AluLsuNofRss):0]                             alu_lsu_res_rsps_valid;
+  logic         [iomsb(NofAluLsus):0][iomsb(AluLsuNofRss):0]                             alu_lsu_res_rsps_ready;
+  operand_t     [iomsb(NofAluLsus):0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_rsps;
+  logic         [iomsb(NofAluLsus):0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_rsps_valid;
+  logic         [iomsb(NofAluLsus):0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_rsps_ready;
 
-  operand_req_t [NofFpus-1:0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_reqs;
-  logic         [NofFpus-1:0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_reqs_valid;
-  logic         [NofFpus-1:0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_reqs_ready;
-  operand_req_t [NofFpus-1:0][FpuNofRss-1:0]                          fpu_available_results;
-  dest_mask_t   [NofFpus-1:0][FpuNofRss-1:0]                          fpu_res_reqs;
-  logic         [NofFpus-1:0][FpuNofRss-1:0]                          fpu_res_reqs_valid;
-  logic         [NofFpus-1:0][FpuNofRss-1:0]                          fpu_res_reqs_ready;
-  res_rsp_t     [NofFpus-1:0][FpuNofRss-1:0]                          fpu_res_rsps;
-  logic         [NofFpus-1:0][FpuNofRss-1:0]                          fpu_res_rsps_valid;
-  logic         [NofFpus-1:0][FpuNofRss-1:0]                          fpu_res_rsps_ready;
-  operand_t     [NofFpus-1:0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_rsps;
-  logic         [NofFpus-1:0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_rsps_valid;
-  logic         [NofFpus-1:0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_rsps_ready;
+  operand_req_t [iomsb(NofFpus):0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_reqs;
+  logic         [iomsb(NofFpus):0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_reqs_valid;
+  logic         [iomsb(NofFpus):0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_reqs_ready;
+  operand_req_t [iomsb(NofFpus):0][iomsb(FpuNofRss):0]                          fpu_available_results;
+  dest_mask_t   [iomsb(NofFpus):0][iomsb(FpuNofRss):0]                          fpu_res_reqs;
+  logic         [iomsb(NofFpus):0][iomsb(FpuNofRss):0]                          fpu_res_reqs_valid;
+  logic         [iomsb(NofFpus):0][iomsb(FpuNofRss):0]                          fpu_res_reqs_ready;
+  res_rsp_t     [iomsb(NofFpus):0][iomsb(FpuNofRss):0]                          fpu_res_rsps;
+  logic         [iomsb(NofFpus):0][iomsb(FpuNofRss):0]                          fpu_res_rsps_valid;
+  logic         [iomsb(NofFpus):0][iomsb(FpuNofRss):0]                          fpu_res_rsps_ready;
+  operand_t     [iomsb(NofFpus):0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_rsps;
+  logic         [iomsb(NofFpus):0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_rsps_valid;
+  logic         [iomsb(NofFpus):0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_rsps_ready;
 
   operand_req_t [NofOperandIfs-1:0] op_reqs;
   logic         [NofOperandIfs-1:0] op_reqs_valid;
@@ -491,6 +491,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
       alu_lsu_res_reqs       = '0;
       alu_lsu_res_reqs_valid = '0;
       fpu_res_reqs       = '0;
+
+      available_results = '0;
 
       res_rsps           = '0;
       res_rsps_valid     = '0;
@@ -692,11 +694,11 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     instr_tag_t  tag;
   } alu_result_and_tag_t;
 
-  alu_result_and_tag_t [NofAlus-1:0] alu_wbs_result_and_tag;
-  logic                [NofAlus-1:0] alu_wbs_result_valid;
-  logic                [NofAlus-1:0] alu_wbs_result_ready;
+  alu_result_and_tag_t [iomsb(NofAlus):0] alu_wbs_result_and_tag;
+  logic                [iomsb(NofAlus):0] alu_wbs_result_valid;
+  logic                [iomsb(NofAlus):0] alu_wbs_result_ready;
 
-  logic [NofAlus-1:0] alu_loop_finish;
+  logic [iomsb(NofAlus):0] alu_loop_finish;
 
   for (genvar alu = 0; alu < NofAlus; alu++) begin : gen_alus
     // Helper signals to merge the result and tag
@@ -875,20 +877,32 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // The stream_arbiter has a feed through for 1 input so no special handling for disabled FREP
   // is required.
   alu_result_and_tag_t alu_wb_result_and_tag_out;
-  stream_arbiter #(
-    .DATA_T (alu_result_and_tag_t),
-    .N_INP  (NofAlus),
-    .ARBITER("prio")
-  ) i_alu_wb_arbiter (
-    .clk_i,
-    .rst_ni     (~rst_i),
-    .inp_data_i (alu_wbs_result_and_tag),
-    .inp_valid_i(alu_wbs_result_valid),
-    .inp_ready_o(alu_wbs_result_ready),
-    .oup_data_o (alu_wb_result_and_tag_out),
-    .oup_valid_o(alu_wb_result_valid_o),
-    .oup_ready_i(alu_wb_result_ready_i)
-  );
+
+  generate
+    if (NofAlus > 0) begin: gen_alu_wb_arbiter
+      stream_arbiter #(
+        .DATA_T (alu_result_and_tag_t),
+        .N_INP  (NofAlus),
+        .ARBITER("prio")
+      ) i_alu_wb_arbiter (
+        .clk_i,
+        .rst_ni     (~rst_i),
+        .inp_data_i (alu_wbs_result_and_tag),
+        .inp_valid_i(alu_wbs_result_valid),
+        .inp_ready_o(alu_wbs_result_ready),
+        .oup_data_o (alu_wb_result_and_tag_out),
+        .oup_valid_o(alu_wb_result_valid_o),
+        .oup_ready_i(alu_wb_result_ready_i)
+      );
+    end else begin: gen_no_alu
+      assign alu_wbs_result_and_tag = '0;
+      assign alu_wbs_result_valid = '0;
+      assign alu_wbs_result_ready = '0;
+      assign alu_retire_trace_o = '{default: '0};
+      assign alu_wb_result_and_tag_out = '0;
+      assign alu_loop_finish = 1'b1;
+    end
+  endgenerate
 
   assign alu_wb_result_o     = alu_wb_result_and_tag_out.result;
   assign alu_wb_result_tag_o = alu_wb_result_and_tag_out.tag;
@@ -904,13 +918,13 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     instr_tag_t  tag;
   } lsu_result_and_tag_t;
 
-  logic                [NofLsus-1:0] lsu_empty;
-  logic                [NofLsus-1:0] lsu_addr_misaligned;
-  lsu_result_and_tag_t [NofLsus-1:0] lsu_wbs_result_and_tag;
-  logic                [NofLsus-1:0] lsu_wbs_result_valid;
-  logic                [NofLsus-1:0] lsu_wbs_result_ready;
+  logic                [iomsb(NofLsus):0] lsu_empty;
+  logic                [iomsb(NofLsus):0] lsu_addr_misaligned;
+  lsu_result_and_tag_t [iomsb(NofLsus):0] lsu_wbs_result_and_tag;
+  logic                [iomsb(NofLsus):0] lsu_wbs_result_valid;
+  logic                [iomsb(NofLsus):0] lsu_wbs_result_ready;
 
-  logic [NofLsus-1:0] lsu_loop_finish;
+  logic [iomsb(NofLsus):0] lsu_loop_finish;
 
   for (genvar lsu = 0; lsu < NofLsus; lsu++) begin : gen_lsus
     // Helper signals to merge the result and tag
@@ -1083,20 +1097,34 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // The stream_arbiter has a feed through for 1 input so no special handling for disabled FREP
   // is required.
   lsu_result_and_tag_t lsu_wb_result_and_tag_out;
-  stream_arbiter #(
-    .DATA_T (lsu_result_and_tag_t),
-    .N_INP  (NofLsus),
-    .ARBITER("prio")
-  ) i_lsu_wb_arbiter (
-    .clk_i,
-    .rst_ni     (~rst_i),
-    .inp_data_i (lsu_wbs_result_and_tag),
-    .inp_valid_i(lsu_wbs_result_valid),
-    .inp_ready_o(lsu_wbs_result_ready),
-    .oup_data_o (lsu_wb_result_and_tag_out),
-    .oup_valid_o(lsu_wb_result_valid_o),
-    .oup_ready_i(lsu_wb_result_ready_i)
-  );
+
+  generate
+    if (NofLsus > 0) begin: gen_lsu_wb_arbiter
+      stream_arbiter #(
+        .DATA_T (lsu_result_and_tag_t),
+        .N_INP  (NofLsus),
+        .ARBITER("prio")
+      ) i_lsu_wb_arbiter (
+        .clk_i,
+        .rst_ni     (~rst_i),
+        .inp_data_i (lsu_wbs_result_and_tag),
+        .inp_valid_i(lsu_wbs_result_valid),
+        .inp_ready_o(lsu_wbs_result_ready),
+        .oup_data_o (lsu_wb_result_and_tag_out),
+        .oup_valid_o(lsu_wb_result_valid_o),
+        .oup_ready_i(lsu_wb_result_ready_i)
+      );
+    end else begin: gen_no_lsu
+      assign lsu_wbs_result_and_tag = '0;
+      assign lsu_wbs_result_valid = '0;
+      assign lsu_wbs_result_ready = '0;
+      assign lsu_empty = '0;
+      assign lsu_retire_trace_o = '{default: '0};
+      assign lsu_addr_misaligned = '0;
+      assign lsu_wb_result_and_tag_out = '0;
+      assign lsu_loop_finish = 1'b1;
+    end
+  endgenerate
 
   assign lsu_wb_result_o     = lsu_wb_result_and_tag_out.result;
   assign lsu_wb_result_tag_o = lsu_wb_result_and_tag_out.tag;
@@ -1118,13 +1146,13 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     instr_tag_t  tag;
   } alu_lsu_result_and_tag_t;
 
-  alu_lsu_result_and_tag_t  [NofAluLsus-1:0] alu_lsu_wbs_result_and_tag;
-  logic                     [NofAluLsus-1:0] alu_lsu_wbs_result_valid;
-  logic                     [NofAluLsus-1:0] alu_lsu_wbs_result_ready;
-  logic                     [NofAluLsus-1:0] alu_lsu_empty;
-  logic                     [NofAluLsus-1:0] alu_lsu_addr_misaligned;
+  alu_lsu_result_and_tag_t  [iomsb(NofAluLsus):0] alu_lsu_wbs_result_and_tag;
+  logic                     [iomsb(NofAluLsus):0] alu_lsu_wbs_result_valid;
+  logic                     [iomsb(NofAluLsus):0] alu_lsu_wbs_result_ready;
+  logic                     [iomsb(NofAluLsus):0] alu_lsu_empty;
+  logic                     [iomsb(NofAluLsus):0] alu_lsu_addr_misaligned;
 
-  logic [NofAluLsus-1:0] alu_lsu_loop_finish;
+  logic [iomsb(NofAluLsus):0] alu_lsu_loop_finish;
 
   for (genvar alu_lsu = 0; alu_lsu < NofAluLsus; alu_lsu++) begin : gen_alu_lsus
     // Helper signals to merge the result and tag
@@ -1322,20 +1350,34 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // The stream_arbiter has a feed through for 1 input so no special handling for disabled FREP
   // is required.
   alu_lsu_result_and_tag_t alu_lsu_wb_result_and_tag_out;
-  stream_arbiter #(
-    .DATA_T (alu_lsu_result_and_tag_t),
-    .N_INP  (NofAluLsus),
-    .ARBITER("prio")
-  ) i_alu_lsu_wb_arbiter (
-    .clk_i,
-    .rst_ni     (~rst_i),
-    .inp_data_i (alu_lsu_wbs_result_and_tag),
-    .inp_valid_i(alu_lsu_wbs_result_valid),
-    .inp_ready_o(alu_lsu_wbs_result_ready),
-    .oup_data_o (alu_lsu_wb_result_and_tag_out),
-    .oup_valid_o(alu_lsu_wb_result_valid_o),
-    .oup_ready_i(alu_lsu_wb_result_ready_i)
-  );
+
+  generate
+    if (NofAluLsus > 0) begin: gen_alu_lsu_wb_arbiter
+      stream_arbiter #(
+        .DATA_T (alu_lsu_result_and_tag_t),
+        .N_INP  (NofAluLsus),
+        .ARBITER("prio")
+      ) i_alu_lsu_wb_arbiter (
+        .clk_i,
+        .rst_ni     (~rst_i),
+        .inp_data_i (alu_lsu_wbs_result_and_tag),
+        .inp_valid_i(alu_lsu_wbs_result_valid),
+        .inp_ready_o(alu_lsu_wbs_result_ready),
+        .oup_data_o (alu_lsu_wb_result_and_tag_out),
+        .oup_valid_o(alu_lsu_wb_result_valid_o),
+        .oup_ready_i(alu_lsu_wb_result_ready_i)
+      );
+    end else begin: gen_no_alu_lsu
+      assign alu_lsu_wbs_result_and_tag = '0;
+      assign alu_lsu_wbs_result_valid = '0;
+      assign alu_lsu_wbs_result_ready = '0;
+      assign alu_lsu_empty = '0;
+      assign alu_lsu_retire_trace_o = '{default: '0};
+      assign alu_lsu_addr_misaligned = '0;
+      assign alu_lsu_wb_result_and_tag_out = '0;
+      assign alu_lsu_loop_finish = 1'b1;
+    end
+  endgenerate
 
   assign alu_lsu_wb_result_o     = alu_lsu_wb_result_and_tag_out.result;
   assign alu_lsu_wb_result_tag_o = alu_lsu_wb_result_and_tag_out.tag;

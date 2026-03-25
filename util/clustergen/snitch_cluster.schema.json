@@ -559,13 +559,13 @@
                                             "type": "number",
                                             "title": "Number of LSUs",
                                             "description": "Number of ALU+LSUs per Schnizo core. If Xfrep or UseAluLsu is disabled all configured FUs are still instantiated but only one is used.",
-                                            "default": 1
+                                            "default": 0
                                         },
                                         "num_alu_lsu_slots": {
                                             "type": "number",
                                             "title": "Number of Slots per LSU",
                                             "description": "Number of Slots to capture instructions per ALU+LSU. Only relevant if Xfrep and UseAluLsu is enabled.",
-                                            "default": 1
+                                            "default": 0
                                         },
                                         "num_fpus": {
                                             "type": "number",

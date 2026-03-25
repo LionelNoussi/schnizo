@@ -5,7 +5,7 @@
 // pragma translate_off
 
 // Schnizo core tracer.
-module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
+module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   parameter int unsigned NofAlus    = 3,
   parameter int unsigned NofLsus    = 1,
   parameter int unsigned NofAluLsus    = 1,
@@ -23,20 +23,20 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   input  int unsigned dispatch_rs_id,
   input  schnizo_core_trace_t     core_trace,
   input  schnizo_dispatch_trace_t dispatch_trace,
-  input  issue_alu_trace_t        alu_trace [NofAlus],
-  input  issue_lsu_trace_t        lsu_trace [NofLsus],
-  input  issue_alu_lsu_trace_t    alu_lsu_trace [NofAluLsus],
-  input  issue_fpu_trace_t        fpu_trace [NofFpus],
-  input  issue_alu_trace_t        rss_alu_traces [NofAlus][AluNofRss],
-  input  issue_lsu_trace_t        rss_lsu_traces [NofLsus][LsuNofRss],
-  input  issue_alu_lsu_trace_t    rss_alu_lsu_traces [NofAluLsus][AluLsuNofRss],
-  input  issue_fpu_trace_t        rss_fpu_traces [NofFpus][FpuNofRss],
+  input  issue_alu_trace_t        alu_trace [0:iomsb(NofAlus)],
+  input  issue_lsu_trace_t        lsu_trace [0:iomsb(NofLsus)],
+  input  issue_alu_lsu_trace_t    alu_lsu_trace [0:iomsb(NofAluLsus)],
+  input  issue_fpu_trace_t        fpu_trace [0:iomsb(NofFpus)],
+  input  issue_alu_trace_t        rss_alu_traces [0:iomsb(NofAlus)][0:iomsb(AluNofRss)],
+  input  issue_lsu_trace_t        rss_lsu_traces [0:iomsb(NofLsus)][0:iomsb(LsuNofRss)],
+  input  issue_alu_lsu_trace_t    rss_alu_lsu_traces [0:iomsb(NofAluLsus)][0:iomsb(AluLsuNofRss)],
+  input  issue_fpu_trace_t        rss_fpu_traces [0:iomsb(NofFpus)][0:iomsb(FpuNofRss)],
   input  issue_csr_trace_t        csr_trace,
   input  issue_acc_trace_t        acc_trace,
-  input  retire_fu_trace_t        alu_retirements [NofAlus],
-  input  retire_fu_trace_t        lsu_retirements [NofLsus],
-  input  retire_fu_trace_t        alu_lsu_retirements [NofAluLsus],
-  input  retire_fu_trace_t        fpu_retirements [NofFpus],
+  input  retire_fu_trace_t        alu_retirements [0:iomsb(NofAlus)],
+  input  retire_fu_trace_t        lsu_retirements [0:iomsb(NofLsus)],
+  input  retire_fu_trace_t        alu_lsu_retirements [0:iomsb(NofAluLsus)],
+  input  retire_fu_trace_t        fpu_retirements [0:iomsb(NofFpus)],
   input  retire_fu_trace_t        csr_retirement,
   input  retire_fu_trace_t        acc_retirement,
   input  wb_fu_trace_t            alu_wb_trace,
@@ -45,14 +45,14 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   input  wb_fu_trace_t            fpu_wb_trace,
   input  wb_fu_trace_t            csr_wb_trace,
   input  wb_fu_trace_t            acc_wb_trace,
-  input  resreq_trace_t           alu_resreq_traces [NofAlus][AluNofRss][NofOperandIfs],
-  input  resreq_trace_t           lsu_resreq_traces [NofLsus][LsuNofRss][NofOperandIfs],
-  input  resreq_trace_t           alu_lsu_resreq_traces [NofAluLsus][AluLsuNofRss][NofOperandIfs],
-  input  resreq_trace_t           fpu_resreq_traces [NofFpus][FpuNofRss][NofOperandIfs],
-  input  rescap_trace_t           alu_rescap_traces [NofAlus][AluNofRss],
-  input  rescap_trace_t           lsu_rescap_traces [NofLsus][LsuNofRss],
-  input  rescap_trace_t           alu_lsu_rescap_traces [NofAluLsus][AluLsuNofRss],
-  input  rescap_trace_t           fpu_rescap_traces [NofFpus][FpuNofRss]
+  input  resreq_trace_t           alu_resreq_traces [0:iomsb(NofAlus)][0:iomsb(AluNofRss)][NofOperandIfs],
+  input  resreq_trace_t           lsu_resreq_traces [0:iomsb(NofLsus)][0:iomsb(LsuNofRss)][NofOperandIfs],
+  input  resreq_trace_t           alu_lsu_resreq_traces [0:iomsb(NofAluLsus)][0:iomsb(AluLsuNofRss)][NofOperandIfs],
+  input  resreq_trace_t           fpu_resreq_traces [0:iomsb(NofFpus)][0:iomsb(FpuNofRss)][NofOperandIfs],
+  input  rescap_trace_t           alu_rescap_traces [0:iomsb(NofAlus)][0:iomsb(AluNofRss)],
+  input  rescap_trace_t           lsu_rescap_traces [0:iomsb(NofLsus)][0:iomsb(LsuNofRss)],
+  input  rescap_trace_t           alu_lsu_rescap_traces [0:iomsb(NofAluLsus)][0:iomsb(AluLsuNofRss)],
+  input  rescap_trace_t           fpu_rescap_traces [0:iomsb(NofFpus)][0:iomsb(FpuNofRss)]
 );
 
   // The tracer first extracts all signals of interest and groups them by functional unit.

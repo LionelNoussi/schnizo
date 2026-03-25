@@ -24,7 +24,7 @@
 //   have committed before the core gets stopped.
 //
 // Use automatic retiming options in the synthesis tool to optimize the fpnew design.
-module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
+module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   /// Boot address of core.
   parameter logic [31:0] BootAddr  = 32'h0000_1000,
   /// Physical Address width of the core.
@@ -118,8 +118,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   /// TCDM Data Interface
   /// Write transactions do not return data on the `P Channel`
   /// Transactions need to be handled strictly in-order.
-  output dreq_t [NofLsus+NofAluLsus-1:0] data_req_o,
-  input  drsp_t [NofLsus+NofAluLsus-1:0] data_rsp_i,
+  output dreq_t [iomsb(NofLsus+NofAluLsus):0] data_req_o,
+  input  drsp_t [iomsb(NofLsus+NofAluLsus):0] data_rsp_i,
   /// Core events for performance counters
   output snitch_pkg::core_events_t core_events_o,
   /// Cluster HW barrier
@@ -589,24 +589,24 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
 
   // Create the dispatch request
   disp_req_t dispatch_req;
-  logic      [NofAlus-1:0] alu_disp_req_valid;
-  logic      [NofAlus-1:0] alu_disp_req_ready;
-  disp_rsp_t [NofAlus-1:0] alu_disp_rsp;
-  logic      [NofAlus-1:0] alu_rs_full;
-  logic      [NofLsus-1:0] lsu_disp_req_valid;
-  logic      [NofLsus-1:0] lsu_disp_req_ready;
-  disp_rsp_t [NofLsus-1:0] lsu_disp_rsp;
-  logic      [NofLsus-1:0] lsu_rs_full;
-  logic      [NofAluLsus-1:0] alu_lsu_disp_req_valid;
-  logic      [NofAluLsus-1:0] alu_lsu_disp_req_ready;
-  disp_rsp_t [NofAluLsus-1:0] alu_lsu_disp_rsp;
-  logic      [NofAluLsus-1:0] alu_lsu_rs_full;
+  logic      [iomsb(NofAlus):0] alu_disp_req_valid;
+  logic      [iomsb(NofAlus):0] alu_disp_req_ready;
+  disp_rsp_t [iomsb(NofAlus):0] alu_disp_rsp;
+  logic      [iomsb(NofAlus):0] alu_rs_full;
+  logic      [iomsb(NofLsus):0] lsu_disp_req_valid;
+  logic      [iomsb(NofLsus):0] lsu_disp_req_ready;
+  disp_rsp_t [iomsb(NofLsus):0] lsu_disp_rsp;
+  logic      [iomsb(NofLsus):0] lsu_rs_full;
+  logic      [iomsb(NofAluLsus):0] alu_lsu_disp_req_valid;
+  logic      [iomsb(NofAluLsus):0] alu_lsu_disp_req_ready;
+  disp_rsp_t [iomsb(NofAluLsus):0] alu_lsu_disp_rsp;
+  logic      [iomsb(NofAluLsus):0] alu_lsu_rs_full;
   logic                    csr_disp_req_valid;
   logic                    csr_disp_req_ready;
-  logic      [NofFpus-1:0] fpu_disp_req_valid;
-  logic      [NofFpus-1:0] fpu_disp_req_ready;
-  disp_rsp_t [NofFpus-1:0] fpu_disp_rsp;
-  logic      [NofFpus-1:0] fpu_rs_full;
+  logic      [iomsb(NofFpus):0] fpu_disp_req_valid;
+  logic      [iomsb(NofFpus):0] fpu_disp_req_ready;
+  disp_rsp_t [iomsb(NofFpus):0] fpu_disp_rsp;
+  logic      [iomsb(NofFpus):0] fpu_rs_full;
 
   schnizo_dispatcher #(
     .RegAddrSize(RegAddrSize),
@@ -690,26 +690,50 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   logic            fpu_result_ready;
   instr_tag_t      fpu_result_tag;
 
-  dreq_t [NofLsus-1:0] lsu_dreq;
-  dreq_t [NofAluLsus-1:0] alu_lsu_dreq;
-  assign data_req_o[NofLsus-1:0]                  = lsu_dreq;
-  assign data_req_o[NofLsus+NofAluLsus-1:NofLsus] = alu_lsu_dreq;
+  dreq_t [iomsb(NofLsus):0] lsu_dreq;
+  dreq_t [iomsb(NofAluLsus):0] alu_lsu_dreq;
 
-  drsp_t [NofLsus-1:0] lsu_drsp;
-  drsp_t [NofAluLsus-1:0] alu_lsu_drsp;
-  assign lsu_drsp = data_rsp_i[NofLsus-1:0];
-  assign alu_lsu_drsp = data_rsp_i[NofLsus+NofAluLsus-1:NofLsus];
+  generate
+    if (NofLsus > 0) begin: gen_lsu_dreq_o_connect
+      assign data_req_o[NofLsus-1:0]                  = lsu_dreq;
+    end
+
+    if (NofAluLsus > 0) begin: gen_alu_lsu_dreq_o_connect
+      assign data_req_o[NofAluLsus + NofLsus - 1:NofLsus] = alu_lsu_dreq;
+    end
+
+    if ((NofLsus == 0) & (NofAluLsus == 0)) begin: gen_no_dreq_o_connect
+      assign data_req_o = '0;
+    end
+  endgenerate
+
+  drsp_t [iomsb(NofLsus):0] lsu_drsp;
+  drsp_t [iomsb(NofAluLsus):0] alu_lsu_drsp;
+
+  generate
+    if (NofLsus > 0) begin: gen_lsu_drsp_i_connect
+      assign lsu_drsp = data_rsp_i[NofLsus-1:0];
+    end else begin: gen_no_lsu_drsp_i_connect
+      assign lsu_drsp = '0;
+    end
+
+    if (NofAluLsus > 0) begin: gen_alu_lsu_drsp_i_connect
+      assign alu_lsu_drsp = data_rsp_i[NofLsus+NofAluLsus-1:NofLsus];
+    end else begin: gen_no_alu_lsu_drsp_i_connect
+      assign alu_lsu_drsp = '0;
+    end
+  endgenerate
 
   // Trace signals
   // pragma translate_off
-  issue_alu_trace_t     alu_trace           [NofAlus];
-  issue_lsu_trace_t     lsu_trace           [NofLsus];
-  issue_alu_lsu_trace_t alu_lsu_trace       [NofAluLsus];
-  issue_fpu_trace_t     fpu_trace           [NofFpus];
-  retire_fu_trace_t     alu_retirements     [NofAlus];
-  retire_fu_trace_t     lsu_retirements     [NofLsus];
-  retire_fu_trace_t     alu_lsu_retirements [NofAluLsus];
-  retire_fu_trace_t     fpu_retirements     [NofFpus];
+  issue_alu_trace_t     alu_trace           [0:iomsb(NofAlus)];
+  issue_lsu_trace_t     lsu_trace           [0:iomsb(NofLsus)];
+  issue_alu_lsu_trace_t alu_lsu_trace       [0:iomsb(NofAluLsus)];
+  issue_fpu_trace_t     fpu_trace           [0:iomsb(NofFpus)];
+  retire_fu_trace_t     alu_retirements     [0:iomsb(NofAlus)];
+  retire_fu_trace_t     lsu_retirements     [0:iomsb(NofLsus)];
+  retire_fu_trace_t     alu_lsu_retirements [0:iomsb(NofAluLsus)];
+  retire_fu_trace_t     fpu_retirements     [0:iomsb(NofFpus)];
   // pragma translate_on
 
   schnizo_fu_stage #(
@@ -1092,10 +1116,10 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   issue_acc_trace_t acc_trace;
 
   // Traces for RSS issues
-  issue_alu_trace_t rss_alu_traces [NofAlus][AluNofRss];
-  issue_lsu_trace_t rss_lsu_traces [NofLsus][LsuNofRss];
-  issue_alu_lsu_trace_t rss_alu_lsu_traces [NofAluLsus][AluLsuNofRss];
-  issue_fpu_trace_t rss_fpu_traces [NofFpus][FpuNofRss];
+  issue_alu_trace_t rss_alu_traces [0:iomsb(NofAlus)][0:iomsb(AluNofRss)];
+  issue_lsu_trace_t rss_lsu_traces [0:iomsb(NofLsus)][0:iomsb(LsuNofRss)];
+  issue_alu_lsu_trace_t rss_alu_lsu_traces [0:iomsb(NofAluLsus)][0:iomsb(AluLsuNofRss)];
+  issue_fpu_trace_t rss_fpu_traces [0:iomsb(NofFpus)][0:iomsb(FpuNofRss)];
 
   // Traces for retirements
   retire_fu_trace_t csr_retirement;
@@ -1108,16 +1132,16 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   wb_fu_trace_t csr_wb_trace;
   wb_fu_trace_t acc_wb_trace;
   // Traces for result requests (each RSS has one signal per request crossbar output)
-  resreq_trace_t alu_resreq_traces [NofAlus][AluNofRss][NofOperandIfs];
-  resreq_trace_t lsu_resreq_traces [NofLsus][LsuNofRss][NofOperandIfs];
-  resreq_trace_t alu_lsu_resreq_traces [NofAluLsus][AluLsuNofRss][NofOperandIfs];
-  resreq_trace_t fpu_resreq_traces [NofFpus][FpuNofRss][NofOperandIfs];
+  resreq_trace_t alu_resreq_traces [0:iomsb(NofAlus)][0:iomsb(AluNofRss)][0:iomsb(NofOperandIfs)];
+  resreq_trace_t lsu_resreq_traces [0:iomsb(NofLsus)][0:iomsb(LsuNofRss)][0:iomsb(NofOperandIfs)];
+  resreq_trace_t alu_lsu_resreq_traces [0:iomsb(NofAluLsus)][0:iomsb(AluLsuNofRss)][0:iomsb(NofOperandIfs)];
+  resreq_trace_t fpu_resreq_traces [0:iomsb(NofFpus)][0:iomsb(FpuNofRss)][0:iomsb(NofOperandIfs)];
 
   // Traces for result captures (each RSS has one signal)
-  rescap_trace_t alu_rescap_traces [NofAlus][AluNofRss];
-  rescap_trace_t lsu_rescap_traces [NofLsus][LsuNofRss];
-  rescap_trace_t alu_lsu_rescap_traces [NofAluLsus][AluLsuNofRss];
-  rescap_trace_t fpu_rescap_traces [NofFpus][FpuNofRss];
+  rescap_trace_t alu_rescap_traces [0:iomsb(NofAlus)][0:iomsb(AluNofRss)];
+  rescap_trace_t lsu_rescap_traces [0:iomsb(NofLsus)][0:iomsb(LsuNofRss)];
+  rescap_trace_t alu_lsu_rescap_traces [0:iomsb(NofAluLsus)][0:iomsb(AluLsuNofRss)];
+  rescap_trace_t fpu_rescap_traces [0:iomsb(NofFpus)][0:iomsb(FpuNofRss)];
 
   assign core_trace = '{
     priv_level: priv_lvl,
