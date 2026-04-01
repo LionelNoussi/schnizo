@@ -2,6 +2,7 @@
 /power
 /results
 /runs
+/verifications
 /pls
 /power.yaml
 /hw
@@ -12,3 +13,4 @@ results_*
 my_session.log
 data/*/
 /plots
+/synth

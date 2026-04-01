@@ -7,6 +7,7 @@ from snitch.util.experiments.SimResults import SimRegion
 from snitch.util.experiments import experiment_utils as eu
 from snitch.util.experiments.common import MK_DIR
 from pathlib import Path
+import os
 
 
 class FrepExperimentManager(eu.ExperimentManager):
@@ -29,52 +30,41 @@ class FrepExperimentManager(eu.ExperimentManager):
     
     def derive_hw_cfg(self, experiment):
         return self.dir / Path(f"configs/{experiment['hw']}.json")
-    
+
 
 def gen_experiments():
+    schnizo_dir = os.path.expanduser("/scratch/schnizo")
+    mode_to_funcptr = {
+        'scalar': '_baseline',
+        'superscalar': '_schnizo',
+        'unrolled': '_unrolled_schnizo',
+        'naive': '_naive'
+    }
     experiments = []
-    for hw in ['sz_baseline', 'sz_opt']:
-        for mode in ['scalar', 'superscalar']:
-            for n in [512, 1024, 2048]:
+    for hw in ['sz_baseline', 'sz_alu_lsu']:
+        for mode in ['scalar', 'superscalar', 'unrolled']:
+            for n in [2048]:
                 for app in ['sz_axpy', 'sz_dot']:
-                    experiments.extend([
-                        {
-                            'app': app,
-                            'roi': Path(f"roi/{app}_roi.json.tpl"),
-                            'mode': mode,
-                            'data_cfg': {
-                                'n': n,
-                                'funcptr': f'{app.lstrip("sz_")}_baseline' if mode == 'scalar' else f'{app.lstrip("sz_")}_schnizo',
+                        if (app == 'sz_dot') and (mode == 'unrolled'): continue
+                        verify_script = Path(f"{schnizo_dir}/sw/kernels/blas/{app}/scripts/verify.py")
+                        experiments.extend([
+                            {
+                                'app': app,
+                                'roi': Path(f"roi/{app}_roi.json.tpl"),
+                                'mode': mode,
+                                'data_cfg': {
+                                    'n': n,
+                                    'funcptr': app.lstrip("sz_") + mode_to_funcptr[mode],
+                                },
+                                'hw': hw,
+                                'verify_script': verify_script
                             },
-                            'hw': hw
-                        },
-                    ])
-    return experiments
-
-def gen_single_experiment():
-    experiments = []
-    for hw in ['sz_noAlu']:
-        for mode in ['superscalar']:
-            for n in [64]:
-                for app in ['sz_axpy']:
-                    experiments.extend([
-                        {
-                            'app': app,
-                            'roi': Path(f"roi/{app}_roi.json.tpl"),
-                            'mode': mode,
-                            'data_cfg': {
-                                'n': n,
-                                'funcptr': f'{app.lstrip("sz_")}_baseline' if mode == 'scalar' else f'{app.lstrip("sz_")}_schnizo',
-                            },
-                            'hw': hw
-                        },
-                    ])
+                        ])
     return experiments
 
 
 def main():
-    # experiments = gen_experiments()
-    experiments = gen_single_experiment()
+    experiments = gen_experiments()
 
     manager = FrepExperimentManager(experiments=experiments)
     manager.run()
@@ -87,7 +77,7 @@ def main():
 
     # Export dataframe to CSV file
     df.drop(columns=['results'], inplace=True)
-    df.to_csv('runs/results.csv', index=False)
+    df.to_csv(f'{manager.run_dir}/results.csv', index=False)
 
 
 if __name__ == '__main__':

@@ -148,6 +148,64 @@ static inline void axpy_schnizo(uint32_t n, double a, double *x, double *y,
     snrt_mcycle();
 }
 
+
+static inline void axpy_unrolled_schnizo(uint32_t n, double a, double *x, double *y, double *z) {
+    int core_idx = snrt_cluster_core_idx();
+    int num_cores = snrt_cluster_compute_core_num();
+    
+    // FIX 1: The core offset must account for the unroll factor.
+    // Each core handles a block of 4 elements.
+    int offset = core_idx * 4;
+    
+    // FIX 2: Each loop iteration moves the core ahead by (cores * unroll_factor)
+    int stride = num_cores * 4;
+    int frac = n / stride;
+
+    double *x_addr = &x[offset];
+    double *y_addr = &y[offset];
+    double *z_addr = &z[offset];
+
+    snrt_mcycle();
+    asm volatile(
+        "frep.o  %[n_frep], 19, 0, 0   \n"
+
+        // BLOCK 0
+        "fld     ft0, 0(%[xa])        \n"
+        "fld     ft1, 0(%[ya])        \n"
+        "fmadd.d ft0, %[a], ft0, ft1  \n"
+        "fsd     ft0, 0(%[za])        \n"
+
+        // BLOCK 1
+        "fld     ft0, 8(%[xa])        \n"
+        "fld     ft1, 8(%[ya])        \n"
+        "fmadd.d ft0, %[a], ft0, ft1  \n"
+        "fsd     ft0, 8(%[za])        \n"
+
+        // BLOCK 2
+        "fld     ft0, 16(%[xa])        \n"
+        "fld     ft1, 16(%[ya])        \n"
+        "fmadd.d ft0, %[a], ft0, ft1  \n"
+        "fsd     ft0, 16(%[za])        \n"
+
+        // BLOCK 3
+        "fld     ft0, 24(%[xa])        \n"
+        "fld     ft1, 24(%[ya])        \n"
+        "fmadd.d ft0, %[a], ft0, ft1  \n"
+        "fsd     ft0, 24(%[za])        \n"
+
+        // Pointer updates
+        "add     %[xa], %[xa], %[inc] \n"
+        "add     %[ya], %[ya], %[inc] \n"
+        "add     %[za], %[za], %[inc] \n"
+        : [ xa ] "+r"(x_addr), [ ya ] "+r"(y_addr), [ za ] "+r"(z_addr)
+        : [ n_frep ] "r"(frac - 1), [ a ] "f"(a),
+          [ inc ] "r"(stride * sizeof(double))
+        : "ft0", "ft1", "memory" 
+    );
+    snrt_mcycle();
+}
+
+
 static inline void axpy_job(axpy_args_t *args) {
     snrt_mcycle();
     uint32_t frac, offset, size;

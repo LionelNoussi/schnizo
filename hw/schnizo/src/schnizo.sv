@@ -61,7 +61,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   parameter int unsigned LsuNofRss  = 2,
   parameter int unsigned AluLsuNofRss = 1,
   parameter int unsigned FpuNofRss  = 4,
-  parameter logic UseAluLsu = 0,
+  parameter logic        UseAluLsu = 0,
   parameter bit          MulInAlu0  = 1'b1,
   /// Response XBAR configuration
   parameter integer unsigned AluNofResRspPorts = 1,

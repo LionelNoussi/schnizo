@@ -121,6 +121,7 @@
         num_lsu_slots: 0,
         num_alu_lsus: 3,
         num_alu_lsu_slots: 64,
+        num_alu_lsu_rsp_ports: 2,
         num_fpus: 1,
         num_fpu_slots: 64,
         use_alu_lsu: 1

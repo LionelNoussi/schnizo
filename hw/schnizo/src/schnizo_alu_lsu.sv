@@ -159,7 +159,9 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   alu_res_val_t alu_result_value;
   alu_instr_tag_t alu_tag;
   logic alu_busy;
+  // pragma translate_off
   issue_alu_trace_t alu_trace;
+  // pragma translate_on
 
   alu_issue_req_t alu_issue_req;
   assign alu_issue_req.fu_data = issue_req_i.fu_data;
@@ -199,7 +201,9 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   data_t lsu_result_value;
   instr_tag_t lsu_tag;
   logic lsu_busy;
+  // pragma translate_off
   issue_lsu_trace_t lsu_trace;
+  // pragma translate_on
 
   lsu_issue_req_t lsu_issue_req;
   assign lsu_issue_req.fu_data = issue_req_i.fu_data;

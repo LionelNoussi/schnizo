@@ -8,6 +8,7 @@
 """
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import subprocess
 from copy import deepcopy
 import json5
 import mako
@@ -34,10 +35,10 @@ except ImportError as e:
     print(f'{e}. Synthesis results will not be available.')
 
 
-ACTIONS = ['sw', 'hw', 'run', 'traces', 'annotate', 'perf', 'roi', 'visual-trace', 'power', 'all',
+ACTIONS = ['sw', 'hw', 'run', 'verify', 'traces', 'annotate', 'perf', 'roi', 'visual-trace', 'power', 'all',
            'elab', 'synth', 'none']
 
-CLEAN_ACTIONS = ['sw', 'hw', 'runs', 'all', 'none']
+CLEAN_ACTIONS = ['sw', 'hw', 'runs', 'verify', 'all', 'none']
 
 
 class ExperimentManager:
@@ -116,7 +117,10 @@ class ExperimentManager:
         return '/'.join([str(val) for val in experiment['axes'].values()])
 
     def derive_elf(self, experiment):
-        return self.dir / 'build' / experiment['name'] / (experiment['app'] + '.elf')
+        if 'app' in experiment:
+            return self.dir / 'build' / experiment['name'] / (experiment['app'] + '.elf')
+        else:
+            return ''
 
     def derive_dir(self, base, experiment):
         return base / experiment['name']
@@ -216,6 +220,13 @@ class ExperimentManager:
             else:
                 print(colored("Nothing to run data to clean", 'blue'))
 
+        # Clean verifications
+        if 'verify' in self.clean_actions or 'all' in self.clean_actions:
+            folder_path = Path('./verifications/')
+            if folder_path.exists() and folder_path.is_dir():
+                shutil.rmtree(folder_path)
+                print(colored(f"Cleaned verifications folder: {folder_path}", 'cyan'))
+
         # LOOP OVER DIFFERENT HARDWARE CONFIGS
         # Since generating the hardware depends on the generated RTL files,
         # the hardware needs to be built sequentially. Also, since the hardware configuration
@@ -293,6 +304,47 @@ class ExperimentManager:
             failed_sims = run.run_simulations(simulations, self.args)
             if failed_sims > 0:
                 sys.exit(failed_sims)
+
+        # Verify experiments (alternative to run)
+        if 'verify' in self.actions or 'all' in self.actions:
+            print(colored('Running verifications...', 'green', attrs=['bold']))
+            
+            def run_verify(exp):
+                app, hw, mode, n = exp['app'], exp['hw'], exp['mode'], exp['data_cfg']['n']
+                v_dir = self.dir / f"verifications/{hw}/{app}/{mode}/{n}"
+                v_dir.mkdir(parents=True, exist_ok=True)
+                
+                cmd = ["python3", str(exp['verify_script']), str(self.derive_hw_bin(exp)), str(exp['elf'])]
+                print(colored('Verify', 'black', attrs=['bold']), colored(f"{hw}/{app}/{mode}/{n}", 'cyan'))
+                
+                # Default to dry-run pass
+                status = 'Passed (Dry)'
+                if not dry_run:
+                    with open(v_dir / "verify.log", 'w') as log:
+                        ret = subprocess.run(cmd, cwd=v_dir, stdout=log, stderr=subprocess.STDOUT).returncode
+                        status = 'Passed' if ret == 0 else 'Failed'
+                        
+                return {'HW': hw, 'App': app, 'Mode': mode, 'N': n, 'Status': status}
+
+            # Run in parallel or sequentially based on -j
+            workers = self.args.n_procs if self.args.n_procs and self.args.n_procs > 1 else 1
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                results = list(executor.map(run_verify, experiments))
+                
+            # Print exact failures
+            failed_tests = [r for r in results if r['Status'] == 'Failed']
+            if failed_tests:
+                print(colored(f"\n{len(failed_tests)} verification(s) failed:", 'red', attrs=['bold']))
+                for ft in failed_tests:
+                    print(colored(f"  - {ft['HW']} / {ft['App']} ({ft['Mode']}, N={ft['N']})", 'red'))
+            else:
+                print(colored("\nAll verifications passed!", 'green', attrs=['bold']))
+
+            # Generate global CSV summary
+            df_verif = pd.DataFrame(results)
+            csv_path = self.dir / "verifications/verification_results.csv"
+            df_verif.to_csv(csv_path, index=False)
+            print(colored(f"Global results saved to: {csv_path}", 'blue'))
 
         # Generate traces
         if 'traces' in self.actions or 'all' in self.actions:

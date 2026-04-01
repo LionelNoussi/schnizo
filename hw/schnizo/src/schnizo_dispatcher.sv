@@ -349,7 +349,8 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
     logic fpu_idx_inc;
     logic alu_idx_reset;
     logic lsu_idx_reset;
-    logic alu_lsu_idx_reset;
+    logic alu_lsu_alu_idx_reset;
+    logic alu_lsu_lsu_idx_reset;
     logic fpu_idx_reset;
 
     // Only select the counters during FREP. Without this the first instruction after LEP would be
