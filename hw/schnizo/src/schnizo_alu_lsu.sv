@@ -103,10 +103,10 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   logic lsu_issued, lsu_completed;
 
   assign alu_issued    = alu_issue_req_valid & alu_issue_req_ready;
-  assign lsu_issued    = lsu_issue_req_valid & lsu_issue_req_ready;
+  assign lsu_issued    = (lsu_issue_req_valid & lsu_issue_req_ready) & ~(issue_req_i.fu_data.fu == schnizo_pkg::STORE);
 
   assign alu_completed = alu_result_valid & alu_result_ready;
-  assign lsu_completed = (lsu_result_valid & lsu_result_ready) | (lsu_issued & (issue_req_i.fu_data.fu == schnizo_pkg::STORE));
+  assign lsu_completed = (lsu_result_valid & lsu_result_ready);
 
   always_comb begin
     alu_inflight_d = alu_inflight_q + alu_issued - alu_completed;

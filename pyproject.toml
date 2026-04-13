@@ -38,6 +38,7 @@ dependencies = [
     "pytablewriter",
     "pytest",
     "pyyaml",
+    "seaborn>=0.13.2",
     "tabulate",
     "termcolor",
     "yamllint",

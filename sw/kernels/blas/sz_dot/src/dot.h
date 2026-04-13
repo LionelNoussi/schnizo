@@ -136,6 +136,59 @@ static inline void dot_schnizo(uint32_t n, double *x, double *y,
     *output = sum1;
 }
 
+
+static inline void dot_AluLsuOpt_schnizo(uint32_t n, double *x, double *y,
+    double *output) {
+    double sum1 = 0;
+    double sum2 = 0;
+    double sum3 = 0;
+    double sum4 = 0;
+
+    int unroll = 4;
+
+    int inc = sizeof(double) * unroll;
+    int n_iter_m1 = (n / unroll) - 1;
+    double *x_addr = &x[0];
+    double *y_addr = &y[0];
+
+    asm volatile(
+    // clang-format off
+    FREP   " %[n_frep], 16, 0, 0         \n"
+    "fld     fa0,  0(%[xa])              \n"
+    "fld     fa1,  0(%[ya])              \n"
+    "addi    x0, x0, 0                   \n"
+    
+    "fld     fa2,  8(%[xa])              \n"
+    "fld     fa3,  8(%[ya])              \n"
+    "addi    x0, x0, 0                   \n"
+    
+    "fld     fa4, 16(%[xa])              \n"
+    "fld     fa5, 16(%[ya])              \n"
+    "addi    %[xa], %[xa], %[inc]        \n"
+    
+    "fld     fa6, -8(%[xa])              \n"
+    "fld     fa7, 24(%[ya])              \n"
+    "addi    %[ya], %[ya], %[inc]        \n"
+
+    "fmadd.d %[sum1], fa0, fa1, %[sum1]  \n"
+    "fmadd.d %[sum2], fa2, fa3, %[sum2]  \n"
+    "fmadd.d %[sum3], fa4, fa5, %[sum3]  \n"
+    "fmadd.d %[sum4], fa6, fa7, %[sum4]  \n"
+    // clang-format on
+    : [ sum1 ] "+f"(sum1), [ sum2 ] "+f"(sum2), [ sum3 ] "+f"(sum3),
+    [ sum4 ] "+f"(sum4), [ xa ] "+r"(x_addr), [ ya ] "+r"(y_addr)
+    : [ n_frep ] "r"(n_iter_m1), [ inc ] "i"(inc)
+    : "fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7");
+
+    // Reduce the 4 streams
+    sum1 += sum2;
+    sum3 += sum4;
+    sum1 += sum3;
+
+    *output = sum1;
+}
+
+
 static inline void dot(uint32_t n, double *x, double *y, double *result,
                        dot_fp_t funcptr) {
     double *local_x, *local_y, *partial_sums;

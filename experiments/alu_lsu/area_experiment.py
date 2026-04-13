@@ -19,83 +19,67 @@ class ExperimentManager(eu.ExperimentManager):
         return eu.derive_axes_from_keys(experiment, keys=['config'])
     
 
-def visualize_synth_results(synth_series):
-    """
-    Parses a pandas Series of nested synthesis dictionaries, ignores failed runs (None),
-    and creates comparative tables and bar charts for key QoR metrics.
-    """
-    parsed_data = []
-    
-    # 1. Parse the Series and handle None (failed experiments)
-    for idx, result in synth_series.items():
-        if result is None or pd.isna(result):
-            print(f"Skipping Experiment {idx}: Failed or None")
+
+def extract_metrics(experiments, results_series, ge_area=0.121):
+    """Parses raw results into a clean DataFrame."""
+    rows = []
+    for exp, res in zip(experiments, results_series):
+        if not isinstance(res, dict): 
             continue
             
-        # Extract key metrics primarily from 'qor_summary'
-        if isinstance(result, dict) and 'qor_summary' in result:
-            qor = result['qor_summary']
-            
-            # Build a flattened dictionary for this experiment
-            parsed_data.append({
-                'Experiment': f'Exp {idx}',
-                'WNS (ns)': qor.get('WNS', 0),
-                'TNS (ns)': qor.get('TNS', 0),
-                'Total Power (mW)': qor.get('TotalPwr', 0),
-                'Leakage Power (mW)': qor.get('LeakPwr', 0),
-                'Std Cell Area': qor.get('StdCellArea', 0),
-                'Congestion (Overflow %)': qor.get('Overflow%', 0),
-                'Utilization %': qor.get('Util', 0)
-            })
+        # Helper to safely dive into the nested dicts
+        get_val = lambda cat, key: res.get(cat, {}).get(key, 0)
+        
+        rows.append({
+            'Config': exp['config'],
+            'KGE': get_val('netlist', 'TotArea') / (ge_area * 1000),
+            'Power': get_val('power', 'Total'),
+            'WNS': get_val('timing', 'WNS'),
+            'TNS': get_val('timing', 'TNS'),
+            'Congestion': get_val('congestion', 'GRC%'),
+            'Gated%': get_val('clock_gating', 'Gated%'),
+        })
+    return pd.DataFrame(rows)
 
-    # Ensure we actually have data to plot
-    if not parsed_data:
-        print("No valid synthesis results found to visualize.")
-        return
-
-    # 2. Create a clean comparison DataFrame
-    df_compare = pd.DataFrame(parsed_data).set_index('Experiment')
-    
-    print("\n" + "="*50)
-    print("Quality of Results (QoR) Comparison Table")
-    print("="*50)
-    print(df_compare) # Use print(df_compare) if not in a Jupyter environment
-
-    # 3. Plotting the critical metrics visually
-    # Select the top 4 metrics that synthesis engineers care most about
-    metrics_to_plot = ['WNS (ns)', 'Std Cell Area', 'Total Power (mW)', 'Congestion (Overflow %)']
-    
-    # Setup subplots based on the metrics we chose
-    fig, axes = plt.subplots(1, len(metrics_to_plot), figsize=(18, 5))
+def visualize_synth_results(df):
+    """Handles the plotting logic."""
     sns.set_theme(style="whitegrid")
     
-    colors = sns.color_palette("pastel")
+    # --- CONFIGURATION AREA ---
+    # To add a metric, just add a tuple: (DataFrame Column, Y-Axis Label, Color Palette)
+    metrics_to_plot = [
+        ('KGE',        'Area (KGE)',       'viridis'),
+        ('Power',      'Power (µW)',       'magma'),
+        ('WNS',        'Worst Slack (ns)', 'coolwarm'),
+    ]
+    # --------------------------
 
-    for ax, metric in zip(axes, metrics_to_plot):
-        if metric in df_compare.columns:
-            # Bar plot for each metric comparing the successful experiments
-            df_compare[metric].plot(kind='bar', ax=ax, color=colors[:len(df_compare)], edgecolor='black')
-            
-            # Formatting the charts
-            ax.set_title(f"{metric} Comparison", fontsize=14, fontweight='bold')
-            ax.set_ylabel(metric, fontsize=12)
-            ax.set_xlabel("")
-            ax.set_xticklabels(ax.get_xticklabels(), rotation=0, fontsize=12)
-            
-            # Add value labels on top of the bars
-            for p in ax.patches:
-                ax.annotate(f"{p.get_height():.3f}", 
-                            (p.get_x() + p.get_width() / 2., p.get_height()), 
-                            ha='center', va='center', 
-                            xytext=(0, 9), textcoords='offset points')
+    num_plots = len(metrics_to_plot)
+    fig, axes = plt.subplots(1, num_plots, figsize=(6 * num_plots, 5))
+    fig.suptitle('Synthesis Comparison: Baseline vs ALU-LSU', fontsize=14, fontweight='bold')
 
-    plt.tight_layout()
+    # Ensure axes is iterable even for 1 plot
+    if num_plots == 1: axes = [axes]
+
+    for ax, (col, label, palette) in zip(axes, metrics_to_plot):
+        sns.barplot(
+            data=df, x='Config', y=col, ax=ax, 
+            hue='Config', palette=palette, legend=False
+        )
+        ax.set_title(label, fontsize=12)
+        ax.set_xlabel('') # Hide x-label to keep it clean
+        
+        # Add a zero-line for timing metrics
+        if col in ['WNS', 'TNS']:
+            ax.axhline(0, color='black', linewidth=1, linestyle='--')
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
 
 
 def gen_experiments():
     # Generate list of experiments
-    baseline_config = {
+    baseline = {
         "Xfrep": 1,
         "UseAluLsu": 0,
         "MulInAlu0": 1,
@@ -103,7 +87,7 @@ def gen_experiments():
 
         # ALU Configuration
         "NofAlus": 3,
-        "AluNofRss": 4,
+        "AluNofRss": 1,
         "AluNofResRspPorts": 2,
 
         # LSU Configuration
@@ -122,7 +106,7 @@ def gen_experiments():
         "FpuNofResRspPorts": 1
     }
 
-    alu_lsu_config = {
+    alu_lsu_small = {
         "Xfrep": 1,
         "UseAluLsu": 1,
         "MulInAlu0": 1,
@@ -145,13 +129,41 @@ def gen_experiments():
 
         # FPU Configuration
         "NofFpus": 1,
-        "FpuNofRss": 8,
+        "FpuNofRss": 4,
+        "FpuNofResRspPorts": 1
+    }
+
+    alu_lsu_big = {
+        "Xfrep": 1,
+        "UseAluLsu": 1,
+        "MulInAlu0": 1,
+        "NofRss": 0,  # Master default
+
+        # ALU Configuration
+        "NofAlus": 0,
+        "AluNofRss": 0,
+        "AluNofResRspPorts": 0,
+
+        # LSU Configuration
+        "NofLsus": 0,
+        "LsuNofRss": 0,
+        "LsuNofResRspPorts": 0,
+
+        # ALU-LSU Configuration
+        "NofAluLsus": 3,
+        "AluLsuNofRss": 5,
+        "AluLsuNofResRspPorts": 2,
+
+        # FPU Configuration
+        "NofFpus": 1,
+        "FpuNofRss": 4,
         "FpuNofResRspPorts": 1
     }
 
     hdl_param_configs = {
-        'alu_lsu': alu_lsu_config,
-        'baseline': baseline_config
+        'baseline': baseline,
+        'alu_lsu_small': alu_lsu_small,
+        'alu_lsu_big': alu_lsu_big,
     }
 
     experiments = []
@@ -173,7 +185,7 @@ def main():
     df['synth_results'] = df['synth_results'].str[FINAL_SYNTH_STAGE]
     print(df['synth_results'][0])
     print(df['synth_results'][1])
-    visualize_synth_results(df['synth_results'])
+    visualize_synth_results(extract_metrics(experiments, df['synth_results']))
 
 
 if __name__ == '__main__':

@@ -33,33 +33,58 @@ class FrepExperimentManager(eu.ExperimentManager):
 
 
 def gen_experiments():
-    schnizo_dir = os.path.expanduser("/scratch/schnizo")
+    schnizo_dir = os.path.expanduser("/scratch/sem26f5/schnizo")
     mode_to_funcptr = {
         'scalar': '_baseline',
         'superscalar': '_schnizo',
         'unrolled': '_unrolled_schnizo',
+        'peeled': '_peeled_schnizo',
+        'AluLsuOpt': '_AluLsuOpt_schnizo',
         'naive': '_naive'
     }
+    hardwares = ['sz_baseline', 'sz_alu_lsu']
+    hardwares = ['sz_small']
+    sizes = [64]
     experiments = []
-    for hw in ['sz_baseline', 'sz_alu_lsu']:
-        for mode in ['scalar', 'superscalar', 'unrolled']:
-            for n in [2048]:
-                for app in ['sz_axpy', 'sz_dot']:
-                        if (app == 'sz_dot') and (mode == 'unrolled'): continue
-                        verify_script = Path(f"{schnizo_dir}/sw/kernels/blas/{app}/scripts/verify.py")
-                        experiments.extend([
-                            {
-                                'app': app,
-                                'roi': Path(f"roi/{app}_roi.json.tpl"),
-                                'mode': mode,
-                                'data_cfg': {
-                                    'n': n,
-                                    'funcptr': app.lstrip("sz_") + mode_to_funcptr[mode],
-                                },
-                                'hw': hw,
-                                'verify_script': verify_script
-                            },
-                        ])
+
+    app = 'sz_axpy'
+    for hw in hardwares:
+        for mode in ['scalar', 'superscalar', 'peeled', 'unrolled']:
+            for n in sizes:
+                verify_script = Path(f"{schnizo_dir}/sw/kernels/blas/{app}/scripts/verify.py")
+                experiments.extend([
+                    {
+                        'app': app,
+                        'roi': Path(f"roi/{app}_roi.json.tpl"),
+                        'mode': mode,
+                        'data_cfg': {
+                            'n': n,
+                            'funcptr': app.lstrip("sz_") + mode_to_funcptr[mode],
+                        },
+                        'hw': hw,
+                        'verify_script': verify_script
+                    },
+                ])
+
+    app = 'sz_dot'
+    for hw in hardwares:
+        for mode in ['scalar', 'superscalar', 'AluLsuOpt']:
+            for n in sizes:
+                verify_script = Path(f"{schnizo_dir}/sw/kernels/blas/{app}/scripts/verify.py")
+                experiments.extend([
+                    {
+                        'app': app,
+                        'roi': Path(f"roi/{app}_roi.json.tpl"),
+                        'mode': mode,
+                        'data_cfg': {
+                            'n': n,
+                            'funcptr': app.lstrip("sz_") + mode_to_funcptr[mode],
+                        },
+                        'hw': hw,
+                        'verify_script': verify_script
+                    },
+                ])
+
     return experiments
 
 

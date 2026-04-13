@@ -219,8 +219,9 @@ class PerfettoInstructionTrace(PerfettoTrace):
 
         # Update IPC
         self.update_ipc(timestamp)
+        return insn_uuid
 
-    def end_insn(self, fu, timestamp):
+    def end_insn(self, fu, timestamp, insn_uuid=None):
         """Record the end of an instruction execution.
 
         Creates a slice end event to mark the completion of instruction execution
@@ -232,5 +233,8 @@ class PerfettoInstructionTrace(PerfettoTrace):
             timestamp: The timestamp when the instruction ends in nanoseconds.
         """
         fu_string, _ = extract_fu_details(fu)
-        insn_uuid = self.outstanding_insns[fu_string].pop()
+        if insn_uuid is None:
+            insn_uuid = self.outstanding_insns[fu_string].pop()
+        else:
+            self.outstanding_insns[fu_string].remove(insn_uuid)
         self.add_event(insn_uuid, TYPE_SLICE_END, timestamp, None)

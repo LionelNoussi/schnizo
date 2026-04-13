@@ -120,10 +120,10 @@
         num_lsus: 0,
         num_lsu_slots: 0,
         num_alu_lsus: 3,
-        num_alu_lsu_slots: 64,
+        num_alu_lsu_slots: 8,
         num_alu_lsu_rsp_ports: 2,
         num_fpus: 1,
-        num_fpu_slots: 64,
+        num_fpu_slots: 8,
         use_alu_lsu: 1
     },
     dma_core_template: {

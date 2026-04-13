@@ -239,7 +239,6 @@ def handle_dispatch_event(sim_time, cycle, priv_lvl, loop_state, extras,
         is_alu_lsu = extras['producer'].startswith(FU_ALU_LSU)
         lsu_id = extras['producer'].split('.')[0]
     
-    # TODO(lnoussi) Create dedicated alu_lsu pipeline
     if (is_lsu):
         if (extras['lsu_is_load']):
             perf_metrics[-1]['load_issues'] += 1
@@ -351,17 +350,17 @@ def gen_dispatch_perfetto(sim_time, cycle, priv_lvl, loop_state, extras,
         annotations.update({'iteration': iter_count})
 
     # Emit Perfetto slice begin event
-    trace.start_insn(fu_str, mnemonic, cycle * CLOCK_PERIOD_NS, annotations)
+    insn_uuid = trace.start_insn(fu_str, mnemonic, cycle * CLOCK_PERIOD_NS, annotations)
 
     # Immediately end instructions for FU_NONE as there is no retirement event.
     if (fu_str == FU_NONE):
         # The instruction ends in this cycle. Thus the event is at the end of this cycle.
-        trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS)
+        trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid)
     # Immediately end store instructions as there is no retirement event.
     if (fu_str.startswith(FU_LSU) or (fu_str.startswith(FU_ALU_LSU) and (extras['fu_type'] == FU_LSU))):
         if (extras['lsu_is_store']):
             # The instruction ends in this cycle. Thus the event is at the end of this cycle.
-            trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS)
+            trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid)
 
 
 def gen_retirement_perfetto(sim_time, cycle, priv_lvl, loop_state, extras, trace):
