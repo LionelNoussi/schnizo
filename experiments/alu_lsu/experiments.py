@@ -42,7 +42,7 @@ def gen_experiments():
         'AluLsuOpt': '_AluLsuOpt_schnizo',
         'naive': '_naive'
     }
-    hardwares = ['sz_baseline', 'sz_alu_lsu']
+    # hardwares = ['sz_baseline', 'sz_alu_lsu']
     hardwares = ['sz_small']
     sizes = [64]
     experiments = []

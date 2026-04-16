@@ -83,6 +83,10 @@ module ${cfg['cluster']['name']}_wrapper (
   localparam int unsigned NumLsuRss [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_lsu_slots')}};
   localparam int unsigned NumAluLsuRss [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_alu_lsu_slots')}};
   localparam int unsigned NumFpuRss [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_fpu_slots')}};
+  localparam int unsigned NumAluConstants [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_alu_constants')}};
+  localparam int unsigned NumLsuConstants [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_lsu_constants')}};
+  localparam int unsigned NumAluLsuConstants [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_alu_lsu_constants')}};
+  localparam int unsigned NumFpuConstants [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_fpu_constants')}};
   localparam int unsigned NumAluRspPorts [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_alu_rsp_ports')}};
   localparam int unsigned NumLsuRspPorts [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_lsu_rsp_ports')}};
   localparam int unsigned NumAluLsuRspPorts [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_alu_lsu_rsp_ports')}};
@@ -178,6 +182,10 @@ module ${cfg['cluster']['name']}_wrapper (
     .NumLsuRss (NumLsuRss),
     .NumAluLsuRss (NumAluLsuRss),
     .NumFpuRss (NumFpuRss),
+    .NumAluConstants (NumAluConstants),
+    .NumLsuConstants (NumLsuConstants),
+    .NumAluLsuConstants (NumAluLsuConstants),
+    .NumFpuConstants (NumFpuConstants),
     .NumAluRspPorts (NumAluRspPorts),
     .NumLsuRspPorts (NumLsuRspPorts),
     .NumFpuRspPorts (NumFpuRspPorts),

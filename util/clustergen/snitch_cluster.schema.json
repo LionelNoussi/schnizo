@@ -543,6 +543,12 @@
                                             "description": "Number of Slots to capture instructions per ALU. Only relevant if Xfrep is enabled.",
                                             "default": 1
                                         },
+                                        "num_alu_constants": {
+                                            "type": "number",
+                                            "title": "Number of constant memory entries per ALU",
+                                            "description": "Number of constant entries in each ALU's constant memory. Only relevant if Xfrep is enabled.",
+                                            "default": 4
+                                        },
                                         "num_lsus": {
                                             "type": "number",
                                             "title": "Number of LSUs",
@@ -554,6 +560,12 @@
                                             "title": "Number of Slots per LSU",
                                             "description": "Number of Slots to capture instructions per LSU. Only relevant if Xfrep is enabled.",
                                             "default": 1
+                                        },
+                                        "num_lsu_constants": {
+                                            "type": "number",
+                                            "title": "Number of constant memory entries per LSU",
+                                            "description": "Number of constant entries in each LSU's constant memory. Only relevant if Xfrep is enabled.",
+                                            "default": 4
                                         },
                                         "num_alu_lsus": {
                                             "type": "number",
@@ -567,6 +579,12 @@
                                             "description": "Number of Slots to capture instructions per ALU+LSU. Only relevant if Xfrep and UseAluLsu is enabled.",
                                             "default": 0
                                         },
+                                        "num_alu_lsu_constants": {
+                                            "type": "number",
+                                            "title": "Number of constant memory entries per LSU",
+                                            "description": "Number of constant entries in each LSU's constant memory. Only relevant if Xfrep is enabled.",
+                                            "default": 4
+                                        },
                                         "num_fpus": {
                                             "type": "number",
                                             "title": "Number of FPUs",
@@ -578,6 +596,12 @@
                                             "title": "Number of Slots per FPU",
                                             "description": "Number of Slots to capture instructions per FPU. Only relevant if Xfrep is enabled.",
                                             "default": 1
+                                        },
+                                        "num_fpu_constants": {
+                                            "type": "number",
+                                            "title": "Number of constant memory entries per FPU",
+                                            "description": "Number of constant entries in each FPU's constant memory. Only relevant if Xfrep is enabled.",
+                                            "default": 4
                                         },
                                         "num_alu_rsp_ports": {
                                             "type": "number",

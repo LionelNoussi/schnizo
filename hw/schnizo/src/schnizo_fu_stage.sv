@@ -18,26 +18,26 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   parameter bit          MulInAlu0         = 1'b1,
   parameter int unsigned NofAlus           = 1,
   parameter int unsigned AluNofRss         = 3,
+  parameter int unsigned AluNofConstants   = 4,
   parameter int unsigned AluNofOperands    = 2,
-  parameter int unsigned AluNofOpPorts     = 1,
   parameter int unsigned AluNofResReqIfs   = 3,
   parameter int unsigned AluNofResRspPorts = 1,
   parameter int unsigned NofLsus           = 1,
   parameter int unsigned LsuNofRss         = 3,
+  parameter int unsigned LsuNofConstants   = 4,
   parameter int unsigned LsuNofOperands    = 4,
-  parameter int unsigned LsuNofOpPorts     = 1,
   parameter int unsigned LsuNofResReqIfs   = 3,
   parameter int unsigned LsuNofResRspPorts = 1,
   parameter int unsigned NofAluLsus         = 1,
   parameter int unsigned AluLsuNofRss       = 3,
+  parameter int unsigned AluLsuNofConstants   = 4,
   parameter int unsigned AluLsuNofOperands  = 3,
-  parameter int unsigned AluLsuNofOpPorts   = 1,
   parameter int unsigned AluLsuNofResReqIfs = 3,
   parameter int unsigned AluLsuNofResRspPorts = 1,
   parameter int unsigned NofFpus           = 1,
   parameter int unsigned FpuNofRss         = 2,
+  parameter int unsigned FpuNofConstants   = 4,
   parameter int unsigned FpuNofOperands    = 3,
-  parameter int unsigned FpuNofOpPorts     = 1,
   parameter int unsigned FpuNofResReqIfs   = 3,
   parameter int unsigned FpuNofResRspPorts = 1,
   parameter logic UseAluLsu = 0,
@@ -125,6 +125,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   // The FU blocks do not require a commit signal as when we won't commit we have an exception
   // and thus anyway abort the LxP and reset the RS and RSSs.
   input  logic                    instr_exec_commit_i,
+  // FPU-specific commit: same as instr_exec_commit_i but without instr_addr_misaligned_o in its
+  // timing cone (FP instructions are never branches, so instr_addr_misaligned_o is always 0).
+  input  logic                    fpu_instr_exec_commit_i,
   input  logic      [iomsb(NofAlus):0] alu_disp_reqs_valid_i,
   output logic      [iomsb(NofAlus):0] alu_disp_reqs_ready_o,
   output disp_rsp_t [iomsb(NofAlus):0] alu_disp_rsp_o,
@@ -254,6 +257,11 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   localparam rs_param_array_t NofRspPorts = gen_rs_param_array(AluNofResRspPorts,
     LsuNofResRspPorts, AluLsuNofResRspPorts, FpuNofResRspPorts);
 
+  typedef struct packed {
+    logic valid;
+    logic iteration;
+  } available_result_t;
+
   // The request arriving at the crossbar output connections. This is converted to a destination
   // mask inside the crossbar output logic. This mask is used to send the result to multiple
   // operands at once.
@@ -279,6 +287,12 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   // the request crossbar. This signal then controls the response crossbar.
   typedef logic [NofOperandIfsW-1:0] dest_mask_t;
 
+  // TODO(colluca): rename into simply res_req_t, and just unpack that struct
+  typedef struct packed {
+    dest_mask_t  dest_mask;
+    slot_id_t    slot_id;
+  } ext_res_req_t;
+
   // The data coming out of the response crossbar.
   typedef logic [OpLen-1:0] operand_t;
 
@@ -302,84 +316,87 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   // These IDs are shared between the RSSs of a reservation station.
   localparam integer unsigned AluOpIdOffset = 0;
   localparam integer unsigned LsuOpIdOffset = AluOpIdOffset +
-                                              NofAlus * (AluNofOperands * AluNofOpPorts);
+                                              NofAlus * AluNofOperands;
   localparam integer unsigned AluLsuOpIdOffset = LsuOpIdOffset +
-                                              NofLsus * (LsuNofOperands * LsuNofOpPorts);
+                                              NofLsus * LsuNofOperands;
   localparam integer unsigned FpuOpIdOffset = AluLsuOpIdOffset +
-                                              NofAluLsus * (AluLsuNofOperands * AluLsuNofOpPorts);
+                                              NofAluLsus * AluLsuNofOperands;
 
   ////////////////////////////////////////
   // Operand distribution network (ODN) //
   ////////////////////////////////////////
 
-  operand_req_t [iomsb(NofAlus):0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_reqs;
-  logic         [iomsb(NofAlus):0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_reqs_valid;
-  logic         [iomsb(NofAlus):0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_reqs_ready;
-  operand_req_t [iomsb(NofAlus):0][iomsb(AluNofRss):0]                          alu_available_results;
-  dest_mask_t   [iomsb(NofAlus):0][iomsb(AluNofRss):0]                          alu_res_reqs;
-  logic         [iomsb(NofAlus):0][iomsb(AluNofRss):0]                          alu_res_reqs_valid;
-  logic         [iomsb(NofAlus):0][iomsb(AluNofRss):0]                          alu_res_reqs_ready;
-  res_rsp_t     [iomsb(NofAlus):0][iomsb(AluNofRss):0]                          alu_res_rsps;
-  logic         [iomsb(NofAlus):0][iomsb(AluNofRss):0]                          alu_res_rsps_valid;
-  logic         [iomsb(NofAlus):0][iomsb(AluNofRss):0]                          alu_res_rsps_ready;
-  operand_t     [iomsb(NofAlus):0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_rsps;
-  logic         [iomsb(NofAlus):0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_rsps_valid;
-  logic         [iomsb(NofAlus):0][AluNofOpPorts-1:0][AluNofOperands-1:0]  alu_op_rsps_ready;
+  operand_req_t [iomsb(NofAlus):0][AluNofOperands-1:0]  alu_op_reqs;
+  logic         [iomsb(NofAlus):0][AluNofOperands-1:0]  alu_op_reqs_valid;
+  logic         [iomsb(NofAlus):0][AluNofOperands-1:0]  alu_op_reqs_ready;
+  available_result_t [iomsb(NofAlus):0][iomsb(AluNofRss):0]                          alu_available_results;
+  ext_res_req_t   [iomsb(NofAlus):0][AluNofResRspPorts-1:0]                  alu_res_reqs;
+  logic         [iomsb(NofAlus):0][AluNofResRspPorts-1:0]                  alu_res_reqs_valid;
+  logic         [iomsb(NofAlus):0][AluNofResRspPorts-1:0]                  alu_res_reqs_ready;
+  res_rsp_t     [iomsb(NofAlus):0][AluNofResRspPorts-1:0]                  alu_res_rsps;
+  logic         [iomsb(NofAlus):0][AluNofResRspPorts-1:0]                  alu_res_rsps_valid;
+  logic         [iomsb(NofAlus):0][AluNofResRspPorts-1:0]                  alu_res_rsps_ready;
+  operand_t     [iomsb(NofAlus):0][AluNofOperands-1:0]  alu_op_rsps;
+  logic         [iomsb(NofAlus):0][AluNofOperands-1:0]  alu_op_rsps_valid;
+  logic         [iomsb(NofAlus):0][AluNofOperands-1:0]  alu_op_rsps_ready;
 
-  operand_req_t [iomsb(NofLsus):0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_reqs;
-  logic         [iomsb(NofLsus):0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_reqs_valid;
-  logic         [iomsb(NofLsus):0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_reqs_ready;
-  operand_req_t [iomsb(NofLsus):0][iomsb(LsuNofRss):0]                          lsu_available_results;
-  dest_mask_t   [iomsb(NofLsus):0][iomsb(LsuNofRss):0]                          lsu_res_reqs;
-  logic         [iomsb(NofLsus):0][iomsb(LsuNofRss):0]                          lsu_res_reqs_valid;
-  logic         [iomsb(NofLsus):0][iomsb(LsuNofRss):0]                          lsu_res_reqs_ready;
-  res_rsp_t     [iomsb(NofLsus):0][iomsb(LsuNofRss):0]                          lsu_res_rsps;
-  logic         [iomsb(NofLsus):0][iomsb(LsuNofRss):0]                          lsu_res_rsps_valid;
-  logic         [iomsb(NofLsus):0][iomsb(LsuNofRss):0]                          lsu_res_rsps_ready;
-  operand_t     [iomsb(NofLsus):0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_rsps;
-  logic         [iomsb(NofLsus):0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_rsps_valid;
-  logic         [iomsb(NofLsus):0][LsuNofOpPorts-1:0][LsuNofOperands-1:0]  lsu_op_rsps_ready;
+  operand_req_t [iomsb(NofLsus):0][LsuNofOperands-1:0]  lsu_op_reqs;
+  logic         [iomsb(NofLsus):0][LsuNofOperands-1:0]  lsu_op_reqs_valid;
+  logic         [iomsb(NofLsus):0][LsuNofOperands-1:0]  lsu_op_reqs_ready;
+  // TODO(colluca): this should be done for all FUs to support NofRss==0 (i.e. no Xfrep)
+  available_result_t [iomsb(NofLsus):0][iomsb(LsuNofRss):0]       lsu_available_results;
+  ext_res_req_t   [iomsb(NofLsus):0][iomsb(LsuNofResRspPorts):0]                 lsu_res_reqs;
+  logic         [iomsb(NofLsus):0][iomsb(LsuNofResRspPorts):0]                 lsu_res_reqs_valid;
+  logic         [iomsb(NofLsus):0][iomsb(LsuNofResRspPorts):0]                 lsu_res_reqs_ready;
+  res_rsp_t     [iomsb(NofLsus):0][iomsb(LsuNofResRspPorts):0]                 lsu_res_rsps;
+  logic         [iomsb(NofLsus):0][iomsb(LsuNofResRspPorts):0]                 lsu_res_rsps_valid;
+  logic         [iomsb(NofLsus):0][iomsb(LsuNofResRspPorts):0]                 lsu_res_rsps_ready;
+  operand_t     [iomsb(NofLsus):0][LsuNofOperands-1:0]  lsu_op_rsps;
+  logic         [iomsb(NofLsus):0][LsuNofOperands-1:0]  lsu_op_rsps_valid;
+  logic         [iomsb(NofLsus):0][LsuNofOperands-1:0]  lsu_op_rsps_ready;
 
-  operand_req_t [iomsb(NofAluLsus):0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs;
-  logic         [iomsb(NofAluLsus):0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs_valid;
-  logic         [iomsb(NofAluLsus):0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs_ready;
-  operand_req_t [iomsb(NofAluLsus):0][iomsb(AluLsuNofRss):0]                             alu_lsu_available_results;
-  dest_mask_t   [iomsb(NofAluLsus):0][iomsb(AluLsuNofRss):0]                             alu_lsu_res_reqs;
-  logic         [iomsb(NofAluLsus):0][iomsb(AluLsuNofRss):0]                             alu_lsu_res_reqs_valid;
-  logic         [iomsb(NofAluLsus):0][iomsb(AluLsuNofRss):0]                             alu_lsu_res_reqs_ready;
-  res_rsp_t     [iomsb(NofAluLsus):0][iomsb(AluLsuNofRss):0]                             alu_lsu_res_rsps;
-  logic         [iomsb(NofAluLsus):0][iomsb(AluLsuNofRss):0]                             alu_lsu_res_rsps_valid;
-  logic         [iomsb(NofAluLsus):0][iomsb(AluLsuNofRss):0]                             alu_lsu_res_rsps_ready;
-  operand_t     [iomsb(NofAluLsus):0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_rsps;
-  logic         [iomsb(NofAluLsus):0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_rsps_valid;
-  logic         [iomsb(NofAluLsus):0][AluLsuNofOpPorts-1:0][AluLsuNofOperands-1:0]  alu_lsu_op_rsps_ready;
+  
+    operand_req_t [iomsb(NofAluLsus):0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs;
+  logic         [iomsb(NofAluLsus):0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs_valid;
+  logic         [iomsb(NofAluLsus):0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs_ready;
+  // TODO(colluca): this should be done for all FUs to support NofRss==0 (i.e. no Xfrep)
+  available_result_t [iomsb(NofAluLsus):0][iomsb(AluLsuNofRss):0]       alu_lsu_available_results;
+  ext_res_req_t   [iomsb(NofAluLsus):0][iomsb(AluLsuNofResRspPorts):0]               alu_lsu_res_reqs;
+  logic         [iomsb(NofAluLsus):0][iomsb(AluLsuNofResRspPorts):0]                 alu_lsu_res_reqs_valid;
+  logic         [iomsb(NofAluLsus):0][iomsb(AluLsuNofResRspPorts):0]                 alu_lsu_res_reqs_ready;
+  res_rsp_t     [iomsb(NofAluLsus):0][iomsb(AluLsuNofResRspPorts):0]                 alu_lsu_res_rsps;
+  logic         [iomsb(NofAluLsus):0][iomsb(AluLsuNofResRspPorts):0]                 alu_lsu_res_rsps_valid;
+  logic         [iomsb(NofAluLsus):0][iomsb(AluLsuNofResRspPorts):0]                 alu_lsu_res_rsps_ready;
+  operand_t     [iomsb(NofAluLsus):0][AluLsuNofOperands-1:0]  alu_lsu_op_rsps;
+  logic         [iomsb(NofAluLsus):0][AluLsuNofOperands-1:0]  alu_lsu_op_rsps_valid;
+  logic         [iomsb(NofAluLsus):0][AluLsuNofOperands-1:0]  alu_lsu_op_rsps_ready;
 
-  operand_req_t [iomsb(NofFpus):0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_reqs;
-  logic         [iomsb(NofFpus):0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_reqs_valid;
-  logic         [iomsb(NofFpus):0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_reqs_ready;
-  operand_req_t [iomsb(NofFpus):0][iomsb(FpuNofRss):0]                          fpu_available_results;
-  dest_mask_t   [iomsb(NofFpus):0][iomsb(FpuNofRss):0]                          fpu_res_reqs;
-  logic         [iomsb(NofFpus):0][iomsb(FpuNofRss):0]                          fpu_res_reqs_valid;
-  logic         [iomsb(NofFpus):0][iomsb(FpuNofRss):0]                          fpu_res_reqs_ready;
-  res_rsp_t     [iomsb(NofFpus):0][iomsb(FpuNofRss):0]                          fpu_res_rsps;
-  logic         [iomsb(NofFpus):0][iomsb(FpuNofRss):0]                          fpu_res_rsps_valid;
-  logic         [iomsb(NofFpus):0][iomsb(FpuNofRss):0]                          fpu_res_rsps_ready;
-  operand_t     [iomsb(NofFpus):0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_rsps;
-  logic         [iomsb(NofFpus):0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_rsps_valid;
-  logic         [iomsb(NofFpus):0][FpuNofOpPorts-1:0][FpuNofOperands-1:0]  fpu_op_rsps_ready;
+  operand_req_t [iomsb(NofFpus):0][FpuNofOperands-1:0]  fpu_op_reqs;
+  logic         [iomsb(NofFpus):0][FpuNofOperands-1:0]  fpu_op_reqs_valid;
+  logic         [iomsb(NofFpus):0][FpuNofOperands-1:0]  fpu_op_reqs_ready;
+  available_result_t [iomsb(NofFpus):0][iomsb(FpuNofRss):0]                          fpu_available_results;
+  ext_res_req_t   [iomsb(NofFpus):0][FpuNofResRspPorts-1:0]                  fpu_res_reqs;
+  logic         [iomsb(NofFpus):0][FpuNofResRspPorts-1:0]                  fpu_res_reqs_valid;
+  logic         [iomsb(NofFpus):0][FpuNofResRspPorts-1:0]                  fpu_res_reqs_ready;
+  res_rsp_t     [iomsb(NofFpus):0][FpuNofResRspPorts-1:0]                  fpu_res_rsps;
+  logic         [iomsb(NofFpus):0][FpuNofResRspPorts-1:0]                  fpu_res_rsps_valid;
+  logic         [iomsb(NofFpus):0][FpuNofResRspPorts-1:0]                  fpu_res_rsps_ready;
+  operand_t     [iomsb(NofFpus):0][FpuNofOperands-1:0]  fpu_op_rsps;
+  logic         [iomsb(NofFpus):0][FpuNofOperands-1:0]  fpu_op_rsps_valid;
+  logic         [iomsb(NofFpus):0][FpuNofOperands-1:0]  fpu_op_rsps_ready;
 
   operand_req_t [NofOperandIfs-1:0] op_reqs;
   logic         [NofOperandIfs-1:0] op_reqs_valid;
   logic         [NofOperandIfs-1:0] op_reqs_ready;
 
-  dest_mask_t   [TotalNofRss-1:0] res_reqs;
-  logic         [TotalNofRss-1:0] res_reqs_valid;
-  logic         [TotalNofRss-1:0] res_reqs_ready;
-  operand_req_t [TotalNofRss-1:0] available_results;
+  ext_res_req_t   [TotalNofResRspPorts-1:0] res_reqs;
+  logic         [TotalNofResRspPorts-1:0] res_reqs_valid;
+  logic         [TotalNofResRspPorts-1:0] res_reqs_ready;
+  available_result_t [TotalNofRss-1:0] available_results;
 
-  res_rsp_t     [TotalNofRss-1:0] res_rsps;
-  logic         [TotalNofRss-1:0] res_rsps_valid;
-  logic         [TotalNofRss-1:0] res_rsps_ready;
+  res_rsp_t     [TotalNofResRspPorts-1:0] res_rsps;
+  logic         [TotalNofResRspPorts-1:0] res_rsps_valid;
+  logic         [TotalNofResRspPorts-1:0] res_rsps_ready;
 
   operand_t     [NofOperandIfs-1:0] op_rsps;
   logic         [NofOperandIfs-1:0] op_rsps_valid;
@@ -415,63 +432,55 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       fpu_op_rsps_valid = '0;
 
       for (int alu = 0; alu < NofAlus; alu++) begin
-        for (int port = 0; port < AluNofOpPorts; port++) begin
-          for (int op = 0; op < AluNofOperands; op++) begin
-            // operand requests
-            op_reqs[ope_if]                  = alu_op_reqs[alu][port][op];
-            op_reqs_valid[ope_if]            = alu_op_reqs_valid[alu][port][op];
-            alu_op_reqs_ready[alu][port][op] = op_reqs_ready[ope_if];
-            // operand responses
-            alu_op_rsps[alu][port][op]       = op_rsps[ope_if];
-            alu_op_rsps_valid[alu][port][op] = op_rsps_valid[ope_if];
-            op_rsps_ready[ope_if]            = alu_op_rsps_ready[alu][port][op];
-            ope_if = ope_if + 1;
-          end
+        for (int op = 0; op < AluNofOperands; op++) begin
+          // operand requests
+          op_reqs[ope_if]            = alu_op_reqs[alu][op];
+          op_reqs_valid[ope_if]      = alu_op_reqs_valid[alu][op];
+          alu_op_reqs_ready[alu][op] = op_reqs_ready[ope_if];
+          // operand responses
+          alu_op_rsps[alu][op]       = op_rsps[ope_if];
+          alu_op_rsps_valid[alu][op] = op_rsps_valid[ope_if];
+          op_rsps_ready[ope_if]      = alu_op_rsps_ready[alu][op];
+          ope_if = ope_if + 1;
         end
       end
       for (int lsu = 0; lsu < NofLsus; lsu++) begin
-        for (int port = 0; port < LsuNofOpPorts; port++) begin
-          for (int op = 0; op < LsuNofOperands; op++) begin
-            // operand requests
-            op_reqs[ope_if]                  = lsu_op_reqs[lsu][port][op];
-            op_reqs_valid[ope_if]            = lsu_op_reqs_valid[lsu][port][op];
-            lsu_op_reqs_ready[lsu][port][op] = op_reqs_ready[ope_if];
-            // operand responses
-            lsu_op_rsps[lsu][port][op]       = op_rsps[ope_if];
-            lsu_op_rsps_valid[lsu][port][op] = op_rsps_valid[ope_if];
-            op_rsps_ready[ope_if]            = lsu_op_rsps_ready[lsu][port][op];
-            ope_if = ope_if + 1;
-          end
+        for (int op = 0; op < LsuNofOperands; op++) begin
+          // operand requests
+          op_reqs[ope_if]            = lsu_op_reqs[lsu][op];
+          op_reqs_valid[ope_if]      = lsu_op_reqs_valid[lsu][op];
+          lsu_op_reqs_ready[lsu][op] = op_reqs_ready[ope_if];
+          // operand responses
+          lsu_op_rsps[lsu][op]       = op_rsps[ope_if];
+          lsu_op_rsps_valid[lsu][op] = op_rsps_valid[ope_if];
+          op_rsps_ready[ope_if]      = lsu_op_rsps_ready[lsu][op];
+          ope_if = ope_if + 1;
         end
       end
       for (int alu_lsu = 0; alu_lsu < NofAluLsus; alu_lsu++) begin
-        for (int port = 0; port < AluLsuNofOpPorts; port++) begin
-          for (int op = 0; op < AluLsuNofOperands; op++) begin
-            // operand requests
-            op_reqs[ope_if]                  = alu_lsu_op_reqs[alu_lsu][port][op];
-            op_reqs_valid[ope_if]            = alu_lsu_op_reqs_valid[alu_lsu][port][op];
-            alu_lsu_op_reqs_ready[alu_lsu][port][op] = op_reqs_ready[ope_if];
-            // operand responses
-            alu_lsu_op_rsps[alu_lsu][port][op]       = op_rsps[ope_if];
-            alu_lsu_op_rsps_valid[alu_lsu][port][op] = op_rsps_valid[ope_if];
-            op_rsps_ready[ope_if]            = alu_lsu_op_rsps_ready[alu_lsu][port][op];
-            ope_if = ope_if + 1;
-          end
+        for (int op = 0; op < AluLsuNofOperands; op++) begin
+          // operand requests
+          op_reqs[ope_if]            = alu_lsu_op_reqs[alu_lsu][op];
+          op_reqs_valid[ope_if]      = alu_lsu_op_reqs_valid[alu_lsu][op];
+          alu_lsu_op_reqs_ready[alu_lsu][op] = op_reqs_ready[ope_if];
+          // operand responses
+          alu_lsu_op_rsps[alu_lsu][op]       = op_rsps[ope_if];
+          alu_lsu_op_rsps_valid[alu_lsu][op] = op_rsps_valid[ope_if];
+          op_rsps_ready[ope_if]      = alu_lsu_op_rsps_ready[alu_lsu][op];
+          ope_if = ope_if + 1;
         end
       end
       for (int fpu = 0; fpu < NofFpus; fpu++) begin
-        for (int port = 0; port < FpuNofOpPorts; port++) begin
-          for (int op = 0; op < FpuNofOperands; op++) begin
-            // operand requests
-            op_reqs[ope_if]                  = fpu_op_reqs[fpu][port][op];
-            op_reqs_valid[ope_if]            = fpu_op_reqs_valid[fpu][port][op];
-            fpu_op_reqs_ready[fpu][port][op] = op_reqs_ready[ope_if];
-            // operand responses
-            fpu_op_rsps[fpu][port][op]       = op_rsps[ope_if];
-            fpu_op_rsps_valid[fpu][port][op] = op_rsps_valid[ope_if];
-            op_rsps_ready[ope_if]            = fpu_op_rsps_ready[fpu][port][op];
-            ope_if = ope_if + 1;
-          end
+        for (int op = 0; op < FpuNofOperands; op++) begin
+          // operand requests
+          op_reqs[ope_if]            = fpu_op_reqs[fpu][op];
+          op_reqs_valid[ope_if]      = fpu_op_reqs_valid[fpu][op];
+          fpu_op_reqs_ready[fpu][op] = op_reqs_ready[ope_if];
+          // operand responses
+          fpu_op_rsps[fpu][op]       = op_rsps[ope_if];
+          fpu_op_rsps_valid[fpu][op] = op_rsps_valid[ope_if];
+          op_rsps_ready[ope_if]      = fpu_op_rsps_ready[fpu][op];
+          ope_if = ope_if + 1;
         end
       end
     end
@@ -482,6 +491,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
     // TODO(colluca): think if this code can be streamlined
     always_comb begin : fu_res_reqs_rsps
       automatic integer req_if = 0;
+      automatic integer rss = 0;
       automatic integer rsp_if = 0;
 
       res_reqs_ready     = '0;
@@ -502,15 +512,18 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       fpu_res_rsps_ready = '0;
 
       for (int alu = 0; alu < NofAlus; alu++) begin
-        for (int alu_req_if = 0; alu_req_if < AluNofRss; alu_req_if++) begin
+        for (int alu_rss = 0; alu_rss < AluNofRss; alu_rss++) begin
+          available_results[rss] = alu_available_results[alu][alu_rss];
+          rss = rss + 1;
+        end
+        for (int alu_req_if = 0; alu_req_if < AluNofResRspPorts; alu_req_if++) begin
           // requests
           alu_res_reqs[alu][alu_req_if]       = res_reqs[req_if];
           alu_res_reqs_valid[alu][alu_req_if] = res_reqs_valid[req_if];
           res_reqs_ready[req_if]              = alu_res_reqs_ready[alu][alu_req_if];
-          available_results[req_if]           = alu_available_results[alu][alu_req_if];
           req_if = req_if + 1;
         end
-        for (int rsp = 0; rsp < AluNofRss; rsp++) begin
+        for (int rsp = 0; rsp < AluNofResRspPorts; rsp++) begin
           // responses
           res_rsps[rsp_if]             = alu_res_rsps[alu][rsp];
           res_rsps_valid[rsp_if]       = alu_res_rsps_valid[alu][rsp];
@@ -519,15 +532,18 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
         end
       end
       for (int lsu = 0; lsu < NofLsus; lsu++) begin
-        for (int lsu_req_if = 0; lsu_req_if < LsuNofRss; lsu_req_if++) begin
+        for (int lsu_rss = 0; lsu_rss < LsuNofRss; lsu_rss++) begin
+          available_results[rss] = lsu_available_results[lsu][lsu_rss];
+          rss = rss + 1;
+        end
+        for (int lsu_req_if = 0; lsu_req_if < LsuNofResRspPorts; lsu_req_if++) begin
           // requests
           lsu_res_reqs[lsu][lsu_req_if]       = res_reqs[req_if];
           lsu_res_reqs_valid[lsu][lsu_req_if] = res_reqs_valid[req_if];
           res_reqs_ready[req_if]              = lsu_res_reqs_ready[lsu][lsu_req_if];
-          available_results[req_if]           = lsu_available_results[lsu][lsu_req_if];
           req_if = req_if + 1;
         end
-        for (int rsp = 0; rsp < LsuNofRss; rsp++) begin
+        for (int rsp = 0; rsp < LsuNofResRspPorts; rsp++) begin
           // responses
           res_rsps[rsp_if]             = lsu_res_rsps[lsu][rsp];
           res_rsps_valid[rsp_if]       = lsu_res_rsps_valid[lsu][rsp];
@@ -536,15 +552,18 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
         end
       end
       for (int alu_lsu = 0; alu_lsu < NofAluLsus; alu_lsu++) begin
-        for (int alu_lsu_req_if = 0; alu_lsu_req_if < AluLsuNofRss; alu_lsu_req_if++) begin
+        for (int alu_lsu_rss = 0; alu_lsu_rss < AluLsuNofRss; alu_lsu_rss++) begin
+          available_results[rss] = alu_lsu_available_results[alu_lsu][alu_lsu_rss];
+          rss = rss + 1;
+        end
+        for (int alu_lsu_req_if = 0; alu_lsu_req_if < AluLsuNofResRspPorts; alu_lsu_req_if++) begin
           // requests
           alu_lsu_res_reqs[alu_lsu][alu_lsu_req_if]       = res_reqs[req_if];
           alu_lsu_res_reqs_valid[alu_lsu][alu_lsu_req_if] = res_reqs_valid[req_if];
           res_reqs_ready[req_if]              = alu_lsu_res_reqs_ready[alu_lsu][alu_lsu_req_if];
-          available_results[req_if]           = alu_lsu_available_results[alu_lsu][alu_lsu_req_if];
           req_if = req_if + 1;
         end
-        for (int rsp = 0; rsp < AluLsuNofRss; rsp++) begin
+        for (int rsp = 0; rsp < AluLsuNofResRspPorts; rsp++) begin
           // responses
           res_rsps[rsp_if]             = alu_lsu_res_rsps[alu_lsu][rsp];
           res_rsps_valid[rsp_if]       = alu_lsu_res_rsps_valid[alu_lsu][rsp];
@@ -553,15 +572,18 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
         end
       end
       for (int fpu = 0; fpu < NofFpus; fpu++) begin
-        for (int fpu_req_if = 0; fpu_req_if < FpuNofRss; fpu_req_if++) begin
+        for (int fpu_rss = 0; fpu_rss < FpuNofRss; fpu_rss++) begin
+          available_results[rss] = fpu_available_results[fpu][fpu_rss];
+          rss = rss + 1;
+        end
+        for (int fpu_req_if = 0; fpu_req_if < FpuNofResRspPorts; fpu_req_if++) begin
           // requests
           fpu_res_reqs[fpu][fpu_req_if]       = res_reqs[req_if];
           fpu_res_reqs_valid[fpu][fpu_req_if] = res_reqs_valid[req_if];
           res_reqs_ready[req_if]              = fpu_res_reqs_ready[fpu][fpu_req_if];
-          available_results[req_if]           = fpu_available_results[fpu][fpu_req_if];
           req_if = req_if + 1;
         end
-        for (int rsp = 0; rsp < FpuNofRss; rsp++) begin
+        for (int rsp = 0; rsp < FpuNofResRspPorts; rsp++) begin
           // responses
           res_rsps[rsp_if]             = fpu_res_rsps[fpu][rsp];
           res_rsps_valid[rsp_if]       = fpu_res_rsps_valid[fpu][rsp];
@@ -577,10 +599,18 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
 
     schnizo_req_xbar #(
       .NofOperandReqs(NofOperandIfs),
-      .NofResRspIfs  (TotalNofRss),
+      .NofRs         (NofRs),
+      .NofRss        (NofRss),
+      .NofResRspIfs  (NofRspPorts),
+      .TotalNofRss   (TotalNofRss),
+      .TotalNofResRspIfs(TotalNofResRspPorts),
       .operand_req_t (operand_req_t),
+      .res_req_t     (res_req_t),
+      .ext_res_req_t (ext_res_req_t),
+      .available_result_t (available_result_t),
+      .slot_id_t     (slot_id_t),
       .dest_mask_t   (dest_mask_t)
-    ) i_request_xbar (
+    ) i_req_xbar (
       .op_reqs_i          (op_reqs),
       .op_reqs_valid_i    (op_reqs_valid),
       .op_reqs_ready_o    (op_reqs_ready),
@@ -593,23 +623,19 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
     // ---------------------------
     // Operand distribution network - response xbar
     // ---------------------------
-    operand_t   [TotalNofRss-1:0] res_rsps_operands;
-    dest_mask_t [TotalNofRss-1:0] res_rsps_dest_masks;
+    operand_t   [TotalNofResRspPorts-1:0] res_rsps_operands;
+    dest_mask_t [TotalNofResRspPorts-1:0] res_rsps_dest_masks;
 
-    for (genvar i = 0; i < TotalNofRss; i++) begin : gen_flatten_res_rsps
+    for (genvar i = 0; i < TotalNofResRspPorts; i++) begin : gen_flatten_res_rsps
       assign res_rsps_operands[i]  = res_rsps[i].operand;
       assign res_rsps_dest_masks[i] = res_rsps[i].dest_mask;
     end
 
     schnizo_rsp_xbar #(
-      .NofRs           (NofRs),
-      .NofRss          (NofRss),
-      .NofRspPorts     (NofRspPorts),
-      .TotalNofRspPorts(TotalNofResRspPorts),
-      .NumInp          (TotalNofRss),
-      .NumOut          (NofOperandIfs),
-      .payload_t       (operand_t)
-    ) i_response_xbar (
+      .NumInp    (TotalNofResRspPorts),
+      .NumOut    (NofOperandIfs),
+      .payload_t (operand_t)
+    ) i_rsp_xbar (
       .clk_i,
       .rst_ni (!rst_i),
       .data_i (res_rsps_operands),
@@ -736,9 +762,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .result_t      (alu_res_val_t),
       .instr_tag_t   (alu_instr_tag_t),
       .NofRss        (AluNofRss),
+      .NofConstants  (AluNofConstants),
       .NofOperands   (AluNofOperands),
-      .NofOpPorts    (AluNofOpPorts),
-      .NofResRspIfs  (AluNofRss),
+      .NofResRspIfs  (AluNofResRspPorts),
       .ConsumerCount (ConsumerCount),
       .RegAddrWidth  (RegAddrWidth),
       .MaxIterationsW(MaxIterationsW),
@@ -747,6 +773,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .operand_req_t (operand_req_t),
       .operand_t     (operand_t),
       .res_req_t     (res_req_t),
+      .ext_res_req_t (ext_res_req_t),
+      .available_result_t (available_result_t),
       .dest_mask_t   (dest_mask_t),
       .res_rsp_t     (res_rsp_t)
     ) i_fu_block (
@@ -973,9 +1001,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .result_t      (lsu_result_t),
       .instr_tag_t   (instr_tag_t),
       .NofRss        (LsuNofRss),
+      .NofConstants  (LsuNofConstants),
       .NofOperands   (LsuNofOperands),
-      .NofOpPorts    (LsuNofOpPorts),
-      .NofResRspIfs  (LsuNofRss),
+      .NofResRspIfs  (LsuNofResRspPorts),
       .ConsumerCount (ConsumerCount),
       .RegAddrWidth  (RegAddrWidth),
       .MaxIterationsW(MaxIterationsW),
@@ -984,6 +1012,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .operand_req_t (operand_req_t),
       .operand_t     (operand_t),
       .res_req_t     (res_req_t),
+      .ext_res_req_t (ext_res_req_t),
+      .available_result_t (available_result_t),
       .dest_mask_t   (dest_mask_t),
       .res_rsp_t     (res_rsp_t)
     ) i_fu_block (
@@ -1217,9 +1247,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .result_t      (alu_lsu_res_val_t),
       .instr_tag_t   (alu_lsu_instr_tag_t),
       .NofRss        (AluLsuNofRss),
+      .NofConstants  (AluLsuNofConstants),
       .NofOperands   (AluLsuNofOperands),
-      .NofOpPorts    (AluLsuNofOpPorts),
-      .NofResRspIfs  (AluLsuNofRss),
+      .NofResRspIfs  (AluLsuNofResRspPorts),
       .ConsumerCount (ConsumerCount),
       .RegAddrWidth  (RegAddrWidth),
       .MaxIterationsW(MaxIterationsW),
@@ -1228,6 +1258,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .operand_req_t (operand_req_t),
       .operand_t     (operand_t),
       .res_req_t     (res_req_t),
+      .ext_res_req_t (ext_res_req_t),
+      .available_result_t (available_result_t),
       .dest_mask_t   (dest_mask_t),
       .res_rsp_t     (res_rsp_t)
     ) i_fu_block (
@@ -1489,9 +1521,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .result_t      (fpu_result_t),
       .instr_tag_t   (fpu_instr_tag_t),
       .NofRss        (FpuNofRss),
+      .NofConstants  (FpuNofConstants),
       .NofOperands   (FpuNofOperands),
-      .NofOpPorts    (FpuNofOpPorts),
-      .NofResRspIfs  (FpuNofRss),
+      .NofResRspIfs  (FpuNofResRspPorts),
       .ConsumerCount (ConsumerCount),
       .RegAddrWidth  (RegAddrWidth),
       .MaxIterationsW(MaxIterationsW),
@@ -1500,6 +1532,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .operand_req_t (operand_req_t),
       .operand_t     (operand_t),
       .res_req_t     (res_req_t),
+      .ext_res_req_t (ext_res_req_t),
+      .available_result_t (available_result_t),
       .dest_mask_t   (dest_mask_t),
       .res_rsp_t     (res_rsp_t)
     ) i_fu_block (
@@ -1520,7 +1554,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .disp_req_i         (disp_req_i),
       .disp_req_valid_i   (fpu_disp_reqs_valid_i[fpu]),
       .disp_req_ready_o   (fpu_disp_reqs_ready_o[fpu]),
-      .instr_exec_commit_i(instr_exec_commit_i),
+      .instr_exec_commit_i(fpu_instr_exec_commit_i),
       .disp_rsp_o         (fpu_disp_rsp_o[fpu]),
       // To FU
       .issue_req_o        (fpu_issue_req),
@@ -1699,42 +1733,35 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   function automatic string consumer_to_string(operand_id_t consumer_id);
     int unsigned consumer = unsigned'(consumer_id);
     int unsigned num_ops;
-    int unsigned num_ports;
     int unsigned rs_id;
-    int unsigned port_id;
     int unsigned op_id;
     string fu_name;
 
     if (consumer < LsuOpIdOffset) begin
-      num_ports = AluNofOpPorts;
       num_ops = AluNofOperands;
       consumer = consumer - AluOpIdOffset;
       fu_name = "ALU";
     end else if (consumer < AluLsuOpIdOffset) begin
-      num_ports = LsuNofOpPorts;
       num_ops = LsuNofOperands;
       consumer = consumer - LsuOpIdOffset;
       fu_name = "LSU";
     end else if (consumer < FpuOpIdOffset) begin
-      num_ports = AluLsuNofOpPorts;
       num_ops = AluLsuNofOperands;
       consumer = consumer - AluLsuOpIdOffset;
       fu_name = "ALU_LSU";
     end else begin
-      num_ports = FpuNofOpPorts;
       num_ops = FpuNofOperands;
       consumer = consumer - FpuOpIdOffset;
       fu_name = "FPU";
     end
 
-    rs_id = consumer / (num_ports * num_ops);
+    rs_id = consumer / num_ops;
     // Reduce into operand range of current RS.
-    // --> range of 0..((num_ports * num_ops) - 1)
-    consumer = consumer - (rs_id * (num_ports * num_ops));
-    port_id = consumer / num_ops;
+    // --> range of 0..(num_ops - 1)
+    consumer = consumer - (rs_id * num_ops);
     op_id = consumer % num_ops;
 
-    return $sformatf("%s%0d.%0d.%0d", fu_name, rs_id, port_id, op_id);
+    return $sformatf("%s%0d.%0d", fu_name, rs_id, op_id);
   endfunction
 
   // pragma translate_on

@@ -140,6 +140,8 @@ class ExperimentManager:
         experiment['run_dir'] = self.derive_dir(self.run_dir, experiment)
         experiment['power_dir'] = self.derive_dir(self.power_dir, experiment)
         experiment['synth_dir'] = self.derive_dir(self.synth_dir, experiment)
+        if 'app' in experiment:
+            experiment['elf'] = self.derive_elf(experiment)
 
     def derive_cdefines(self, experiment):
         return {}
@@ -522,12 +524,10 @@ class ExperimentManager:
         axes = df['axes'].apply(pd.Series)
 
         # Create SimResults objects from 'run_dir' column
-        try:
+        if self.run_dir.exists():
             results = df['run_dir'].apply(lambda run_dir: SimResults(run_dir, source=source))
             results.rename('results', inplace=True)
             self.perf_results_available = True
-        except FileNotFoundError:
-            pass
 
         # Create PowerResults objects
         if 'PowerResults' in globals():
