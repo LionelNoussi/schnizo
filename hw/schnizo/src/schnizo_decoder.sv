@@ -99,7 +99,7 @@ module schnizo_decoder import schnizo_pkg::*; #(
   typedef struct packed {
     logic [31:20] max_instr;
     logic [19:15] max_iters_reg;
-    logic [14:12] stagger_max; // only for snitch
+    logic [14:12] funct3; // only for snitch
     logic [11:8]  stagger_mask; // only for snitch
     logic         frep_mode;
     logic [6:0]   opcode;
@@ -843,7 +843,7 @@ module schnizo_decoder import schnizo_pkg::*; #(
       OpcodeCustom1: begin
         if (Xdma) begin
           unique case (instr.rtype.funct3)
-            3'b000: begin // DMA instructions
+            3'b011: begin // DMA instructions
               instr_dec_o.fu  = schnizo_pkg::DMA;
               instr_dec_o.rd  = instr.rtype.rd;
               instr_dec_o.rs1 = instr.rtype.rs1;

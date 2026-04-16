@@ -175,7 +175,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   output logic       lsu_wb_result_valid_o,
   input  logic       lsu_wb_result_ready_i,
 
-  output alu_lsu_result_t alu_lsu_wb_result_o,
+  output alu_lsu_result_t alu_lsu_wb_result_o,        // TODO(lnoussi): Make to array [num_result_ports]. The same for all fields below and for all functional units
   output instr_tag_t      alu_lsu_wb_result_tag_o,
   output logic            alu_lsu_wb_result_valid_o,
   input  logic            alu_lsu_wb_result_ready_i,
@@ -1202,7 +1202,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
     instr_tag_t  tag;
   } alu_lsu_result_and_tag_t;
 
-  alu_lsu_result_and_tag_t  [iomsb(NofAluLsus):0] alu_lsu_wbs_result_and_tag;
+  alu_lsu_result_and_tag_t  [iomsb(NofAluLsus):0] alu_lsu_wbs_result_and_tag;     // TODO(lnoussi): Make to array [num_result_ports]. The same for all fields below, and for all functional units
   logic                     [iomsb(NofAluLsus):0] alu_lsu_wbs_result_valid;
   logic                     [iomsb(NofAluLsus):0] alu_lsu_wbs_result_ready;
   logic                     [iomsb(NofAluLsus):0] alu_lsu_empty;

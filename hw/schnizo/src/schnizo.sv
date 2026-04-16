@@ -416,6 +416,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   fpnew_pkg::fmt_mode_t  fpu_fmt_mode;
   instr_dec_t instr_decoded;
 
+  // TODO(lnoussi): Make to array [num_result_ports]
   alu_result_t alu_result;
   instr_tag_t  alu_result_tag;
   alu_lsu_result_t alu_lsu_result;
@@ -690,7 +691,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   //////////////////////
   // Functional Units //
   //////////////////////
-
+  
+  // TODO(lnoussi): Make to array [num_result_ports]
   logic            alu_result_valid;
   logic            alu_result_ready;
   logic            lsu_result_valid;

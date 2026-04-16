@@ -76,7 +76,7 @@ module schnizo_fu_block import schnizo_pkg::*; #(
   input  logic       issue_req_ready_i,
   output logic       instr_exec_commit_o,
   // From FU to the result DEMUX
-  input  result_t    result_i,
+  input  result_t    result_i,          // TODO(lnoussi): Make to array [num_result_ports]
   input  instr_tag_t result_tag_i,
   input  logic       result_valid_i,
   output logic       result_ready_o,

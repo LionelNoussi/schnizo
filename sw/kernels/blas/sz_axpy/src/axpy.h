@@ -79,7 +79,7 @@ static inline void axpy_baseline(uint32_t n, double a, double *x, double *y,
     uint32_t loop_count = (frac / 4) - 1;
 
     asm volatile(
-        "frep.i %[loop_count], 19, 0, 0 \n"
+        "frep.i %[loop_count], 19, 0       \n"
         // Load x0, y0
         "fld     ft0, 0(%[x_base])         \n"
         "fld     ft1, 0(%[y_base])         \n"
@@ -133,7 +133,7 @@ static inline void axpy_schnizo(uint32_t n, double a, double *x, double *y,
     snrt_mcycle();
 
     asm volatile(
-        "frep.o  %[n_frep], 7, 0, 0   \n"
+        "frep.o  %[n_frep], 7, 0      \n"
         "fld     ft0, 0(%[xa])        \n"
         "fld     ft1, 0(%[ya])        \n"
         "add     %[xa], %[xa], %[inc] \n"  // move adds before fmadd to hide it beneath the fld
@@ -167,7 +167,7 @@ static inline void axpy_unrolled_schnizo(uint32_t n, double a, double *x, double
 
     snrt_mcycle();
     asm volatile(
-        "frep.o  %[n_frep], 19, 0, 0   \n"
+        "frep.o  %[n_frep], 19, 0     \n"
 
         // BLOCK 0
         "fld     ft0, 0(%[xa])        \n"
@@ -236,7 +236,7 @@ static inline void axpy_peeled_schnizo(uint32_t n, double a, double *x, double *
         "fld     ft7, 24(%[ya])        \n"
 
         // Loop Start
-        "frep.o  %[n_frep], 19, 0, 0   \n"
+        "frep.o  %[n_frep], 19, 0     \n"
 
         "fmadd.d ft8, %[a], ft0, ft1  \n"
         "fmadd.d ft9, %[a], ft2, ft3  \n"

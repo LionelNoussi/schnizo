@@ -107,7 +107,7 @@ static inline void dot_schnizo(uint32_t n, double *x, double *y,
 
     asm volatile(
         // clang-format off
-        FREP   " %[n_frep], 14, 0, 0         \n"
+        FREP   " %[n_frep], 14, 0            \n"
         "fld     fa0,  0(%[xa])              \n"
         "fld     fa1,  0(%[ya])              \n"
         "fld     fa2,  8(%[xa])              \n"
@@ -153,7 +153,7 @@ static inline void dot_AluLsuOpt_schnizo(uint32_t n, double *x, double *y,
 
     asm volatile(
     // clang-format off
-    FREP   " %[n_frep], 16, 0, 0         \n"
+    FREP   " %[n_frep], 16, 0            \n"
     "fld     fa0,  0(%[xa])              \n"
     "fld     fa1,  0(%[ya])              \n"
     "addi    x0, x0, 0                   \n"

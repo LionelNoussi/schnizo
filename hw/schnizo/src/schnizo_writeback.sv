@@ -55,7 +55,7 @@ module schnizo_writeback import schnizo_pkg::*; #(
   output logic       lsu_result_ready_o,
 
   // ALU+LSU interface
-  input  alu_lsu_result_t alu_lsu_result_i,
+  input  alu_lsu_result_t alu_lsu_result_i,         // TODO(lnoussi): Make to array [num_result_ports=2]
   input  instr_tag_t      alu_lsu_result_tag_i,
   input  logic            alu_lsu_result_valid_i,
   output logic            alu_lsu_result_ready_o,
@@ -85,6 +85,12 @@ module schnizo_writeback import schnizo_pkg::*; #(
   output logic retired_load_o,
   output logic retired_acc_o
 );
+
+  // TODO(lnoussi): Add support for 2 alu_lsu_results
+  // TODO(lnoussi): Add support for arbitrary writebacks for each fu,
+  // which can be useful for more complex and out of order fu, where many
+  // sub-fus can finish at the same time
+
   logic alu_gpr_valid; // The ALU only writes to the GPR
   logic alu_gpr_ready;
   logic csr_gpr_valid; // The CSR only writes to the GPR
