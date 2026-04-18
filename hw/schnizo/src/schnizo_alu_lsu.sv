@@ -196,13 +196,6 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
 
   always_comb begin
     alu_issue_req.fu_data = issue_req_i.fu_data;
-
-    if (issue_req_i.fu_data.fu == schnizo_pkg::ALU_LSU_STORE) begin
-      alu_issue_req.fu_data.operand_b = issue_req_i.fu_data.imm[XLEN-1:0];
-      alu_issue_req.fu_data.imm = '0;
-      alu_issue_req.fu_data.use_imm = '0;
-    end
-    
   end
 
   schnizo_alu #(
@@ -250,6 +243,7 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     lsu_issue_req.fu_data = issue_req_i.fu_data;
 
     if (issue_req_i.fu_data.fu == schnizo_pkg::ALU_LSU_STORE) begin
+      lsu_issue_req.fu_data.operand_b = issue_req_i.fu_data.imm;
       lsu_issue_req.fu_data.imm = '0;
     end
     

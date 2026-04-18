@@ -175,7 +175,8 @@ module schnizo_decoder import schnizo_pkg::*; #(
     UIMM,
     JIMM,
     RS3,
-    MUX_RD_RS3
+    MUX_RD_RS3,
+    RS2_TO_RS3
   } imm_select_e;
   imm_select_e imm_select;
 
@@ -906,13 +907,13 @@ module schnizo_decoder import schnizo_pkg::*; #(
               instr_dec_o.lsu_size = lsu_size_e'(2'b11);  // double
 
               // Inputs & Outputs
-              instr_dec_o.rs1 = instr.rpsitype.rs1;
+              // We re-shuffle these accordingly inside the ALU_LSU FU
+              instr_dec_o.rs1 = instr.rpsitype.rs1; // Base
               instr_dec_o.use_rs1 = 1'b1;
-              instr_dec_o.rs2 = instr.rpsitype.rs2;
+              instr_dec_o.rs2 = instr.rpsitype.rs3; // Offset. We move rs3 to rs2, since rs2 is float and needs to be loaded through immediate 
               instr_dec_o.use_rs2 = 1'b1;
-              instr_dec_o.rs2_is_fp = 1'b1;
-              imm_select = MUX_RD_RS3;
-              instr_dec_o.rd  = instr.rpsitype.rs1;
+              imm_select = RS2_TO_RS3;              // Source
+              instr_dec_o.rd  = instr.rpsitype.rs1; // Base again
             end
             default: illegal_instr = 1'b1;
           endcase
@@ -1051,7 +1052,6 @@ module schnizo_decoder import schnizo_pkg::*; #(
     instr_dec_o.use_imm = 1'b0;
     instr_dec_o.use_imm_as_op_b = 1'b0;
     instr_dec_o.use_imm_as_rs3 = 1'b0;
-    instr_dec_o.rs3_is_fp = 1'b0;
     case (imm_select)
       IIMM: begin
         instr_dec_o.imm = imm_i_type;
@@ -1077,14 +1077,17 @@ module schnizo_decoder import schnizo_pkg::*; #(
         // imm holds address of fp operand rs3
         instr_dec_o.imm = {{XLEN - 5{1'b0}}, instr.r4type.rs3}; // lio
         instr_dec_o.use_imm_as_rs3 = 1'b1;
-        instr_dec_o.rs3_is_fp = 1'b1;
       end
       // TODO(colluca): this appears to be never used
       MUX_RD_RS3: begin
         // imm holds address of operand rs3 which is in rd field
         instr_dec_o.imm = {{XLEN - 5{1'b0}}, instr.rtype.rd};
         instr_dec_o.use_imm_as_rs3 = 1'b1;
-        instr_dec_o.rs3_is_fp = 1'b0;
+      end
+      RS2_TO_RS3: begin
+        // imm holds address of operand rs3 which is in rs2 field
+        instr_dec_o.imm = {{XLEN - 5{1'b0}}, instr.rpsitype.rs2};
+        instr_dec_o.use_imm_as_rs3 = 1'b1;
       end
       default: begin
         instr_dec_o.imm = {XLEN{1'b0}};

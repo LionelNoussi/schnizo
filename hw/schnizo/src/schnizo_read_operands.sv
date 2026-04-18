@@ -53,7 +53,6 @@ module schnizo_read_operands import schnizo_pkg::*; #(
     fpr_raddr_o[0] = instr_dec_i.rs1;
     gpr_raddr_o[1] = instr_dec_i.rs2;
     fpr_raddr_o[1] = instr_dec_i.rs2;
-    gpr_raddr_o[2] = instr_dec_i.imm[RegAddrSize-1:0];
     fpr_raddr_o[2] = instr_dec_i.imm[RegAddrSize-1:0];
 
     // Operand A
@@ -95,11 +94,7 @@ module schnizo_read_operands import schnizo_pkg::*; #(
     // Operand C - reuses imm field
     if (instr_dec_i.use_imm_as_rs3) begin
       fu_data_o.use_imm = 1'b1;
-      if (instr_dec_i.rs3_is_fp) begin
-        fu_data_o.imm[FLEN-1:0] = fpr_rdata_i[2];
-      end else begin
-        fu_data_o.imm[XLEN-1:0] = gpr_rdata_i[2];
-      end
+      fu_data_o.imm[FLEN-1:0] = fpr_rdata_i[2];
     end else begin
       // TODO(colluca): it might be that the operand right of `||` is never true. Perhaps replace
       //                with an assertion.

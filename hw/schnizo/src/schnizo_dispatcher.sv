@@ -126,8 +126,8 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
                                                          rmti_q[instr_dec_i.rs2];
 
       // Operand C
-      disp_req_o.producer_op_c = instr_dec_i.use_imm_as_rs3 ?
-                                 (instr_dec_i.rs3_is_fp ? rmtf_q[instr_dec_i.imm[RegAddrSize-1:0]] : rmti_q[instr_dec_i.rs2]) :
+      disp_req_o.producer_op_c = instr_dec_i.use_imm_as_rs3 ? 
+                                 rmtf_q[instr_dec_i.imm[RegAddrSize-1:0]] :
                                  no_mapping;
 
       // current destination producer
