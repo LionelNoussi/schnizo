@@ -23,7 +23,9 @@ package schnizo_pkg;
     MULDIV, // shared muldiv unit from hive
     CSR,
     FPU,
-    DMA
+    DMA,
+    ALU_LSU_LOAD,
+    ALU_LSU_STORE
   } fu_t;
 
   // Accelerators available in the Schnizo Cluster / Hive.

@@ -156,7 +156,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
 
   localparam int unsigned XLEN = 32;
   // localparam int unsigned FLEN = DataWidth;
-  localparam int unsigned NrIntReadPorts = 2;
+  localparam int unsigned NrIntReadPorts = 3;
   localparam int unsigned NrIntWritePorts = 1;
   localparam int unsigned NrFpReadPorts = 3;
   localparam int unsigned NrFpWritePorts = 1;
@@ -188,7 +188,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
     // this field holds the address of the third operand (rs3) from the floating-point regfile
     logic [XLEN-1:0]              imm;
     logic                         use_imm;
-    logic                         use_imm_as_rs3; // set if rs3 is a FP register
+    logic                         use_imm_as_rs3; // set if rs3 comes from a register
+    logic                         rs3_is_fp;      // Set if rs3 comes from an FP-register
     lsu_size_e                    lsu_size; // The bit width the LSU operates on
     fpnew_pkg::fp_format_e        fpu_fmt_src; // The FPU format field.
     fpnew_pkg::fp_format_e        fpu_fmt_dst; // The FPU format field.
