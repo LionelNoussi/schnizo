@@ -75,16 +75,25 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // DEMUX //
   ///////////
 
-  logic sel_alu;
+  logic sel_alu, sel_lsu;
   always_comb begin
-    sel_alu = 1'b1;
+    sel_alu = 1'b0;
+    sel_lsu = 1'b0;
     unique case (issue_req_i.fu_data.fu)
       schnizo_pkg::MUL,
       schnizo_pkg::CTRL_FLOW,
       schnizo_pkg::ALU: sel_alu = 1'b1;
       schnizo_pkg::LOAD,
-      schnizo_pkg::STORE: sel_alu = 1'b0;
-      default: sel_alu = 1'b1;
+      schnizo_pkg::STORE: sel_alu = 1'b0;,
+      schnizo_pkg::ALU_LSU_LOAD,
+      schnizo_pkg::ALU_LSU_STORE: begin
+        sel_alu = 1'b1;
+        sel_lsu = 1'b1;
+      end
+      default: begin
+        sel_alu = 1'b0;
+        sel_lsu = 1'b0;
+      end
     endcase
   end
 
@@ -96,17 +105,17 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
 
   // In-Flight Trackers
   // ------------------
-  logic [$clog2(NumOutstandingMem)-1:0] alu_inflight_d, alu_inflight_q;
-  logic [$clog2(NumOutstandingMem)-1:0] lsu_inflight_d, lsu_inflight_q;
+  logic [2:0] alu_inflight_d, alu_inflight_q;
+  logic [2:0] lsu_inflight_d, lsu_inflight_q;
 
   logic alu_issued, alu_completed;
   logic lsu_issued, lsu_completed;
 
   assign alu_issued    = alu_issue_req_valid & alu_issue_req_ready;
-  assign lsu_issued    = (lsu_issue_req_valid & lsu_issue_req_ready) & ~(issue_req_i.fu_data.fu == schnizo_pkg::STORE);
+  assign lsu_issued    = (lsu_issue_req_valid & lsu_issue_req_ready) & ~(issue_req_i.fu_data.fu == schnizo_pkg::STORE || issue_req_i.fu_data.fu == schnizo_pkg::ALU_LSU_STORE);
 
   assign alu_completed = alu_result_valid & alu_result_ready;
-  assign lsu_completed = (lsu_result_valid & lsu_result_ready);
+  assign lsu_completed = lsu_result_valid & lsu_result_ready;
 
   always_comb begin
     alu_inflight_d = alu_inflight_q + alu_issued - alu_completed;
@@ -125,31 +134,50 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
 
   // Issue Gating Logic
   // ------------------
-  // We only allow multiple outstanding issues to one FU,
-  // since otherwise the ALU_LSU might complete out of order.
   logic issue_allowed;
   
   // If we want to issue an ALU req, LSU must be empty.
   // If we want to issue an LSU req, ALU must be empty.
-  assign issue_allowed = sel_alu ? (lsu_inflight_q == '0) : (alu_inflight_q == '0);
+  // Combined ALU_LSU instructions can always be issued
+  logic is_alu_lsu_instr;
+  assign is_alu_lsu_instr = sel_alu & sel_lsu;
+  assign issue_allowed = (is_alu_lsu_instr) ? 1'b1 : (sel_alu ? (lsu_inflight_q == '0) : (alu_inflight_q == '0));
 
-  logic issue_req_ready_raw;
 
-  // Demux
-  // -----
-  stream_demux #(
-    .N_OUP(2)
-  ) i_issue_demux (
-    // Gate the valid signal going INTO the demux
-    .inp_valid_i(issue_req_valid_i & issue_allowed),
-    .inp_ready_o(issue_req_ready_raw),
-    .oup_sel_i  (sel_alu),
-    .oup_valid_o({alu_issue_req_valid, lsu_issue_req_valid}),
-    .oup_ready_i({alu_issue_req_ready, lsu_issue_req_ready})
-  );
+  // Actual Demux
+  // ------------
+  logic issue_req_valid;
+  logic issue_req_ready;
 
-  // Only assert ready outside if we are legally allowed to issue
-  assign issue_req_ready_o = issue_req_ready_raw & issue_allowed;
+  // Only assert ready and valid if we are legally allowed to issue
+  assign issue_req_valid = issue_req_valid_i & issue_allowed;
+  assign issue_req_ready_o = issue_req_ready & issue_allowed;
+
+  always_comb begin
+    lsu_issue_req_valid = '0;
+    alu_issue_req_valid = '0;
+    issue_req_ready = '0;
+
+    unique case ({sel_alu, sel_lsu})
+
+      2'b00:;
+      2'b01: begin
+        lsu_issue_req_valid = issue_req_valid;
+        issue_req_ready = lsu_issue_req_ready;
+      end
+      2'b10: begin
+        alu_issue_req_valid = issue_req_valid;
+        issue_req_ready = alu_issue_req_ready;
+      end
+      2'b11: begin
+        lsu_issue_req_valid = issue_req_valid;
+        alu_issue_req_valid = issue_req_valid;
+        issue_req_ready = lsu_issue_req_ready & alu_issue_req_ready;
+      end
+
+    endcase
+  end
+
 
   /////////
   // ALU //
@@ -164,8 +192,16 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // pragma translate_on
 
   alu_issue_req_t alu_issue_req;
-  assign alu_issue_req.fu_data = issue_req_i.fu_data;
   assign alu_issue_req.tag = issue_req_i.tag[$bits(alu_instr_tag_t)-1:0];
+
+  always_comb begin
+    alu_issue_req.fu_data = issue_req_i.fu_data;
+
+    if (issue_req_i.fu_data.fu == schnizo_pkg::ALU_LSU_STORE) begin
+      alu_issue_req.fu_data.rs2 = alu_issue_req.fu_data.rd;
+    end
+    
+  end
 
   schnizo_alu #(
     .XLEN         (XLEN),
@@ -206,8 +242,16 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // pragma translate_on
 
   lsu_issue_req_t lsu_issue_req;
-  assign lsu_issue_req.fu_data = issue_req_i.fu_data;
   assign lsu_issue_req.tag = issue_req_i.tag[$bits(lsu_instr_tag_t)-1:0];
+
+  always_comb begin
+    lsu_issue_req.fu_data = issue_req_i.fu_data;
+
+    if (issue_req_i.fu_data.fu == schnizo_pkg::ALU_LSU_STORE) begin
+      lsu_issue_req.fu_data.imm = '0;
+    end
+    
+  end
 
   schnizo_lsu #(
     .XLEN               (XLEN),

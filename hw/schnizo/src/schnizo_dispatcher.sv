@@ -214,6 +214,10 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
           lsu_disp_req_valid_o[lsu_idx] = dispatch_valid_i;
         end
       end
+      schnizo_pkg::ALU_LSU_LOAD,
+      schnizo_pkg::ALU_LSU_STORE: begin
+        alu_lsu_disp_req_valid_o[alu_lsu_idx] = dispatch_valid_i;
+      end
       schnizo_pkg::CSR : begin
         csr_disp_req_valid_o = dispatch_valid_i;
       end
@@ -291,6 +295,12 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
           fu_ready    = lsu_disp_req_ready_i[lsu_idx];
           fu_rs_full  = lsu_rs_full_i[lsu_idx];
         end
+      end
+      schnizo_pkg::ALU_LSU_LOAD,
+      schnizo_pkg::ALU_LSU_STORE: begin
+        fu_response = alu_lsu_disp_rsp_i[alu_lsu_idx];
+        fu_ready    = alu_lsu_disp_req_ready_i[alu_lsu_idx];
+        fu_rs_full  = alu_lsu_rs_full_i[alu_lsu_idx];
       end
       schnizo_pkg::CSR : begin
         // There is no response because there is no reservation station.

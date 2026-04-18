@@ -40,7 +40,8 @@ def gen_experiments():
         'unrolled': '_unrolled_schnizo',
         'peeled': '_peeled_schnizo',
         'AluLsuOpt': '_AluLsuOpt_schnizo',
-        'naive': '_naive'
+        'naive': '_naive',
+        'post_increment': '_post_increment_schnizo'
     }
     # hardwares = ['sz_baseline', 'sz_alu_lsu']
     hardwares = ['sz_small']
@@ -49,7 +50,7 @@ def gen_experiments():
 
     app = 'sz_axpy'
     for hw in hardwares:
-        for mode in ['scalar', 'superscalar', 'peeled', 'unrolled']:
+        for mode in ['scalar', 'superscalar', 'peeled', 'unrolled', 'post_increment']:
             for n in sizes:
                 verify_script = Path(f"{schnizo_dir}/sw/kernels/blas/{app}/scripts/verify.py")
                 experiments.extend([
@@ -94,15 +95,18 @@ def main():
     manager = FrepExperimentManager(experiments=experiments)
     manager.run()
 
-    df = manager.get_results()
-    roi = SimRegion('hart_0', 'compute')
-    df['ipc'] = df.apply(lambda row: row['results'].get_metric(roi, 'ipc'), axis=1)
-    df['fpu_util'] = df.apply(lambda row: row['results'].get_metric(roi, 'fpu_util'), axis=1)
-    print(df)
+    try:
+        df = manager.get_results()
+        roi = SimRegion('hart_0', 'compute')
+        df['ipc'] = df.apply(lambda row: row['results'].get_metric(roi, 'ipc'), axis=1)
+        df['fpu_util'] = df.apply(lambda row: row['results'].get_metric(roi, 'fpu_util'), axis=1)
+        print(df)
 
-    # Export dataframe to CSV file
-    df.drop(columns=['results'], inplace=True)
-    df.to_csv(f'{manager.run_dir}/results.csv', index=False)
+        # Export dataframe to CSV file
+        df.drop(columns=['results'], inplace=True)
+        df.to_csv(f'{manager.run_dir}/results.csv', index=False)
+    except:
+        pass
 
 
 if __name__ == '__main__':

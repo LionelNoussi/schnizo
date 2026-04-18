@@ -149,6 +149,36 @@ static inline void axpy_schnizo(uint32_t n, double a, double *x, double *y,
 }
 
 
+static inline void axpy_post_increment_schnizo(uint32_t n, double a, double *x, double *y,
+                                               double *z) {
+    int core_idx = snrt_cluster_core_idx();
+    int num_cores = snrt_cluster_compute_core_num();
+    int frac = n / num_cores;
+    int offset = core_idx;
+
+    double *x_addr = &x[offset];
+    double *y_addr = &y[offset];
+    double *z_addr = &z[offset];
+
+    snrt_mcycle();
+
+    asm volatile(
+        "frep.o  %[n_frep], 7, 0      \n"
+        "fld     ft0, 0(%[xa])        \n"
+        "fld     ft1, 0(%[ya])        \n"
+        "p.lw     x0, %[inc](%[xa]!)  \n"
+        "p.lw     x1, %[inc](%[ya]!)  \n"
+        "fmadd.d ft0, %[a], ft0, ft1  \n"
+        "p.sw     x0, %[inc](%[za]!)  \n"
+        : [ xa ] "+r"(x_addr), [ ya ] "+r"(y_addr), [ za ] "+r"(z_addr)
+        : [ n_frep ] "r"(frac - 1), [ a ] "f"(a),
+        [ inc ] "r"(sizeof(double) * num_cores)
+        : "t0", "ft0", "ft1", "memory");
+
+    snrt_mcycle();
+}
+
+
 static inline void axpy_unrolled_schnizo(uint32_t n, double a, double *x, double *y, double *z) {
     int core_idx = snrt_cluster_core_idx();
     int num_cores = snrt_cluster_compute_core_num();

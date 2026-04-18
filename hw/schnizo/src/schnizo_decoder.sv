@@ -105,6 +105,15 @@ module schnizo_decoder import schnizo_pkg::*; #(
     logic [6:0]   opcode;
   } freptype_t;  // FREP
 
+  typedef struct packed {
+    logic [31:25] funct7;
+    logic [24:20] rs2;  // src
+    logic [19:15] rs1;  // base
+    logic [14:12] funct3;
+    logic [11:7]  rs3;  // offset
+    logic [6:0]   opcode;
+  } rpsitype_t;  // register post-store-increment
+
   typedef union packed {
     logic [31:0] instr;
     rtype_t      rtype;
@@ -115,6 +124,7 @@ module schnizo_decoder import schnizo_pkg::*; #(
     utype_t      utype;
     atype_t      atype;
     freptype_t   freptype;
+    rpsitype_t   rpsitype;
   } instruction_t;
 
   // --------------------
@@ -837,67 +847,115 @@ module schnizo_decoder import schnizo_pkg::*; #(
           default: illegal_instr = 1'b1;
         endcase
       end
-      // --------------------------------
-      // DMA & SSR instructions
-      // --------------------------------
       OpcodeCustom1: begin
-        if (Xdma) begin
+        if (instr.rtype.funct3 == 3'b011) begin
+          // --------------------------------
+          // DMA & SSR instructions
+          // --------------------------------
+          if (Xdma) begin
+            unique case (instr.rtype.funct3)
+              3'b011: begin // DMA instructions
+                instr_dec_o.fu  = schnizo_pkg::DMA;
+                instr_dec_o.rd  = instr.rtype.rd;
+                instr_dec_o.rs1 = instr.rtype.rs1;
+                instr_dec_o.use_rs1 = 1'b1;
+                instr_dec_o.rs2 = instr.rtype.rs2;
+                instr_dec_o.use_rs2 = 1'b1;
+                // Check fixed bits
+                unique case (instr.rtype.funct7)
+                  7'b0000000,       // DMSRC
+                  7'b0000001,       // DMDST
+                  7'b0000110: begin // DMSTR
+                    if (instr.rtype.rd != '0) illegal_instr = 1'b1;
+                  end
+                  7'b0000111: begin // DMREP
+                    if (instr.rtype.rd != '0) illegal_instr = 1'b1;
+                    if (instr.rtype.rs2 != '0) illegal_instr = 1'b1;
+                  end
+                  7'b0000010,   // DMCPYI
+                  7'b0000011: ; // DMCPY - no additional check required
+                  7'b0000100,       // DMSTATI
+                  7'b0000101: begin // DMSTAT
+                    if (instr.rtype.rs1 != '0) illegal_instr = 1'b1;
+                  end
+                  default: illegal_instr = 1'b1;
+                endcase
+              end
+              3'b001,
+              3'b010: begin // SSR instructions
+                // The Schnizo does not feature SSRs
+                illegal_instr = 1'b1;
+              end
+              default: illegal_instr = 1'b1;
+            endcase
+          end else begin
+            illegal_instr = 1'b1;
+          end
+        
+        end else begin
+          // ---------------------------------
+          // Post-Increment Store Instructions
+          // ---------------------------------
+          unique case (instr.rtype.funct3) // lio
+            3'b110: begin
+              // store data=rs2 at add address=rs1
+              // Do rs1 = rs1 + rs3
+              instr_dec_o.fu = schnizo_pkg::ALU_LSU_STORE;
+              instr_dec_o.alu_op = schnizo_pkg::AluOpAdd;
+              instr_dec_o.lsu_op = schnizo_pkg::LsuOpFpStore;
+              instr_dec_o.lsu_size = lsu_size_e'(2'b11);  // double
+
+              // Inputs & Outputs
+              instr_dec_o.rs1 = instr.rpsitype.rs1;
+              instr_dec_o.use_rs1 = 1'b1;
+              instr_dec_o.rs2 = instr.rpsitype.rs2;
+              instr_dec_o.use_rs2 = 1'b1;
+              instr_dec_o.rs2_is_fp = 1'b1
+              imm_select = MUX_RD_RS3;
+              instr_dec_o.rd  = instr.rpsitype.rs1;
+            end
+            default: illegal_instr = 1'b1;
+          endcase
+
+        end
+      end
+      OpcodeCustom0: begin
+        if (instr.rtype.funct3 == 3'b011) begin
+          // --------------------------------
+          // Frep extension instructions
+          // --------------------------------
+          if (Xfrep) begin
+            instr_dec_o.is_frep = 1'b1;
+            // TODO(colluca): why does this comment not violate the 100 character line-length limit?
+            // The parsed max_instr is actually -1 of the instructions we loop. This is to match the Snitch behaviour.
+            // When executing the loop we actually execute max_instr+1 instructions.
+            instr_dec_o.frep_bodysize = instr.freptype.max_instr;
+            instr_dec_o.frep_mode     = schnizo_pkg::frep_mode_e'(instr.freptype.frep_mode);
+            // The iterations are from a register specified by the max_iters field
+            instr_dec_o.rs1_is_fp = 1'b0;
+            instr_dec_o.rs1       = instr.freptype.max_iters_reg;
+            instr_dec_o.use_rs1   = 1'b1;
+          end else begin
+            illegal_instr = 1'b1;
+          end
+
+        end else begin
+          // ---------------------------------
+          // Post-Increment Load Instructions
+          // ---------------------------------
           unique case (instr.rtype.funct3)
-            3'b011: begin // DMA instructions
-              instr_dec_o.fu  = schnizo_pkg::DMA;
-              instr_dec_o.rd  = instr.rtype.rd;
+            3'b111: begin
+              instr_dec_o.fu = schnizo_pkg::ALU_LSU_LOAD;
               instr_dec_o.rs1 = instr.rtype.rs1;
               instr_dec_o.use_rs1 = 1'b1;
               instr_dec_o.rs2 = instr.rtype.rs2;
               instr_dec_o.use_rs2 = 1'b1;
-              // Check fixed bits
-              unique case (instr.rtype.funct7)
-                7'b0000000,       // DMSRC
-                7'b0000001,       // DMDST
-                7'b0000110: begin // DMSTR
-                  if (instr.rtype.rd != '0) illegal_instr = 1'b1;
-                end
-                7'b0000111: begin // DMREP
-                  if (instr.rtype.rd != '0) illegal_instr = 1'b1;
-                  if (instr.rtype.rs2 != '0) illegal_instr = 1'b1;
-                end
-                7'b0000010,   // DMCPYI
-                7'b0000011: ; // DMCPY - no additional check required
-                7'b0000100,       // DMSTATI
-                7'b0000101: begin // DMSTAT
-                  if (instr.rtype.rs1 != '0) illegal_instr = 1'b1;
-                end
-                default: illegal_instr = 1'b1;
-              endcase
-            end
-            3'b001,
-            3'b010: begin // SSR instructions
-              // The Schnizo does not feature SSRs
-              illegal_instr = 1'b1;
+              instr_dec_o.rd  = instr.rtype.rs1;
+              instr_dec_o.alu_op = schnizo_pkg::AluOpAdd;
             end
             default: illegal_instr = 1'b1;
           endcase
-        end else begin
-          illegal_instr = 1'b1;
-        end
-      end
-      // --------------------------------
-      // Frep extension instructions
-      // --------------------------------
-      OpcodeCustom0: begin
-        if (Xfrep) begin
-          instr_dec_o.is_frep = 1'b1;
-          // TODO(colluca): why does this comment not violate the 100 character line-length limit?
-          // The parsed max_instr is actually -1 of the instructions we loop. This is to match the Snitch behaviour.
-          // When executing the loop we actually execute max_instr+1 instructions.
-          instr_dec_o.frep_bodysize = instr.freptype.max_instr;
-          instr_dec_o.frep_mode     = schnizo_pkg::frep_mode_e'(instr.freptype.frep_mode);
-          // The iterations are from a register specified by the max_iters field
-          instr_dec_o.rs1_is_fp = 1'b0;
-          instr_dec_o.rs1       = instr.freptype.max_iters_reg;
-          instr_dec_o.use_rs1   = 1'b1;
-        end else begin
-          illegal_instr = 1'b1;
+
         end
       end
       // --------------------------------
@@ -1016,13 +1074,14 @@ module schnizo_decoder import schnizo_pkg::*; #(
       end
       RS3: begin
         // imm holds address of fp operand rs3
-        instr_dec_o.imm = {{XLEN - 5{1'b0}}, instr.r4type.rs3};
+        instr_dec_o.imm = {{XLEN - 5{1'b0}}, instr.r4type.rs3}; // lio
         instr_dec_o.use_imm_as_rs3 = 1'b1;
       end
       // TODO(colluca): this appears to be never used
       MUX_RD_RS3: begin
         // imm holds address of operand rs3 which is in rd field
         instr_dec_o.imm = {{XLEN - 5{1'b0}}, instr.rtype.rd};
+        instr_dec_o.use_imm_as_rs3 = 1'b1;
       end
       default: begin
         instr_dec_o.imm = {XLEN{1'b0}};
