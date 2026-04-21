@@ -86,6 +86,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   parameter type         disp_rsp_t     = logic,
   parameter type         fu_data_t      = logic,
   parameter type         instr_tag_t    = logic,
+  parameter type         issue_req_t    = logic,
   parameter type         alu_result_t   = logic,
   parameter type         alu_res_val_t  = logic,
   parameter type         alu_lsu_result_t   = alu_result_t,
@@ -174,10 +175,10 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   output logic       lsu_wb_result_valid_o,
   input  logic       lsu_wb_result_ready_i,
 
-  output alu_lsu_result_t alu_lsu_wb_results_o [0:1],
-  output instr_tag_t      alu_lsu_wb_result_tags_o [0:1],
-  output logic            alu_lsu_wb_results_valid_o [0:1],
-  input  logic            alu_lsu_wb_results_ready_i [0:1],
+  output alu_lsu_result_t [1:0] alu_lsu_wb_results_o,
+  output instr_tag_t      [1:0] alu_lsu_wb_result_tags_o,
+  output logic            [1:0] alu_lsu_wb_results_valid_o,
+  input  logic            [1:0] alu_lsu_wb_results_ready_i,
 
   output logic [FLEN-1:0] fpu_wb_result_o,
   output instr_tag_t      fpu_wb_result_tag_o,
@@ -188,15 +189,6 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   /////////////////////////////////////
   // Parameters and type definitions //
   /////////////////////////////////////
-
-  // ---------
-  // Issue
-  // ---------
-
-  typedef struct packed {
-    fu_data_t fu_data;
-    instr_tag_t tag;
-  } issue_req_t;
 
   // ---------------------------
   // RSS
@@ -706,7 +698,6 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   //////////
 
   typedef logic [cf_math_pkg::idx_width(AluNofRss)-1:0] alu_rs_tag_t;
-
   typedef logic [cf_math_pkg::max($bits(alu_rs_tag_t),$bits(instr_tag_t))-1:0] alu_instr_tag_t;
 
   typedef struct packed {
@@ -1194,16 +1185,22 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   typedef struct packed {
     fu_data_t       fu_data;
     alu_lsu_instr_tag_t tag;
+    alu_lsu_instr_tag_t tag2;
   } alu_lsu_issue_req_t;
+
+  typedef struct packed {
+    fu_data_t       fu_data;
+    alu_lsu_instr_tag_t tag;
+  } alu_lsu_fu_issue_req_t;
 
   typedef struct packed {
     alu_lsu_result_t result;
     instr_tag_t  tag;
   } alu_lsu_result_and_tag_t;
 
-  alu_lsu_result_and_tag_t  [iomsb(NofAluLsus):0][0:1] alu_lsu_wbs_results_and_tags;
-  logic                     [iomsb(NofAluLsus):0][0:1] alu_lsu_wbs_results_valid;
-  logic                     [iomsb(NofAluLsus):0][0:1] alu_lsu_wbs_results_ready;
+  alu_lsu_result_and_tag_t  [iomsb(NofAluLsus):0][1:0] alu_lsu_wbs_results_and_tags;
+  logic                     [iomsb(NofAluLsus):0][1:0] alu_lsu_wbs_results_valid;
+  logic                     [iomsb(NofAluLsus):0][1:0] alu_lsu_wbs_results_ready;
   logic                     [iomsb(NofAluLsus):0] alu_lsu_empty;
   logic                     [iomsb(NofAluLsus):0] alu_lsu_addr_misaligned;
 
@@ -1212,8 +1209,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
 
   for (genvar alu_lsu = 0; alu_lsu < NofAluLsus; alu_lsu++) begin : gen_alu_lsus
     // Helper signals to merge the result and tag
-    alu_lsu_result_t    [0:1] alu_lsu_wb_results;
-    alu_lsu_instr_tag_t [0:1] alu_lsu_wb_result_tags;
+    alu_lsu_result_t    [1:0] alu_lsu_wb_results;
+    alu_lsu_instr_tag_t [1:0] alu_lsu_wb_result_tags;
 
     // Signals connecting the FU block and the actual FU
     alu_lsu_issue_req_t alu_lsu_issue_req;
@@ -1221,10 +1218,10 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
     logic               alu_lsu_issue_req_ready;
     logic               alu_lsu_exec_commit;
     logic               alu_lsu_addr_misaligned_raw;
-    alu_lsu_result_t    [0:1] alu_lsu_results;
-    alu_lsu_instr_tag_t [0:1] alu_lsu_result_tags;
-    logic               [0:1] alu_lsu_results_valid;
-    logic               [0:1] alu_lsu_results_ready;
+    alu_lsu_result_t    [1:0] alu_lsu_results;
+    alu_lsu_instr_tag_t [1:0] alu_lsu_result_tags;
+    logic               [1:0] alu_lsu_results_valid;
+    logic               [1:0] alu_lsu_results_ready;
     logic               alu_lsu_busy;
 
     producer_id_t producer_start_id;
@@ -1328,7 +1325,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .alu_lsu_result_t     (alu_lsu_result_t),
       .alu_lsu_instr_tag_t  (alu_lsu_instr_tag_t),
       .alu_lsu_issue_req_t  (alu_lsu_issue_req_t),
-      .instr_tag_t          (instr_tag_t),
+      .fu_issue_req_t       (alu_lsu_fu_issue_req_t),
       // ALU
       .XLEN                 (XLEN),
       .HasBranch            (alu_lsu == '0), // only the first ALU has the branch logic
@@ -1411,9 +1408,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
     if (NofAluLsus > 0) begin: gen_alu_lsu_wb_arbiter
       // 1. Declare intermediate "Channel-First" signals
       // These match the port requirements of your arbiters
-      alu_lsu_result_and_tag_t [iomsb(NofAluLsus):0] arb_inp_data  [0:1];
-      logic                    [iomsb(NofAluLsus):0] arb_inp_valid [0:1];
-      logic                    [iomsb(NofAluLsus):0] arb_inp_ready [0:1];
+      alu_lsu_result_and_tag_t [1:0][iomsb(NofAluLsus):0] arb_inp_data;
+      logic                    [1:0][iomsb(NofAluLsus):0] arb_inp_valid;
+      logic                    [1:0][iomsb(NofAluLsus):0] arb_inp_ready;
 
       // 2. Use a generate loop to "transpose" the arrays
       for (genvar i = 0; i < NofAluLsus; i++) begin : gen_lsu_transpose

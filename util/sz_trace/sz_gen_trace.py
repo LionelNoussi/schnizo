@@ -352,14 +352,14 @@ def gen_dispatch_perfetto(sim_time, cycle, priv_lvl, loop_state, extras,
     # Emit Perfetto slice begin event
     if fu_str.startswith(FU_ALU_LSU):
         if extras['fu_type'] == FU_ALU_LSU:
-            trace.start_insn(fu_str, mnemonic + " (ALU)", cycle * CLOCK_PERIOD_NS, annotations, queue_id=1)
-            insn_uuid_lsu = trace.start_insn(fu_str, mnemonic + " (LSU)", cycle * CLOCK_PERIOD_NS, annotations, queue_id=0)
+            trace.start_insn(fu_str, mnemonic + " (ALU)", cycle * CLOCK_PERIOD_NS, annotations, queue_id=0)
+            insn_uuid_lsu = trace.start_insn(fu_str, mnemonic + " (LSU)", cycle * CLOCK_PERIOD_NS, annotations, queue_id=1)
             if (extras['lsu_is_store']):
-                trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid_lsu)
+                trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid_lsu, queue_id=1)
             return
         else:
-            queue_id = 1 if extras['fu_type'] == FU_ALU else 0
-            insn_uuid = trace.start_insn(fu_str, mnemonic + " (LSU)", cycle * CLOCK_PERIOD_NS, annotations, queue_id=queue_id)
+            queue_id = 0 if extras['fu_type'] == FU_ALU else 1
+            insn_uuid = trace.start_insn(fu_str, mnemonic, cycle * CLOCK_PERIOD_NS, annotations, queue_id=queue_id)
     else:
         insn_uuid = trace.start_insn(fu_str, mnemonic, cycle * CLOCK_PERIOD_NS, annotations)
 
@@ -368,10 +368,14 @@ def gen_dispatch_perfetto(sim_time, cycle, priv_lvl, loop_state, extras,
         # The instruction ends in this cycle. Thus the event is at the end of this cycle.
         trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid)
     # Immediately end store instructions as there is no retirement event.
-    if (fu_str.startswith(FU_LSU) or (fu_str.startswith(FU_ALU_LSU) and (extras['fu_type'] == FU_LSU))):
+    if fu_str.startswith(FU_LSU):
         if (extras['lsu_is_store']):
             # The instruction ends in this cycle. Thus the event is at the end of this cycle.
-            trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid)
+            trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid, queue_id=0)
+    if fu_str.startswith(FU_ALU_LSU) and (extras['fu_type'] == FU_LSU):
+        if (extras['lsu_is_store']):
+            # The instruction ends in this cycle. Thus the event is at the end of this cycle.
+            trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid, queue_id=1)
 
 
 def gen_retirement_perfetto(sim_time, cycle, priv_lvl, loop_state, extras, trace):

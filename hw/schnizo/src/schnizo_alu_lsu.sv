@@ -7,7 +7,7 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   parameter type         alu_lsu_result_t    = logic,
   parameter type         alu_lsu_instr_tag_t = logic,
   parameter type         alu_lsu_issue_req_t = logic,
-  parameter type         instr_tag_t         = logic,
+  parameter type         fu_issue_req_t      = logic,
   // ALU
   parameter int unsigned XLEN          = 32,
   parameter bit          HasBranch     = 1'b1,
@@ -40,13 +40,13 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   input  logic                    issue_req_valid_i,
   input logic                     issue_commit_i,
   output logic                    issue_req_ready_o,
-  output alu_lsu_result_t [0:1]   result_o,
+  output alu_lsu_result_t [1:0]   result_o,
   /// Set if the comparison is true
   output logic                    compare_res_o,
-  output alu_lsu_instr_tag_t [0:1] tag_o,
+  output alu_lsu_instr_tag_t [1:0] tag_o,
   output logic                    result_error_o,
-  output logic [0:1]              result_valid_o,
-  input  logic [0:1]              result_ready_i,
+  output logic [1:0]              result_valid_o,
+  input  logic [1:0]              result_ready_i,
   output logic                    busy_o,
 
   output logic                empty_o,
@@ -182,7 +182,7 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   issue_alu_trace_t alu_trace;
   // pragma translate_on
 
-  alu_lsu_issue_req_t alu_issue_req;
+  fu_issue_req_t alu_issue_req;
 
   always_comb begin
     alu_issue_req.fu_data = issue_req_i.fu_data;
@@ -193,7 +193,7 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     .XLEN         (XLEN),
     .HasBranch    (HasBranch), // only the first ALU has the branch logic
     .HasMultiplier(HasMultiplier), // only the first ALU has the multiplier
-    .issue_req_t  (alu_lsu_issue_req_t),
+    .issue_req_t  (fu_issue_req_t),
     .instr_tag_t  (alu_lsu_instr_tag_t)
   ) i_alu (
     .clk_i,
@@ -223,9 +223,7 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   issue_lsu_trace_t lsu_trace;
   // pragma translate_on
 
-  alu_lsu_issue_req_t lsu_issue_req;
-  instr_tag_t lsu_instr_tag;
-
+  fu_issue_req_t lsu_issue_req;
   always_comb begin
     lsu_issue_req.fu_data = issue_req_i.fu_data;
 
@@ -234,18 +232,16 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
       lsu_issue_req.fu_data.imm = '0;
     end
 
-    lsu_instr_tag = issue_req_i.tag;
-    if (issue_req_i.fu_data.fu != schnizo_pkg::ALU_LSU_LOAD) begin
-      lsu_instr_tag.dest_reg2 = lsu_instr_tag.dest_reg;
-      lsu_instr_tag.dest_reg2_is_fp = lsu_instr_tag.dest_reg_is_fp;
+    if (issue_req_i.fu_data.fu == schnizo_pkg::ALU_LSU_LOAD) begin
+      lsu_issue_req.tag = issue_req_i.tag2;
+    end else begin
+      lsu_issue_req.tag = issue_req_i.tag;
     end
-    
-    lsu_issue_req.tag = lsu_instr_tag;
   end
 
   schnizo_lsu #(
     .XLEN               (XLEN),
-    .issue_req_t        (alu_lsu_issue_req_t),
+    .issue_req_t        (fu_issue_req_t),
     .AddrWidth          (AddrWidth),
     .DataWidth          (DataWidth),
     .dreq_t             (dreq_t),

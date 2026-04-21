@@ -339,11 +339,13 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
     rmt_entry_t producer_op_c;
     rmt_entry_t current_producer_dest;
     instr_tag_t tag;
+    instr_tag_t tag2; // optional second tag, only used by FUs with two output ports
   } disp_req_t;
 
   typedef struct packed {
     fu_data_t fu_data;
     instr_tag_t tag;
+    instr_tag_t tag2; // optional second tag, only used by FUs with two output ports
   } issue_req_t;
 
   // The ALU result without the branch decision
@@ -417,8 +419,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   // TODO(lnoussi): Make to array [num_result_ports]
   alu_result_t alu_result;
   instr_tag_t  alu_result_tag;
-  alu_lsu_result_t alu_lsu_results      [0:1];
-  instr_tag_t      alu_lsu_result_tags  [0:1];
+  alu_lsu_result_t  [1:0] alu_lsu_results;
+  instr_tag_t       [1:0] alu_lsu_result_tags;
   alu_result_t branch_result;
   logic [0:0]  lsu_empty;
   fpnew_pkg::status_t fpu_status;
@@ -697,8 +699,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   logic            lsu_result_ready;
   instr_tag_t      lsu_result_tag;
   data_t           lsu_result;
-  logic            alu_lsu_results_valid [0:1];
-  logic            alu_lsu_results_ready [0:1];
+  logic [1:0]      alu_lsu_results_valid;
+  logic [1:0]      alu_lsu_results_ready;
   logic [FLEN-1:0] fpu_result;
   logic            fpu_result_valid;
   logic            fpu_result_ready;
@@ -809,6 +811,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
     .disp_rsp_t         (disp_rsp_t),
     .fu_data_t          (fu_data_t),
     .instr_tag_t        (instr_tag_t),
+    .issue_req_t        (issue_req_t),
     .alu_result_t       (alu_result_t),
     .alu_res_val_t      (alu_res_val_t),
     .alu_lsu_result_t   (alu_lsu_result_t),
@@ -982,6 +985,11 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   end
 
   // See module for details and specialities!
+
+  `ASSERT(AluNeverWritesFpr, !(alu_result_valid && alu_result_tag.dest_reg_is_fp), clk_i, rst_i)
+  `ASSERT(CsrNeverWritesFpr, !(csr_result_valid && csr_result_tag.dest_reg_is_fp), clk_i, rst_i)
+  `ASSERT(AccNeverWritesFpr, !(acc_pvalid_i     && acc_result_tag.dest_reg_is_fp), clk_i, rst_i)
+
   schnizo_writeback #(
     .XLEN           (XLEN),
     .FLEN           (FLEN),
@@ -1507,8 +1515,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   assign alu_lsu_wb_traces[1] = '{
     valid:       alu_lsu_results_valid[1] && alu_lsu_results_ready[1],
     fu_result:   alu_lsu_results[1],
-    fu_rd:       alu_lsu_result_tags[1].dest_reg2,
-    fu_rd_is_fp: alu_lsu_result_tags[1].dest_reg2_is_fp
+    fu_rd:       alu_lsu_result_tags[1].dest_reg,
+    fu_rd_is_fp: alu_lsu_result_tags[1].dest_reg_is_fp
   };
 
   assign fpu_wb_trace = '{
