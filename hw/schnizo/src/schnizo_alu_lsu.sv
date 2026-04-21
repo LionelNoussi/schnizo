@@ -8,6 +8,7 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   parameter type         alu_lsu_instr_tag_t = logic,
   parameter type         alu_lsu_issue_req_t = logic,
   parameter type         fu_issue_req_t      = logic,
+  parameter int unsigned NofResPorts   = 2,
   // ALU
   parameter int unsigned XLEN          = 32,
   parameter bit          HasBranch     = 1'b1,
@@ -40,13 +41,13 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   input  logic                    issue_req_valid_i,
   input logic                     issue_commit_i,
   output logic                    issue_req_ready_o,
-  output alu_lsu_result_t [1:0]   result_o,
+  output alu_lsu_result_t [NofResPorts-1:0]   result_o,
   /// Set if the comparison is true
   output logic                    compare_res_o,
-  output alu_lsu_instr_tag_t [1:0] tag_o,
+  output alu_lsu_instr_tag_t [NofResPorts-1:0] tag_o,
   output logic                    result_error_o,
-  output logic [1:0]              result_valid_o,
-  input  logic [1:0]              result_ready_i,
+  output logic [NofResPorts-1:0]              result_valid_o,
+  input  logic [NofResPorts-1:0]              result_ready_i,
   output logic                    busy_o,
 
   output logic                empty_o,
@@ -286,15 +287,52 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // Output Assignment //
   ///////////////////////
 
-  assign result_o[0] = alu_result_value;
-  assign tag_o[0] = alu_tag;
-  assign result_valid_o[0] = alu_result_valid;
-  assign alu_result_ready = result_ready_i[0];
+  if (NofResPorts == 2) begin: gen_two_result_ports
+  
+    assign result_o[0] = alu_result_value;
+    assign tag_o[0] = alu_tag;
+    assign result_valid_o[0] = alu_result_valid;
+    assign alu_result_ready = result_ready_i[0];
 
-  assign result_o[1] = lsu_result_value;
-  assign tag_o[1] = lsu_tag;
-  assign result_valid_o[1] = lsu_result_valid;
-  assign lsu_result_ready = result_ready_i[1];
+    assign result_o[1] = lsu_result_value;
+    assign tag_o[1] = lsu_tag;
+    assign result_valid_o[1] = lsu_result_valid;
+    assign lsu_result_ready = result_ready_i[1];
+
+  end else begin: gen_one_result_port
+
+    typedef struct packed {
+      alu_lsu_result_t value;
+      alu_lsu_instr_tag_t tag;
+    } result_and_tag_t;
+
+    result_and_tag_t result_and_tag;
+
+    result_and_tag_t alu_result_and_tag;
+    assign alu_result_and_tag.value = alu_result_value; // Zero extended to fit in data_t
+    assign alu_result_and_tag.tag = alu_tag;
+
+    result_and_tag_t lsu_result_and_tag;
+    assign lsu_result_and_tag.value = lsu_result_value; // Fits perfectly
+    assign lsu_result_and_tag.tag = lsu_tag;
+
+    stream_arbiter #(
+      .DATA_T(result_and_tag_t),
+      .N_INP(2)
+    ) i_result_arbiter (
+      .clk_i,
+      .rst_ni     (!rst_i),
+      .inp_data_i ({alu_result_and_tag, lsu_result_and_tag}),
+      .inp_valid_i({alu_result_valid, lsu_result_valid}),
+      .inp_ready_o({alu_result_ready, lsu_result_ready}),
+      .oup_data_o (result_and_tag),
+      .oup_valid_o(result_valid_o),
+      .oup_ready_i(result_ready_i)
+    );
+
+    assign result_o = result_and_tag.value;
+    assign tag_o = result_and_tag.tag;
+  end
 
   assign busy_o = alu_busy || lsu_busy;
 

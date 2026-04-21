@@ -95,6 +95,7 @@ module ${cfg['cluster']['name']}_wrapper (
   localparam int unsigned NumIntOutstandingMem [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_int_outstanding_mem')}};
   localparam int unsigned NumSequencerInstr [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_sequencer_instructions')}};
   localparam int unsigned NumSequencerLoops [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_sequencer_loops')}};
+  localparam int unsigned NumAluLsuResPorts [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_alu_lsu_res_ports')}};
   localparam logic UseAluLsus [${cfg['cluster']['nr_cores']}] = '{${core_cfg('use_alu_lsu')}};
 
   // Snitch cluster under test.
@@ -190,6 +191,7 @@ module ${cfg['cluster']['name']}_wrapper (
     .NumLsuRspPorts (NumLsuRspPorts),
     .NumFpuRspPorts (NumFpuRspPorts),
     .NumAluLsuRspPorts (NumAluLsuRspPorts),
+    .NumAluLsuResPorts (NumAluLsuResPorts),
     .UseAluLsus (UseAluLsus),
     .NumIntOutstandingLoads (NumIntOutstandingLoads),
     .NumIntOutstandingMem (NumIntOutstandingMem),

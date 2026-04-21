@@ -31,6 +31,7 @@ module schnizo_writeback import schnizo_pkg::*; #(
   parameter int unsigned NrIntWritePorts = 1,
   parameter int unsigned NrFpWritePorts  = 1,
   parameter int unsigned RegAddrSize     = 5,
+  parameter int unsigned AluLsuNofResPorts = 2,
   parameter type         instr_tag_t     = logic,
   parameter type         alu_result_t    = logic,
   parameter type         data_t          = logic,
@@ -56,10 +57,10 @@ module schnizo_writeback import schnizo_pkg::*; #(
   output logic            lsu_result_ready_o,
 
   // ALU+LSU interface
-  input  alu_lsu_result_t [1:0] alu_lsu_results_i,
-  input  instr_tag_t      [1:0] alu_lsu_result_tags_i,
-  input  logic            [1:0] alu_lsu_results_valid_i,
-  output logic            [1:0] alu_lsu_results_ready_o,
+  input  alu_lsu_result_t [AluLsuNofResPorts-1:0] alu_lsu_results_i,
+  input  instr_tag_t      [AluLsuNofResPorts-1:0] alu_lsu_result_tags_i,
+  input  logic            [AluLsuNofResPorts-1:0] alu_lsu_results_valid_i,
+  output logic            [AluLsuNofResPorts-1:0] alu_lsu_results_ready_o,
 
   // FPU interface
   input  logic [FLEN-1:0] fpu_result_i,
@@ -94,7 +95,7 @@ module schnizo_writeback import schnizo_pkg::*; #(
   logic [1:0] alu_lsu_gpr_readys, alu_lsu_fpr_readys;
   logic fpu_gpr_valid, fpu_fpr_valid, fpu_gpr_ready, fpu_fpr_ready;
   logic acc_gpr_valid, acc_gpr_ready;
-  logic gpr_port_used;
+  logic gpr_port_used, fpr_port_used;
 
   // -------------------------------
   // Demultiplex Valid/Ready Signals
@@ -120,9 +121,11 @@ module schnizo_writeback import schnizo_pkg::*; #(
   assign alu_lsu_results_ready_o[0] =  alu_lsu_result_tags_i[0].dest_reg_is_fp ? alu_lsu_fpr_readys[0]      : alu_lsu_gpr_readys[0];
 
   // ALU_LSU Port 1
-  assign alu_lsu_gpr_valids[1]      = !alu_lsu_result_tags_i[1].dest_reg_is_fp ? alu_lsu_results_valid_i[1] : 1'b0;
-  assign alu_lsu_fpr_valids[1]      =  alu_lsu_result_tags_i[1].dest_reg_is_fp ? alu_lsu_results_valid_i[1] : 1'b0;
-  assign alu_lsu_results_ready_o[1] =  alu_lsu_result_tags_i[1].dest_reg_is_fp ? alu_lsu_fpr_readys[1]      : alu_lsu_gpr_readys[1];
+  if (AluLsuNofResPorts == 2) begin
+    assign alu_lsu_gpr_valids[1]      = !alu_lsu_result_tags_i[1].dest_reg_is_fp ? alu_lsu_results_valid_i[1] : 1'b0;
+    assign alu_lsu_fpr_valids[1]      =  alu_lsu_result_tags_i[1].dest_reg_is_fp ? alu_lsu_results_valid_i[1] : 1'b0;
+    assign alu_lsu_results_ready_o[1] =  alu_lsu_result_tags_i[1].dest_reg_is_fp ? alu_lsu_fpr_readys[1]      : alu_lsu_gpr_readys[1];
+  end
 
   // FPU
   assign fpu_gpr_valid      = !fpu_result_tag_i.dest_reg_is_fp ? fpu_result_valid_i : 1'b0;
@@ -204,15 +207,17 @@ module schnizo_writeback import schnizo_pkg::*; #(
     end
 
     // ALU_LSU Port 1 Priority
-    if (!gpr_port_used && alu_lsu_gpr_valids[1]) begin
-      if (alu_lsu_result_tags_i[1].dest_reg != '0) begin
-        gpr_we_o              = 1'b1;
-        gpr_waddr_o           = alu_lsu_result_tags_i[1].dest_reg;
-        gpr_wdata_o           = alu_lsu_result_tags_i[1].is_jump ? consecutive_pc_i : alu_lsu_results_i[1];
-        alu_lsu_gpr_readys[1] = 1'b1;
-        gpr_port_used         = 1'b1;
-      end else begin
-        alu_lsu_gpr_readys[1] = 1'b1;
+    if (AluLsuNofResPorts == 2) begin
+      if (!gpr_port_used && alu_lsu_gpr_valids[1]) begin
+        if (alu_lsu_result_tags_i[1].dest_reg != '0) begin
+          gpr_we_o              = 1'b1;
+          gpr_waddr_o           = alu_lsu_result_tags_i[1].dest_reg;
+          gpr_wdata_o           = alu_lsu_result_tags_i[1].is_jump ? consecutive_pc_i : alu_lsu_results_i[1];
+          alu_lsu_gpr_readys[1] = 1'b1;
+          gpr_port_used         = 1'b1;
+        end else begin
+          alu_lsu_gpr_readys[1] = 1'b1;
+        end
       end
     end
 
@@ -255,41 +260,64 @@ module schnizo_writeback import schnizo_pkg::*; #(
     lsu_fpr_ready      = '0;
     fpu_fpr_ready      = '0;
 
+    fpr_port_used = 1'b0;
+
     // No hardwired x0 equivalent in FPRs, standard priority routing
     if (alu_lsu_fpr_valids[0]) begin
       fpr_we_o              = 1'b1;
       fpr_waddr_o           = alu_lsu_result_tags_i[0].dest_reg;
       fpr_wdata_o           = alu_lsu_results_i[0][FLEN-1:0];
       alu_lsu_fpr_readys[0] = 1'b1;
-    end else if (alu_lsu_fpr_valids[1]) begin
-      fpr_we_o              = 1'b1;
-      fpr_waddr_o           = alu_lsu_result_tags_i[1].dest_reg;
-      fpr_wdata_o           = alu_lsu_results_i[1][FLEN-1:0];
-      alu_lsu_fpr_readys[1] = 1'b1;
-    end else if (lsu_fpr_valid) begin
+      fpr_port_used = 1'b1;
+    end
+    
+    if (AluLsuNofResPorts == 2) begin
+      if (alu_lsu_fpr_valids[1]) begin
+        fpr_we_o              = 1'b1;
+        fpr_waddr_o           = alu_lsu_result_tags_i[1].dest_reg;
+        fpr_wdata_o           = alu_lsu_results_i[1][FLEN-1:0];
+        alu_lsu_fpr_readys[1] = 1'b1;
+        fpr_port_used = 1'b1;
+      end
+    end
+    
+    if (lsu_fpr_valid) begin
       fpr_we_o              = 1'b1;
       fpr_waddr_o           = lsu_result_tag_i.dest_reg;
       fpr_wdata_o           = lsu_result_i[FLEN-1:0];
       lsu_fpr_ready         = 1'b1;
-    end else if (fpu_fpr_valid) begin
+      fpr_port_used = 1'b1;
+    end
+    
+    if (fpu_fpr_valid) begin
       fpr_we_o              = 1'b1;
       fpr_waddr_o           = fpu_result_tag_i.dest_reg;
       fpr_wdata_o           = fpu_result_i[FLEN-1:0];
       fpu_fpr_ready         = 1'b1;
+      fpr_port_used = 1'b1;
     end
   end
 
   // -----------
   // Core Events
   // -----------
-  assign retired_single_cycle_o = (alu_gpr_valid & alu_gpr_ready) ||
-                                  (csr_gpr_valid & csr_gpr_ready) ||
-                                  (alu_lsu_gpr_valids[0] & alu_lsu_gpr_readys[0]);
-                                  
-  assign retired_load_o         = (lsu_gpr_valid & lsu_gpr_ready) ||
-                                  (lsu_fpr_valid & lsu_fpr_ready) ||
-                                  (alu_lsu_gpr_valids[1] & alu_lsu_gpr_readys[1]) ||
-                                  (alu_lsu_fpr_valids[1] & alu_lsu_fpr_readys[1]);
+  
+  if (AluLsuNofResPorts == 2) begin: gen_core_events_assignments_w_alu_lsu
+    assign retired_single_cycle_o = (alu_gpr_valid & alu_gpr_ready) ||
+                                    (csr_gpr_valid & csr_gpr_ready) ||
+                                    (alu_lsu_gpr_valids[0] & alu_lsu_gpr_readys[0]);
+
+    assign retired_load_o         = (lsu_gpr_valid & lsu_gpr_ready) ||
+                                    (lsu_fpr_valid & lsu_fpr_ready) ||
+                                    (alu_lsu_gpr_valids[1] & alu_lsu_gpr_readys[1]) ||
+                                    (alu_lsu_fpr_valids[1] & alu_lsu_fpr_readys[1]);
+  end else begin: gen_core_events_assignments_no_alu_lsu
+    assign retired_single_cycle_o = (alu_gpr_valid & alu_gpr_ready) ||
+                                    (csr_gpr_valid & csr_gpr_ready);
+
+    assign retired_load_o         = (lsu_gpr_valid & lsu_gpr_ready) ||
+                                    (lsu_fpr_valid & lsu_fpr_ready);
+  end
                                   
   assign retired_acc_o          = (acc_gpr_valid & acc_gpr_ready);
 

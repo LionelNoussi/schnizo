@@ -65,6 +65,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   parameter int unsigned LsuNofConstants = 4,
   parameter int unsigned AluLsuNofConstants = 4,
   parameter int unsigned FpuNofConstants = 4,
+  parameter int unsigned AluLsuNofResPorts = 2,
   parameter logic        UseAluLsu = 0,
   parameter bit          MulInAlu0       = 1'b1,
   /// Response XBAR configuration
@@ -419,8 +420,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   // TODO(lnoussi): Make to array [num_result_ports]
   alu_result_t alu_result;
   instr_tag_t  alu_result_tag;
-  alu_lsu_result_t  [1:0] alu_lsu_results;
-  instr_tag_t       [1:0] alu_lsu_result_tags;
+  alu_lsu_result_t [AluLsuNofResPorts-1:0] alu_lsu_results;
+  instr_tag_t      [AluLsuNofResPorts-1:0] alu_lsu_result_tags;
   alu_result_t branch_result;
   logic [0:0]  lsu_empty;
   fpnew_pkg::status_t fpu_status;
@@ -699,8 +700,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   logic            lsu_result_ready;
   instr_tag_t      lsu_result_tag;
   data_t           lsu_result;
-  logic [1:0]      alu_lsu_results_valid;
-  logic [1:0]      alu_lsu_results_ready;
+  logic [AluLsuNofResPorts-1:0] alu_lsu_results_valid;
+  logic [AluLsuNofResPorts-1:0] alu_lsu_results_ready;
   logic [FLEN-1:0] fpu_result;
   logic            fpu_result_valid;
   logic            fpu_result_ready;
@@ -779,6 +780,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
     .FpuNofOperands     (FpuNofOperands),
     .FpuNofResReqIfs    (FpuNofResReqIfs),
     .FpuNofResRspPorts  (FpuNofResRspPorts),
+    .AluLsuNofResPorts  (AluLsuNofResPorts),
     .UseAluLsu          (UseAluLsu),
     .NofOperandIfs      (NofOperandIfs),
     .NofResReqIfs       (NofResReqIfs),
@@ -996,6 +998,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
     .NrIntWritePorts(NrIntWritePorts),
     .NrFpWritePorts (NrFpWritePorts),
     .RegAddrSize    (RegAddrSize),
+    .AluLsuNofResPorts (AluLsuNofResPorts),
     .instr_tag_t    (instr_tag_t),
     .alu_result_t   (alu_result_t),
     .alu_lsu_result_t (alu_lsu_result_t),

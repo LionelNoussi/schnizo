@@ -171,6 +171,7 @@ module snitch_cluster
   parameter int unsigned NumLsuRspPorts [NrCores] = '{default: 0},
   parameter int unsigned NumAluLsuRspPorts [NrCores] = '{default: 0},
   parameter int unsigned NumFpuRspPorts [NrCores] = '{default: 0},
+  parameter int unsigned NumAluLsuResPorts [NrCores] = '{default: 0},
   /// Per-core if the core should use the combined ALU+LSU or not
   /// TODO(lnoussi): Factor out this variable to allow simply allocating 0 normal ALUs or LSUs
   parameter logic UseAluLsus [NrCores] = '{default: 0},
@@ -1203,6 +1204,7 @@ module snitch_cluster
       .NumLsuRspPorts(NumLsuRspPorts[i]),
       .NumAluLsuRspPorts(NumAluLsuRspPorts[i]),
       .NumFpuRspPorts(NumFpuRspPorts[i]),
+      .NumAluLsuResPorts(NumAluLsuResPorts[i]),
       .UseAluLsu(UseAluLsus[i]),
       // TODO(colluca): add Xpulpv2 to Schnizo
       // .Xpulppostmod (Xpulppostmod[i]),

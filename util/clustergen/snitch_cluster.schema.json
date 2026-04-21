@@ -569,20 +569,26 @@
                                         },
                                         "num_alu_lsus": {
                                             "type": "number",
-                                            "title": "Number of LSUs",
+                                            "title": "Number of ALU+LSUs",
                                             "description": "Number of ALU+LSUs per Schnizo core. If Xfrep or UseAluLsu is disabled all configured FUs are still instantiated but only one is used.",
                                             "default": 0
                                         },
+                                        "num_alu_lsu_res_ports": {
+                                            "type": "number",
+                                            "title": "Number of result ports per ALU+LSU",
+                                            "description": "Number of constant entries in each LSU's constant memory. Can only be 1 or 2.",
+                                            "default": 2
+                                        },
                                         "num_alu_lsu_slots": {
                                             "type": "number",
-                                            "title": "Number of Slots per LSU",
+                                            "title": "Number of Slots per ALU+LSU",
                                             "description": "Number of Slots to capture instructions per ALU+LSU. Only relevant if Xfrep and UseAluLsu is enabled.",
                                             "default": 0
                                         },
                                         "num_alu_lsu_constants": {
                                             "type": "number",
-                                            "title": "Number of constant memory entries per LSU",
-                                            "description": "Number of constant entries in each LSU's constant memory. Only relevant if Xfrep is enabled.",
+                                            "title": "Number of constant memory entries per ALU+LSU",
+                                            "description": "Number of constant entries in each ALU+LSU's constant memory. Only relevant if Xfrep is enabled.",
                                             "default": 4
                                         },
                                         "num_fpus": {
@@ -617,8 +623,8 @@
                                         },
                                         "num_alu_lsu_rsp_ports": {
                                             "type": "number",
-                                            "title": "Number of Response Ports per ALU_LSU",
-                                            "description": "Number of ports to read results from each ALU_LSU. Only relevant if Xfrep is enabled.",
+                                            "title": "Number of Response Ports per ALU+LSU",
+                                            "description": "Number of ports to read results from each ALU+LSU. Only relevant if Xfrep is enabled.",
                                             "default": 1
                                         },
                                         "num_fpu_rsp_ports": {

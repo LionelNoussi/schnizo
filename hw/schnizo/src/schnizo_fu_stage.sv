@@ -40,6 +40,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   parameter int unsigned FpuNofOperands    = 3,
   parameter int unsigned FpuNofResReqIfs   = 3,
   parameter int unsigned FpuNofResRspPorts = 1,
+  parameter int unsigned AluLsuNofResPorts = 2,
   parameter logic UseAluLsu = 0,
   // The following 3 NofIfs parameters depend directly on the previous FU specific Nof parameters
   // but they must be defined on the outer scope as they are needed there as well.
@@ -175,10 +176,10 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   output logic       lsu_wb_result_valid_o,
   input  logic       lsu_wb_result_ready_i,
 
-  output alu_lsu_result_t [1:0] alu_lsu_wb_results_o,
-  output instr_tag_t      [1:0] alu_lsu_wb_result_tags_o,
-  output logic            [1:0] alu_lsu_wb_results_valid_o,
-  input  logic            [1:0] alu_lsu_wb_results_ready_i,
+  output alu_lsu_result_t [AluLsuNofResPorts-1:0] alu_lsu_wb_results_o,
+  output instr_tag_t      [AluLsuNofResPorts-1:0] alu_lsu_wb_result_tags_o,
+  output logic            [AluLsuNofResPorts-1:0] alu_lsu_wb_results_valid_o,
+  input  logic            [AluLsuNofResPorts-1:0] alu_lsu_wb_results_ready_i,
 
   output logic [FLEN-1:0] fpu_wb_result_o,
   output instr_tag_t      fpu_wb_result_tag_o,
@@ -1198,9 +1199,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
     instr_tag_t  tag;
   } alu_lsu_result_and_tag_t;
 
-  alu_lsu_result_and_tag_t  [iomsb(NofAluLsus):0][1:0] alu_lsu_wbs_results_and_tags;
-  logic                     [iomsb(NofAluLsus):0][1:0] alu_lsu_wbs_results_valid;
-  logic                     [iomsb(NofAluLsus):0][1:0] alu_lsu_wbs_results_ready;
+  alu_lsu_result_and_tag_t  [iomsb(NofAluLsus):0][AluLsuNofResPorts-1:0] alu_lsu_wbs_results_and_tags;
+  logic                     [iomsb(NofAluLsus):0][AluLsuNofResPorts-1:0] alu_lsu_wbs_results_valid;
+  logic                     [iomsb(NofAluLsus):0][AluLsuNofResPorts-1:0] alu_lsu_wbs_results_ready;
   logic                     [iomsb(NofAluLsus):0] alu_lsu_empty;
   logic                     [iomsb(NofAluLsus):0] alu_lsu_addr_misaligned;
 
@@ -1209,8 +1210,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
 
   for (genvar alu_lsu = 0; alu_lsu < NofAluLsus; alu_lsu++) begin : gen_alu_lsus
     // Helper signals to merge the result and tag
-    alu_lsu_result_t    [1:0] alu_lsu_wb_results;
-    alu_lsu_instr_tag_t [1:0] alu_lsu_wb_result_tags;
+    alu_lsu_result_t    [AluLsuNofResPorts-1:0] alu_lsu_wb_results;
+    alu_lsu_instr_tag_t [AluLsuNofResPorts-1:0] alu_lsu_wb_result_tags;
 
     // Signals connecting the FU block and the actual FU
     alu_lsu_issue_req_t alu_lsu_issue_req;
@@ -1218,10 +1219,10 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
     logic               alu_lsu_issue_req_ready;
     logic               alu_lsu_exec_commit;
     logic               alu_lsu_addr_misaligned_raw;
-    alu_lsu_result_t    [1:0] alu_lsu_results;
-    alu_lsu_instr_tag_t [1:0] alu_lsu_result_tags;
-    logic               [1:0] alu_lsu_results_valid;
-    logic               [1:0] alu_lsu_results_ready;
+    alu_lsu_result_t    [AluLsuNofResPorts-1:0] alu_lsu_results;
+    alu_lsu_instr_tag_t [AluLsuNofResPorts-1:0] alu_lsu_result_tags;
+    logic               [AluLsuNofResPorts-1:0] alu_lsu_results_valid;
+    logic               [AluLsuNofResPorts-1:0] alu_lsu_results_ready;
     logic               alu_lsu_busy;
 
     producer_id_t producer_start_id;
@@ -1259,7 +1260,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .available_result_t (available_result_t),
       .dest_mask_t   (dest_mask_t),
       .res_rsp_t     (res_rsp_t),
-      .NofResPorts   (2)
+      .NofResPorts   (AluLsuNofResPorts)
     ) i_fu_block (
       .clk_i,
       .rst_i,
@@ -1317,15 +1318,19 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
     // writeback also accepts the writeback. Thus we can bypass the RS.
     // TODO: find a clean solution how to handle the branch result.
     assign alu_lsu_wbs_results_and_tags[alu_lsu][0].result = alu_lsu_wb_results[0];
-    assign alu_lsu_wbs_results_and_tags[alu_lsu][1].result = alu_lsu_wb_results[1];
     assign alu_lsu_wbs_results_and_tags[alu_lsu][0].tag = alu_lsu_wb_result_tags[0];
-    assign alu_lsu_wbs_results_and_tags[alu_lsu][1].tag = alu_lsu_wb_result_tags[1];
+
+    if (AluLsuNofResPorts == 2) begin
+      assign alu_lsu_wbs_results_and_tags[alu_lsu][1].result = alu_lsu_wb_results[1];
+      assign alu_lsu_wbs_results_and_tags[alu_lsu][1].tag = alu_lsu_wb_result_tags[1];
+    end
 
     schnizo_alu_lsu #(
       .alu_lsu_result_t     (alu_lsu_result_t),
       .alu_lsu_instr_tag_t  (alu_lsu_instr_tag_t),
       .alu_lsu_issue_req_t  (alu_lsu_issue_req_t),
       .fu_issue_req_t       (alu_lsu_fu_issue_req_t),
+      .NofResPorts          (AluLsuNofResPorts),
       // ALU
       .XLEN                 (XLEN),
       .HasBranch            (alu_lsu == '0), // only the first ALU has the branch logic
@@ -1408,25 +1413,25 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
     if (NofAluLsus > 0) begin: gen_alu_lsu_wb_arbiter
       // 1. Declare intermediate "Channel-First" signals
       // These match the port requirements of your arbiters
-      alu_lsu_result_and_tag_t [1:0][iomsb(NofAluLsus):0] arb_inp_data;
-      logic                    [1:0][iomsb(NofAluLsus):0] arb_inp_valid;
-      logic                    [1:0][iomsb(NofAluLsus):0] arb_inp_ready;
+      alu_lsu_result_and_tag_t [AluLsuNofResPorts-1:0][iomsb(NofAluLsus):0] arb_inp_data;
+      logic                    [AluLsuNofResPorts-1:0][iomsb(NofAluLsus):0] arb_inp_valid;
+      logic                    [AluLsuNofResPorts-1:0][iomsb(NofAluLsus):0] arb_inp_ready;
 
       // 2. Use a generate loop to "transpose" the arrays
       for (genvar i = 0; i < NofAluLsus; i++) begin : gen_lsu_transpose
         assign arb_inp_data[0][i]  = alu_lsu_wbs_results_and_tags[i][0];
-        assign arb_inp_data[1][i]  = alu_lsu_wbs_results_and_tags[i][1];
-
         assign arb_inp_valid[0][i] = alu_lsu_wbs_results_valid[i][0];
-        assign arb_inp_valid[1][i] = alu_lsu_wbs_results_valid[i][1];
-
-        // Note: Ready is an output from the arbiter, so we drive the LSU signals
         assign alu_lsu_wbs_results_ready[i][0] = arb_inp_ready[0][i];
-        assign alu_lsu_wbs_results_ready[i][1] = arb_inp_ready[1][i];
+
+        if (AluLsuNofResPorts == 2) begin
+          assign arb_inp_data[1][i]  = alu_lsu_wbs_results_and_tags[i][1];
+          assign arb_inp_valid[1][i] = alu_lsu_wbs_results_valid[i][1];
+          assign alu_lsu_wbs_results_ready[i][1] = arb_inp_ready[1][i];
+        end
       end
 
       // 3. Instantiate using the transposed signals
-      for (genvar c = 0; c < 2; c++) begin : gen_arbiters
+      for (genvar c = 0; c < AluLsuNofResPorts; c++) begin : gen_arbiters
         stream_arbiter #(
           .DATA_T (alu_lsu_result_and_tag_t),
           .N_INP  (NofAluLsus),
@@ -1469,9 +1474,12 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   endgenerate
 
   assign alu_lsu_wb_results_o[0]     = alu_lsu_wb_result_and_tag_outs[0].result;
-  assign alu_lsu_wb_results_o[1]     = alu_lsu_wb_result_and_tag_outs[1].result;
   assign alu_lsu_wb_result_tags_o[0] = alu_lsu_wb_result_and_tag_outs[0].tag;
-  assign alu_lsu_wb_result_tags_o[1] = alu_lsu_wb_result_and_tag_outs[1].tag;
+  
+  if (AluLsuNofResPorts == 2) begin: gen_connect_2nd_alu_lsu_res_port
+    assign alu_lsu_wb_results_o[1]     = alu_lsu_wb_result_and_tag_outs[1].result;
+    assign alu_lsu_wb_result_tags_o[1] = alu_lsu_wb_result_and_tag_outs[1].tag;
+  end
 
   // MUX IN SPECIAL SIGNALS
   alu_result_t alu_lsu_branch_result;
