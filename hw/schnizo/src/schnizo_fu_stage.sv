@@ -931,6 +931,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       assign alu_retire_trace_o = '{default: '0};
       // pragma translate_on
       assign alu_wb_result_and_tag_out = '0;
+      assign alu_wb_result_valid_o = '0;
       assign alu_loop_finish = 1'b1;
     end
   endgenerate
@@ -1169,7 +1170,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       assign lsu_loop_finish = 1'b1;
 
       assign lsu_empty = '0;
+      assign lsu_wb_result_valid_o = '0;
       assign lsu_addr_misaligned = '0;
+      assign lsu_dreq_o = '0;
     end
   endgenerate
 
@@ -1260,7 +1263,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .available_result_t (available_result_t),
       .dest_mask_t   (dest_mask_t),
       .res_rsp_t     (res_rsp_t),
-      .NofResPorts   (AluLsuNofResPorts)
+      .NofResPorts   (AluLsuNofResPorts),
+      .NofDests      (2)
     ) i_fu_block (
       .clk_i,
       .rst_i,
@@ -1466,10 +1470,13 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       assign alu_lsu_retire_trace_o = '{default: '0};
       // pragma translate_on
       assign alu_lsu_wb_result_and_tag_outs = '0;
+      assign alu_lsu_wb_results_valid_o = '0;
       assign alu_lsu_loop_finish = 1'b1;
 
       assign alu_lsu_empty = '0;
       assign alu_lsu_addr_misaligned = '0;
+
+      assign alu_lsu_dreq_o = '0;
     end
   endgenerate
 

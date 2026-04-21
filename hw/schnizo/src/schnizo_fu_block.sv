@@ -39,7 +39,8 @@ module schnizo_fu_block import schnizo_pkg::*; #(
   parameter type         available_result_t  = logic,
   parameter type         dest_mask_t    = logic,
   parameter type         res_rsp_t      = logic,
-  parameter int unsigned NofResPorts     = 1
+  parameter int unsigned NofResPorts     = 1,
+  parameter int unsigned NofDests        = 1
 ) (
   input  logic clk_i,
   input  logic rst_i,
@@ -118,7 +119,7 @@ module schnizo_fu_block import schnizo_pkg::*; #(
 
   typedef logic [cf_math_pkg::idx_width(NofRss)-1:0] rs_tag_t;
 
-  if (Xfrep && (NofRss > 0) && (NofResPorts == 1)) begin : gen_superscalar
+  if (Xfrep && (NofRss > 0) && (NofResPorts == 1) && (NofDests == 1)) begin : gen_superscalar
     // Module global switch between regular execution and superscalar path
     logic sel_lxp_path;
     assign sel_lxp_path = in_lxp_i;
@@ -355,7 +356,7 @@ module schnizo_fu_block import schnizo_pkg::*; #(
     // Convert the dispatch request to an issue request. Direct pass-through.
     assign issue_req_o.fu_data = disp_req_i.fu_data;
     assign issue_req_o.tag     = disp_req_i.tag;
-    if (NofResPorts == 2) begin
+    if (NofDests == 2) begin
       assign issue_req_o.tag2 = disp_req_i.tag2;
     end
     assign issue_req_valid_o   = disp_req_valid_i;

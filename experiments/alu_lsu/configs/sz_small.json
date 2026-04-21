@@ -121,7 +121,7 @@
         num_fpus: 1,
         num_fpu_slots: 8,
         num_fpu_constants: 32,
-        NumAluLsuResPorts: 1,
+        num_alu_lsu_res_ports: 1,
         use_alu_lsu: 1
     },
     dma_core_template: {
