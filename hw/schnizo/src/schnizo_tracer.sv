@@ -45,7 +45,7 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg:
   input  retire_fu_trace_t        acc_retirement,
   input  wb_fu_trace_t            alu_wb_trace,
   input  wb_fu_trace_t            lsu_wb_trace,
-  input  wb_fu_trace_t            alu_lsu_wb_trace,
+  input  wb_fu_trace_t            alu_lsu_wb_traces [1:0],
   input  wb_fu_trace_t            fpu_wb_trace,
   input  wb_fu_trace_t            csr_wb_trace,
   input  wb_fu_trace_t            acc_wb_trace,
@@ -296,8 +296,11 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg:
                         format_wb_fu_trace(lsu_wb_trace, "LSU"),
                         lsu_wb_trace.valid);
       write_trace_event(file_id, trace_header, "writeback",
-                        format_wb_fu_trace(alu_lsu_wb_trace, "ALU_LSU"),
-                        alu_lsu_wb_trace.valid);
+                        format_wb_fu_trace(alu_lsu_wb_traces[0], "ALU_LSU"),
+                        alu_lsu_wb_traces[0].valid);
+      write_trace_event(file_id, trace_header, "writeback",
+                        format_wb_fu_trace(alu_lsu_wb_traces[1], "ALU_LSU"),
+                        alu_lsu_wb_traces[1].valid);
       write_trace_event(file_id, trace_header, "writeback",
                         format_wb_fu_trace(fpu_wb_trace, "FPU"),
                         fpu_wb_trace.valid);
@@ -313,7 +316,7 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg:
       for (int alu = 0; alu < NofAlus; alu++) begin
         write_trace_event(file_id, trace_header, "retirement",
                           format_fu_retire_trace(alu_retirements[alu]),
-                          alu_retirements[alu].valid);
+                          |alu_retirements[alu].valid);
         for (int rss = 0; rss < AluNofRss; rss++) begin
           write_trace_event(file_id, trace_header, "rescap",
                             format_rescap_trace(alu_rescap_traces[alu][rss]),
@@ -323,7 +326,7 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg:
       for (int lsu = 0; lsu < NofLsus; lsu++) begin
         write_trace_event(file_id, trace_header, "retirement",
                           format_fu_retire_trace(lsu_retirements[lsu]),
-                          lsu_retirements[lsu].valid);
+                          |lsu_retirements[lsu].valid);
         for (int rss = 0; rss < LsuNofRss; rss++) begin
           write_trace_event(file_id, trace_header, "rescap",
                             format_rescap_trace(lsu_rescap_traces[lsu][rss]),
@@ -333,7 +336,7 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg:
       for (int alu_lsu = 0; alu_lsu < NofAluLsus; alu_lsu++) begin
         write_trace_event(file_id, trace_header, "retirement",
                           format_fu_retire_trace(alu_lsu_retirements[alu_lsu]),
-                          alu_lsu_retirements[alu_lsu].valid);
+                          |alu_lsu_retirements[alu_lsu].valid);
         for (int rss = 0; rss < AluLsuNofRss; rss++) begin
           write_trace_event(file_id, trace_header, "rescap",
                             format_rescap_trace(alu_lsu_rescap_traces[alu_lsu][rss]),
@@ -343,7 +346,7 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg:
       for (int fpu = 0; fpu < NofFpus; fpu++) begin
         write_trace_event(file_id, trace_header, "retirement",
                           format_fu_retire_trace(fpu_retirements[fpu]),
-                          fpu_retirements[fpu].valid);
+                          |fpu_retirements[fpu].valid);
         for (int rss = 0; rss < FpuNofRss; rss++) begin
           write_trace_event(file_id, trace_header, "rescap",
                             format_rescap_trace(fpu_rescap_traces[fpu][rss]),
@@ -352,7 +355,7 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg:
       end
       write_trace_event(file_id, trace_header, "retirement",
                         format_fu_retire_trace(csr_retirement),
-                        csr_retirement.valid);
+                        |csr_retirement.valid);
       write_trace_event(file_id, trace_header, "retirement",
                         format_fu_retire_trace(acc_retirement),
                         acc_retirement.valid);

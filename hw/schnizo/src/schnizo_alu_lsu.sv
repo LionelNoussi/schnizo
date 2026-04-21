@@ -4,15 +4,14 @@
 
 module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // Global
-  parameter type         alu_lsu_res_val_t = logic,
+  parameter type         alu_lsu_result_t    = logic,
   parameter type         alu_lsu_instr_tag_t = logic,
   parameter type         alu_lsu_issue_req_t = logic,
+  parameter type         instr_tag_t         = logic,
   // ALU
   parameter int unsigned XLEN          = 32,
   parameter bit          HasBranch     = 1'b1,
   parameter bit          HasMultiplier = 1'b0,
-  parameter type         alu_issue_req_t   = logic,
-  parameter type         alu_instr_tag_t = logic,
   parameter type         alu_res_val_t  = logic,
   // LSU
   parameter int unsigned AddrWidth           = 32,
@@ -24,8 +23,6 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   parameter int unsigned CaqTagWidth         = 0,
   parameter bit          CaqRespSrc          = 0,
   parameter bit          CaqRespTrackSeq     = 0,
-  parameter type         lsu_issue_req_t     = logic,
-  parameter type         lsu_instr_tag_t     = logic [4:0],
   parameter type         dreq_t              = logic,
   parameter type         drsp_t              = logic,
   localparam type        data_t = logic [DataWidth-1:0],
@@ -43,13 +40,13 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   input  logic                    issue_req_valid_i,
   input logic                     issue_commit_i,
   output logic                    issue_req_ready_o,
-  output alu_lsu_res_val_t        result_o,
+  output alu_lsu_result_t [0:1]   result_o,
   /// Set if the comparison is true
   output logic                    compare_res_o,
-  output alu_lsu_instr_tag_t      tag_o,
+  output alu_lsu_instr_tag_t [0:1] tag_o,
   output logic                    result_error_o,
-  output logic                    result_valid_o,
-  input  logic                    result_ready_i,
+  output logic [0:1]              result_valid_o,
+  input  logic [0:1]              result_ready_i,
   output logic                    busy_o,
 
   output logic                empty_o,
@@ -65,11 +62,6 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   input  logic caq_rsp_valid_i,
   output logic caq_rsp_valid_o
 );
-
-  typedef struct packed {
-    alu_lsu_res_val_t value;
-    alu_lsu_instr_tag_t tag;
-  } result_and_tag_t;
 
   ///////////
   // DEMUX //
@@ -183,27 +175,26 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // ALU //
   /////////
 
-  result_and_tag_t alu_result_and_tag;
   alu_res_val_t alu_result_value;
-  alu_instr_tag_t alu_tag;
+  alu_lsu_instr_tag_t alu_tag;
   logic alu_busy;
   // pragma translate_off
   issue_alu_trace_t alu_trace;
   // pragma translate_on
 
-  alu_issue_req_t alu_issue_req;
-  assign alu_issue_req.tag = issue_req_i.tag[$bits(alu_instr_tag_t)-1:0];
+  alu_lsu_issue_req_t alu_issue_req;
 
   always_comb begin
     alu_issue_req.fu_data = issue_req_i.fu_data;
+    alu_issue_req.tag = issue_req_i.tag;
   end
 
   schnizo_alu #(
     .XLEN         (XLEN),
     .HasBranch    (HasBranch), // only the first ALU has the branch logic
     .HasMultiplier(HasMultiplier), // only the first ALU has the multiplier
-    .issue_req_t  (alu_issue_req_t),
-    .instr_tag_t  (alu_instr_tag_t)
+    .issue_req_t  (alu_lsu_issue_req_t),
+    .instr_tag_t  (alu_lsu_instr_tag_t)
   ) i_alu (
     .clk_i,
     .rst_i,
@@ -221,23 +212,19 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     .busy_o           (alu_busy)
   );
 
-  assign alu_result_and_tag.value = alu_result_value; // Zero extended to fit in data_t
-  assign alu_result_and_tag.tag = alu_tag;            // Fits perfectly
-
   /////////
   // LSU //
   /////////
 
-  result_and_tag_t lsu_result_and_tag;
   data_t lsu_result_value;
-  instr_tag_t lsu_tag;
+  alu_lsu_instr_tag_t lsu_tag;
   logic lsu_busy;
   // pragma translate_off
   issue_lsu_trace_t lsu_trace;
   // pragma translate_on
 
-  lsu_issue_req_t lsu_issue_req;
-  assign lsu_issue_req.tag = issue_req_i.tag[$bits(lsu_instr_tag_t)-1:0];
+  alu_lsu_issue_req_t lsu_issue_req;
+  instr_tag_t lsu_instr_tag;
 
   always_comb begin
     lsu_issue_req.fu_data = issue_req_i.fu_data;
@@ -246,17 +233,24 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
       lsu_issue_req.fu_data.operand_b = issue_req_i.fu_data.imm;
       lsu_issue_req.fu_data.imm = '0;
     end
+
+    lsu_instr_tag = issue_req_i.tag;
+    if (issue_req_i.fu_data.fu != schnizo_pkg::ALU_LSU_LOAD) begin
+      lsu_instr_tag.dest_reg2 = lsu_instr_tag.dest_reg;
+      lsu_instr_tag.dest_reg2_is_fp = lsu_instr_tag.dest_reg_is_fp;
+    end
     
+    lsu_issue_req.tag = lsu_instr_tag;
   end
 
   schnizo_lsu #(
     .XLEN               (XLEN),
-    .issue_req_t        (lsu_issue_req_t),
+    .issue_req_t        (alu_lsu_issue_req_t),
     .AddrWidth          (AddrWidth),
     .DataWidth          (DataWidth),
     .dreq_t             (dreq_t),
     .drsp_t             (drsp_t),
-    .tag_t              (lsu_instr_tag_t),
+    .tag_t              (alu_lsu_instr_tag_t),
     .NumOutstandingMem  (NumOutstandingMem),
     .NumOutstandingLoads(NumOutstandingLoads),
     .Caq                (0), // TODO: Enable
@@ -292,31 +286,20 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     .caq_rsp_valid_o  (caq_rsp_valid_o)
   );
 
-  assign lsu_result_and_tag.value = lsu_result_value;   // Fits perfectly
-  assign lsu_result_and_tag.tag = lsu_tag;              // Zero extended
+  ///////////////////////
+  // Output Assignment //
+  ///////////////////////
 
-  ////////////////////
-  // Output Arbiter //
-  ////////////////////
+  assign result_o[0] = alu_result_value;
+  assign tag_o[0] = alu_tag;
+  assign result_valid_o[0] = alu_result_valid;
+  assign alu_result_ready = result_ready_i[0];
 
-  result_and_tag_t result_and_tag;
+  assign result_o[1] = lsu_result_value;
+  assign tag_o[1] = lsu_tag;
+  assign result_valid_o[1] = lsu_result_valid;
+  assign lsu_result_ready = result_ready_i[1];
 
-  stream_arbiter #(
-    .DATA_T(result_and_tag_t),
-    .N_INP(2)
-  ) i_result_arbiter (
-    .clk_i,
-    .rst_ni     (!rst_i),
-    .inp_data_i ({alu_result_and_tag, lsu_result_and_tag}),
-    .inp_valid_i({alu_result_valid, lsu_result_valid}),
-    .inp_ready_o({alu_result_ready, lsu_result_ready}),
-    .oup_data_o (result_and_tag),
-    .oup_valid_o(result_valid_o),
-    .oup_ready_i(result_ready_i)
-  );
-
-  assign result_o = result_and_tag.value;
-  assign tag_o = result_and_tag.tag;
   assign busy_o = alu_busy || lsu_busy;
 
   // pragma translate_off

@@ -178,6 +178,9 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
     // no write back for this instruction.
     logic [RegAddrSize-1:0]       rd;
     logic                         rd_is_fp; // set if rd is a FP register
+    logic [RegAddrSize-1:0]       rd2;
+    logic                         rd2_is_fp; // set if rd2 is a FP register
+    logic                         use_rd2;
     logic [RegAddrSize-1:0]       rs1;
     logic                         rs1_is_fp; // set if rs1 is a FP register
     logic                         use_rs1;
@@ -354,12 +357,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   // ALU+LSU Types
   localparam int RES_VAL_MAX_W = ($bits(data_t) > $bits(alu_res_val_t)) ?
                                   $bits(data_t) : $bits(alu_res_val_t);
-  typedef logic [RES_VAL_MAX_W-1:0] alu_lsu_res_val_t;
-
-  typedef struct packed {
-    alu_lsu_res_val_t result;
-    logic         compare_res;
-  } alu_lsu_result_t;
+  typedef logic [RES_VAL_MAX_W-1:0] alu_lsu_result_t;
 
   /////////////////
   // Connections //
@@ -419,8 +417,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   // TODO(lnoussi): Make to array [num_result_ports]
   alu_result_t alu_result;
   instr_tag_t  alu_result_tag;
-  alu_lsu_result_t alu_lsu_result;
-  instr_tag_t  alu_lsu_result_tag;
+  alu_lsu_result_t alu_lsu_results      [0:1];
+  instr_tag_t      alu_lsu_result_tags  [0:1];
   alu_result_t branch_result;
   logic [0:0]  lsu_empty;
   fpnew_pkg::status_t fpu_status;
@@ -699,8 +697,8 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   logic            lsu_result_ready;
   instr_tag_t      lsu_result_tag;
   data_t           lsu_result;
-  logic            alu_lsu_result_valid;
-  logic            alu_lsu_result_ready;
+  logic            alu_lsu_results_valid [0:1];
+  logic            alu_lsu_results_ready [0:1];
   logic [FLEN-1:0] fpu_result;
   logic            fpu_result_valid;
   logic            fpu_result_ready;
@@ -814,7 +812,6 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
     .alu_result_t       (alu_result_t),
     .alu_res_val_t      (alu_res_val_t),
     .alu_lsu_result_t   (alu_lsu_result_t),
-    .alu_lsu_res_val_t  (alu_lsu_res_val_t),
     .dreq_t             (dreq_t),
     .drsp_t             (drsp_t)
   ) i_fu_stage (
@@ -888,10 +885,10 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
     .lsu_wb_result_valid_o(lsu_result_valid),
     .lsu_wb_result_ready_i(lsu_result_ready),
     // ALU+LSU WB
-    .alu_lsu_wb_result_o      (alu_lsu_result),
-    .alu_lsu_wb_result_tag_o  (alu_lsu_result_tag),
-    .alu_lsu_wb_result_valid_o(alu_lsu_result_valid),
-    .alu_lsu_wb_result_ready_i(alu_lsu_result_ready),
+    .alu_lsu_wb_results_o      (alu_lsu_results),
+    .alu_lsu_wb_result_tags_o  (alu_lsu_result_tags),
+    .alu_lsu_wb_results_valid_o(alu_lsu_results_valid),
+    .alu_lsu_wb_results_ready_i(alu_lsu_results_ready),
     // FPU WB
     .fpu_wb_result_o      (fpu_result),
     .fpu_wb_result_tag_o  (fpu_result_tag),
@@ -1013,10 +1010,10 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
     .lsu_result_valid_i(lsu_result_valid),
     .lsu_result_ready_o(lsu_result_ready),
     // ALU+LSU interface
-    .alu_lsu_result_i      (alu_lsu_result),
-    .alu_lsu_result_tag_i  (alu_lsu_result_tag),
-    .alu_lsu_result_valid_i(alu_lsu_result_valid),
-    .alu_lsu_result_ready_o(alu_lsu_result_ready),
+    .alu_lsu_results_i      (alu_lsu_results),
+    .alu_lsu_result_tags_i  (alu_lsu_result_tags),
+    .alu_lsu_results_valid_i(alu_lsu_results_valid),
+    .alu_lsu_results_ready_o(alu_lsu_results_ready),
     // FPU interface
     .fpu_result_i      (fpu_result),
     .fpu_result_tag_i  (fpu_result_tag),
@@ -1144,7 +1141,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   // Traces for writeback (regular and RSS)
   wb_fu_trace_t alu_wb_trace;
   wb_fu_trace_t lsu_wb_trace;
-  wb_fu_trace_t alu_lsu_wb_trace;
+  wb_fu_trace_t alu_lsu_wb_traces [0:1];
   wb_fu_trace_t fpu_wb_trace;
   wb_fu_trace_t csr_wb_trace;
   wb_fu_trace_t acc_wb_trace;
@@ -1501,11 +1498,17 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
     fu_rd_is_fp: lsu_result_tag.dest_reg_is_fp
   };
 
-  assign alu_lsu_wb_trace = '{
-    valid:       alu_lsu_result_valid && alu_lsu_result_ready,
-    fu_result:   alu_lsu_result.result,
-    fu_rd:       alu_lsu_result_tag.dest_reg,
-    fu_rd_is_fp: alu_lsu_result_tag.dest_reg_is_fp
+  assign alu_lsu_wb_traces[0] = '{
+    valid:       alu_lsu_results_valid[0] && alu_lsu_results_ready[0],
+    fu_result:   alu_lsu_results[0],
+    fu_rd:       alu_lsu_result_tags[0].dest_reg,
+    fu_rd_is_fp: alu_lsu_result_tags[0].dest_reg_is_fp
+  };
+  assign alu_lsu_wb_traces[1] = '{
+    valid:       alu_lsu_results_valid[1] && alu_lsu_results_ready[1],
+    fu_result:   alu_lsu_results[1],
+    fu_rd:       alu_lsu_result_tags[1].dest_reg2,
+    fu_rd_is_fp: alu_lsu_result_tags[1].dest_reg2_is_fp
   };
 
   assign fpu_wb_trace = '{
@@ -1569,7 +1572,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
     .acc_retirement     (acc_retirement),
     .alu_wb_trace       (alu_wb_trace),
     .lsu_wb_trace       (lsu_wb_trace),
-    .alu_lsu_wb_trace   (alu_lsu_wb_trace),
+    .alu_lsu_wb_traces  (alu_lsu_wb_traces),
     .fpu_wb_trace       (fpu_wb_trace),
     .csr_wb_trace       (csr_wb_trace),
     .acc_wb_trace       (acc_wb_trace),

@@ -107,6 +107,7 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
     valid: 1'b0
   };
 
+  // TODO(lnoussi): Add second current_dest_entry when enabling Xfrep for post-load-increment
   rmt_entry_t current_dest_entry;
   assign current_dest_entry = instr_dec_i.rd_is_fp ? rmtf_q[instr_dec_i.rd] :
                                                      rmti_q[instr_dec_i.rd];
@@ -144,6 +145,8 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
     // generate the tag
     disp_req_o.tag.dest_reg       = instr_dec_i.rd;
     disp_req_o.tag.dest_reg_is_fp = instr_dec_i.rd_is_fp;
+    disp_req_o.tag.dest_reg2       = instr_dec_i.rd2;
+    disp_req_o.tag.dest_reg2_is_fp = instr_dec_i.rd2_is_fp;
     disp_req_o.tag.is_branch      = instr_dec_i.is_branch;
     disp_req_o.tag.is_jump        = instr_dec_i.is_jal | instr_dec_i.is_jalr;
   end

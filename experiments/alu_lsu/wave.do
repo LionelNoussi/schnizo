@@ -25,14 +25,9 @@ add wave -noupdate -group schnizo {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_co
 add wave -noupdate -group schnizo {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/alu_lsu_drsp}
 add wave -noupdate -group schnizo {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/alu_lsu_rescap_traces}
 add wave -noupdate -group schnizo {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/alu_lsu_resreq_traces}
-add wave -noupdate -group schnizo {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/alu_lsu_result}
-add wave -noupdate -group schnizo {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/alu_lsu_result_ready}
-add wave -noupdate -group schnizo {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/alu_lsu_result_tag}
-add wave -noupdate -group schnizo {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/alu_lsu_result_valid}
 add wave -noupdate -group schnizo {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/alu_lsu_retirements}
 add wave -noupdate -group schnizo {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/alu_lsu_rs_full}
 add wave -noupdate -group schnizo {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/alu_lsu_trace}
-add wave -noupdate -group schnizo {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/alu_lsu_wb_trace}
 add wave -noupdate -group schnizo {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/alu_rescap_traces}
 add wave -noupdate -group schnizo {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/alu_resreq_traces}
 add wave -noupdate -group schnizo {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/alu_result}
@@ -332,60 +327,6 @@ add wave -noupdate -group controller {/tb_bin/fix/i_snitch_cluster/i_cluster/gen
 add wave -noupdate -group controller {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/wfi_i}
 add wave -noupdate -group controller {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/Xfrep}
 add wave -noupdate -group controller {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/XLEN}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/AddrWidth}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/all_rs_finish_i}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/at_loop_end_instr}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/clk_i}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/current_loop_finish}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/decrement_loop_iterations}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/dispatch_loop_end_instr}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/exception_i}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/exit_frep}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/frep_mode_i}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/goto_hw_loop_o}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/goto_lcp2_o}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/instr_addr_i}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/instr_decoded_i}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/instr_valid_i}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/jump_or_branch}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/lep_ends}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/lep_iterations_o}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_at_end_err}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_bodysize_i}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_branch_err}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_info_d}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_info_q}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_info_reset}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_iteration_err}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_iteration_o}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_iterations_i}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_jump_addr_o}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_jump_o}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_stall_o}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_start_commit_i}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_start_ready_o}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_start_req_i}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_state_o}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_valid_d}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/loop_valid_q}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/MaxBodysizeW}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/MaxIterationsW}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/new_loop}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/new_loop_end_addr}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/new_loop_end_addr_full}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/next_instr_addr_i}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/rs_full_i}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/rs_restart_o}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/rst_i}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/stall_i}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/sw_err_o}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/total_iterations_d}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/total_iterations_q}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/unsupported_instr}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/wait_for_hw_loop_d}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/wait_for_hw_loop_q}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/wait_for_retirement_d}
-add wave -noupdate -group {loop controller} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_controller/gen_loop_ctrl/i_loop_ctrl/wait_for_retirement_q}
 add wave -noupdate -group decoder {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_decoder/check_fpround_mode}
 add wave -noupdate -group decoder {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_decoder/clk_i}
 add wave -noupdate -group decoder {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_decoder/fpu_fmt_mode_i}
@@ -509,185 +450,6 @@ add wave -noupdate -group {fpu fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster
 add wave -noupdate -group {fpu fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/wb_result_tag_o}
 add wave -noupdate -group {fpu fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/wb_result_valid_o}
 add wave -noupdate -group {fpu fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/Xfrep}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_disp_req}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_disp_req_ready}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_disp_req_valid}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_disp_rsp}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_instr_exec_commit}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_issue_req}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_issue_req_ready}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_issue_req_valid}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_result}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_result_ready}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_result_tag}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_result_valid}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_wb_result}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_wb_result_and_tag}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_wb_result_ready}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_wb_result_tag}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/rs_wb_result_valid}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/sel_lxp_path}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/si_disp_req}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/si_disp_req_ready}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/si_disp_req_valid}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/si_issue_req}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/si_issue_req_ready}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/si_issue_req_valid}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/si_wb_result}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/si_wb_result_and_tag}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/si_wb_result_ready}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/si_wb_result_tag}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/si_wb_result_valid}
-add wave -noupdate -group {fpu fu block} -group {fpu fu block superscalar} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/wb_result_and_tag}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/any_instr_captured}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/available_results_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/clk_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/ConsumerCount}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/ConsumerCountWidth}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_cnt}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_hs}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_idx}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_in_flight_d}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_in_flight_q}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_req_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_req_i_q}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_req_internal_ready}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_req_internal_valid}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_req_ready}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_req_ready_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_req_ready_o_q}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_req_ready_o_raw}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_req_valid}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_req_valid_guarded}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_req_valid_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_req_valid_i_q}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/disp_rsp_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/fu_busy_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/goto_lcp2_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/instr_exec_commit_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/instr_exec_commit_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/issue_hs}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/issue_idx}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/issue_in_flight_d}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/issue_in_flight_q}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/issue_req_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/issue_req_ready_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/issue_req_valid_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/last_disp}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/last_result}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/last_result_iter}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/lcp_finished}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/lep_do_dispatch}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/lep_finished}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/lep_finished_issue}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/lep_issue_iter_count}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/lep_iterations_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/lep_result_iter_count}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/loop_finish_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/loop_state_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/MaxIterationsW}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/NofConstants}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/NofOperands}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/NofResRspIfs}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/NofRss}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/NofRssWidth}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/NofRssWidthExt}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/num_allocated_rss_d}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/num_allocated_rss_q}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/op_reqs_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/op_reqs_ready_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/op_reqs_valid_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/op_rsps_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/op_rsps_ready_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/op_rsps_valid_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/producer_id_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/RegAddrWidth}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/res_reqs_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/res_reqs_ready_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/res_reqs_valid_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/res_rsps_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/res_rsps_ready_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/res_rsps_valid_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/restart_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/result_hs}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/result_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/result_idx}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/result_ready_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/result_tag_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/result_valid_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/retire_at_issue}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/rf_wb_ready_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/rf_wb_result_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/rf_wb_tag_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/rf_wb_valid_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/rs_full_o}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/rst_i}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/sel_disp_req_internal}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/trip_issue}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/trip_result}
-add wave -noupdate -group {fpu res stat} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/UseSram}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/all_operands_valid}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/alloc_const_op_addr_i}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/alloc_const_op_data_o}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/alloc_const_op_slot}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/alloc_const_op_valid_o}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/clk_i}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/const_mem_rsp_operands}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/const_op_reqs_o}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/const_op_reqs_valid_o}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/const_op_rsps_i}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/disp_hs}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/disp_producer_id_i}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/disp_req_i}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/disp_req_ready_o}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/disp_req_valid_i}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/dispatched_d}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/dispatched_q}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/issue_hs}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/issue_producer_id_i}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/issue_req_o}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/issue_req_ready_i}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/issue_req_valid_o}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/last_issue_iter_i}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/loop_state_i}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/NofConstantPorts}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/NofOperands}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/num_constants}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/odn_op_reqs_hs}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/odn_op_reqs_o}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/odn_op_reqs_ready_i}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/odn_op_reqs_valid_o}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/odn_op_rsps_hs}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/odn_op_rsps_i}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/odn_op_rsps_ready_o}
-add wave -noupdate -group {fpu rss dispatch pipeline} -expand {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/odn_op_rsps_valid_i}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/op_a_lcp1}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/op_a_slot_lcp1}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/op_b_lcp1}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/op_b_slot_lcp1}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/op_c_lcp1}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/op_c_slot_lcp1}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/op_slots_d}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/op_slots_lcp1}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/op_slots_lcp2}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/op_slots_q}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/operand_valid}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/request_op_slots}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/response_op_slots}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/restart_i}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/retire_at_issue_o}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/rst_ni}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/selected_op_slots}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/selected_slot}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/slot_issue_i}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/slot_issue_o}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/slot_issue_reset_val}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/slot_issue_wen_o}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/slot_lcp1}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/slot_lcp2}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/slot_result_i}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/slot_result_o}
-add wave -noupdate -group {fpu rss dispatch pipeline} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fu_block/gen_superscalar/i_res_stat/i_res_stat_slots/i_dispatch_pipeline/slot_result_reset_val_i}
 add wave -noupdate -group fpu {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fpu/busy_o}
 add wave -noupdate -group fpu {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fpu/clk_i}
 add wave -noupdate -group fpu {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fpu/FLEN}
@@ -726,74 +488,6 @@ add wave -noupdate -group fpu {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0
 add wave -noupdate -group fpu {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fpu/tag_o}
 add wave -noupdate -group fpu {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fpu/trace_o}
 add wave -noupdate -group fpu {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_fpus[0]/i_fpu/vectorial_op}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/addr_misaligned_o}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/AddrWidth}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_busy}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_completed}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_inflight_d}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_inflight_q}
-add wave -noupdate -group {alu lsu 0} -expand -subitemconfig {{/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_issue_req.fu_data} -expand} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_issue_req}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_issue_req_ready}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_issue_req_valid}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_issued}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_result_and_tag}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_result_ready}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_result_valid}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_result_value}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_tag}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_trace}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/busy_o}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/Caq}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/caq_addr_i}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/caq_req_ready_o}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/caq_req_valid_i}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/caq_rsp_valid_i}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/caq_rsp_valid_o}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/caq_track_write_i}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/CaqDepth}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/CaqRespSrc}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/CaqRespTrackSeq}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/CaqTagWidth}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/clk_i}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/compare_res_o}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/data_req_o}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/data_rsp_i}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/DataWidth}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/empty_o}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/HasBranch}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/HasMultiplier}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/issue_allowed}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/issue_commit_i}
-add wave -noupdate -group {alu lsu 0} -expand -subitemconfig {{/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/issue_req_i.fu_data} -expand} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/issue_req_i}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/issue_req_ready_o}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/issue_req_valid_i}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_busy}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_completed}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_inflight_d}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_inflight_q}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_issue_req}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_issue_req_ready}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_issue_req_valid}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_issued}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_result_and_tag}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_result_ready}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_result_valid}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_result_value}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_tag}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_trace}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/NumOutstandingLoads}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/NumOutstandingMem}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/result_and_tag}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/result_error_o}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/result_o}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/result_ready_i}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/result_valid_o}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/rst_i}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/sel_alu}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/sel_lsu}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/tag_o}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/trace_o}
-add wave -noupdate -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/XLEN}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/addr_misaligned_o}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/AddrWidth}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/alu_busy}
@@ -804,7 +498,6 @@ add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/ge
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/alu_issue_req_ready}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/alu_issue_req_valid}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/alu_issued}
-add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/alu_result_and_tag}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/alu_result_ready}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/alu_result_valid}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/alu_result_value}
@@ -843,7 +536,6 @@ add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/ge
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/lsu_issue_req_ready}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/lsu_issue_req_valid}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/lsu_issued}
-add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/lsu_result_and_tag}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/lsu_result_ready}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/lsu_result_valid}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/lsu_result_value}
@@ -851,7 +543,6 @@ add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/ge
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/lsu_trace}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/NumOutstandingLoads}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/NumOutstandingMem}
-add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/result_and_tag}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/result_error_o}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/result_o}
 add wave -noupdate -group {alu lsu 1} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[1]/i_alu_lsu/result_ready_i}
@@ -871,7 +562,6 @@ add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/ge
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/alu_issue_req_ready}
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/alu_issue_req_valid}
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/alu_issued}
-add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/alu_result_and_tag}
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/alu_result_ready}
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/alu_result_valid}
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/alu_result_value}
@@ -910,7 +600,6 @@ add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/ge
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/lsu_issue_req_ready}
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/lsu_issue_req_valid}
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/lsu_issued}
-add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/lsu_result_and_tag}
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/lsu_result_ready}
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/lsu_result_valid}
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/lsu_result_value}
@@ -918,7 +607,6 @@ add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/ge
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/lsu_trace}
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/NumOutstandingLoads}
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/NumOutstandingMem}
-add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/result_and_tag}
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/result_error_o}
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/result_o}
 add wave -noupdate -group {alu lsu 2} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[2]/i_alu_lsu/result_ready_i}
@@ -959,14 +647,6 @@ add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen
 add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/alu_lsu_retire_trace_o}
 add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/alu_lsu_rs_full_o}
 add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/alu_lsu_trace_o}
-add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/alu_lsu_wb_result_and_tag_out}
-add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/alu_lsu_wb_result_o}
-add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/alu_lsu_wb_result_ready_i}
-add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/alu_lsu_wb_result_tag_o}
-add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/alu_lsu_wb_result_valid_o}
-add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/alu_lsu_wbs_result_and_tag}
-add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/alu_lsu_wbs_result_ready}
-add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/alu_lsu_wbs_result_valid}
 add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/alu_op_reqs}
 add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/alu_op_reqs_ready}
 add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/alu_op_reqs_valid}
@@ -1092,20 +772,135 @@ add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen
 add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/res_rsps_valid}
 add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/restart_i}
 add wave -noupdate -group {fu stage} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/rst_i}
-add wave -noupdate -expand -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/FLEN}
-add wave -noupdate -expand -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/fpr_raddr_o}
-add wave -noupdate -expand -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/fpr_rdata_i}
-add wave -noupdate -expand -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/fu_data_o}
-add wave -noupdate -expand -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/gpr_raddr_o}
-add wave -noupdate -expand -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/gpr_rdata_i}
-add wave -noupdate -expand -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/instr_dec_i}
-add wave -noupdate -expand -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/NrFpReadPorts}
-add wave -noupdate -expand -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/NrIntReadPorts}
-add wave -noupdate -expand -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/pc_i}
-add wave -noupdate -expand -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/RegAddrSize}
-add wave -noupdate -expand -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/XLEN}
+add wave -noupdate -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/FLEN}
+add wave -noupdate -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/fpr_raddr_o}
+add wave -noupdate -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/fpr_rdata_i}
+add wave -noupdate -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/fu_data_o}
+add wave -noupdate -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/gpr_raddr_o}
+add wave -noupdate -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/gpr_rdata_i}
+add wave -noupdate -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/instr_dec_i}
+add wave -noupdate -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/NrFpReadPorts}
+add wave -noupdate -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/NrIntReadPorts}
+add wave -noupdate -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/pc_i}
+add wave -noupdate -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/RegAddrSize}
+add wave -noupdate -group {read operands} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_read_operands/XLEN}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/addr_misaligned_o}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/AddrWidth}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_busy}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_completed}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_inflight_d}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_inflight_q}
+add wave -noupdate -expand -group {alu lsu 0} -expand -subitemconfig {{/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_issue_req.fu_data} -expand} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_issue_req}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_issue_req_ready}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_issue_req_valid}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_issued}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_result_ready}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_result_valid}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_result_value}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_tag}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/alu_trace}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/busy_o}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/Caq}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/caq_addr_i}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/caq_req_ready_o}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/caq_req_valid_i}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/caq_rsp_valid_i}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/caq_rsp_valid_o}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/caq_track_write_i}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/CaqDepth}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/CaqRespSrc}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/CaqRespTrackSeq}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/CaqTagWidth}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/clk_i}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/compare_res_o}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/data_req_o}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/data_rsp_i}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/DataWidth}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/empty_o}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/HasBranch}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/HasMultiplier}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/issue_allowed}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/issue_commit_i}
+add wave -noupdate -expand -group {alu lsu 0} -expand -subitemconfig {{/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/issue_req_i.fu_data} -expand} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/issue_req_i}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/issue_req_ready_o}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/issue_req_valid_i}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_busy}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_completed}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_inflight_d}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_inflight_q}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_issue_req}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_issue_req_ready}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_issue_req_valid}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_issued}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_result_ready}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_result_valid}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_result_value}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_tag}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/lsu_trace}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/NumOutstandingLoads}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/NumOutstandingMem}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/result_error_o}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/result_o}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/result_ready_i}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/result_valid_o}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/rst_i}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/sel_alu}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/sel_lsu}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/tag_o}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/trace_o}
+add wave -noupdate -expand -group {alu lsu 0} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_alu_lsu/XLEN}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/available_results_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/clk_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/ConsumerCount}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/disp_req_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/disp_req_ready_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/disp_req_valid_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/disp_rsp_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/fu_busy_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/goto_lcp2_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/in_lxp_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/instr_exec_commit_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/instr_exec_commit_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/issue_req_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/issue_req_ready_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/issue_req_valid_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/lep_iterations_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/loop_finish_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/loop_state_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/MaxIterationsW}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/NofConstants}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/NofOperands}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/NofResPorts}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/NofResRspIfs}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/NofRss}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/op_reqs_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/op_reqs_ready_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/op_reqs_valid_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/op_rsps_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/op_rsps_ready_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/op_rsps_valid_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/producer_id_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/RegAddrWidth}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/res_reqs_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/res_reqs_ready_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/res_reqs_valid_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/res_rsps_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/res_rsps_ready_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/res_rsps_valid_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/restart_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/result_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/result_ready_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/result_tag_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/result_valid_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/rs_full_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/rst_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/wb_result_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/wb_result_ready_i}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/wb_result_tag_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/wb_result_valid_o}
+add wave -noupdate -expand -group {alu lsu 0 fu block} {/tb_bin/fix/i_snitch_cluster/i_cluster/gen_core[0]/i_snitch_cc/i_schnizo/i_fu_stage/gen_alu_lsus[0]/i_fu_block/Xfrep}
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 4} {6607006 ps} 1} {{Cursor 4} {6615000 ps} 1} {{Cursor 5} {9200030 ps} 0}
+WaveRestoreCursors {{Cursor 4} {6607006 ps} 1} {{Cursor 4} {6615000 ps} 1} {{Cursor 5} {736037 ps} 0}
 quietly wave cursor active 3
 configure wave -namecolwidth 216
 configure wave -valuecolwidth 160
@@ -1121,4 +916,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {9179483 ps} {9201186 ps}
+WaveRestoreZoom {0 ps} {3872400 ps}

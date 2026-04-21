@@ -55,10 +55,10 @@ module schnizo_writeback import schnizo_pkg::*; #(
   output logic       lsu_result_ready_o,
 
   // ALU+LSU interface
-  input  alu_lsu_result_t alu_lsu_result_i,         // TODO(lnoussi): Make to array [num_result_ports=2]
-  input  instr_tag_t      alu_lsu_result_tag_i,
-  input  logic            alu_lsu_result_valid_i,
-  output logic            alu_lsu_result_ready_o,
+  input  alu_lsu_result_t alu_lsu_results_i [0:1],         // TODO(lnoussi): Add two alu_lsu_result interfaces
+  input  instr_tag_t      alu_lsu_result_tags_i [0:1],
+  input  logic            alu_lsu_results_valid_i [0:1],
+  output logic            alu_lsu_results_ready_o [0:1],
 
   // FPU interface
   input  logic [FLEN-1:0] fpu_result_i,
@@ -97,8 +97,8 @@ module schnizo_writeback import schnizo_pkg::*; #(
   logic csr_gpr_ready;
   logic lsu_gpr_valid, lsu_fpr_valid;
   logic lsu_gpr_ready, lsu_fpr_ready;
-  logic alu_lsu_gpr_valid, alu_lsu_fpr_valid;
-  logic alu_lsu_gpr_ready, alu_lsu_fpr_ready;
+  logic [1:0] alu_lsu_gpr_valids, alu_lsu_fpr_valids;
+  logic [1:0] alu_lsu_gpr_readys, alu_lsu_fpr_readys;
   logic fpu_gpr_valid, fpu_fpr_valid;
   logic fpu_gpr_ready, fpu_fpr_ready;
   logic acc_gpr_valid; // The accelerator only writes to the GPR
@@ -119,9 +119,13 @@ module schnizo_writeback import schnizo_pkg::*; #(
   assign lsu_fpr_valid = lsu_result_tag_i.dest_reg_is_fp ? lsu_result_valid_i : 1'b0;
   assign lsu_result_ready_o = lsu_result_tag_i.dest_reg_is_fp ? lsu_fpr_ready : lsu_gpr_ready;
 
-  assign alu_lsu_gpr_valid = alu_lsu_result_tag_i.dest_reg_is_fp ? 1'b0               : alu_lsu_result_valid_i;
-  assign alu_lsu_fpr_valid = alu_lsu_result_tag_i.dest_reg_is_fp ? alu_lsu_result_valid_i : 1'b0;
-  assign alu_lsu_result_ready_o = alu_lsu_result_tag_i.dest_reg_is_fp ? alu_lsu_fpr_ready : alu_lsu_gpr_ready;
+  assign alu_lsu_gpr_valids[0] = alu_lsu_result_tags_i[0].dest_reg_is_fp ? 1'b0               : alu_lsu_results_valid_i[0];
+  assign alu_lsu_fpr_valids[0] = alu_lsu_result_tags_i[0].dest_reg_is_fp ? alu_lsu_results_valid_i[0] : 1'b0;
+  assign alu_lsu_results_ready_o[0] = alu_lsu_result_tags_i[0].dest_reg_is_fp ? alu_lsu_fpr_readys[0] : alu_lsu_gpr_readys[0];
+
+  assign alu_lsu_gpr_valids[1] = alu_lsu_result_tags_i[1].dest_reg2_is_fp ? 1'b0               : alu_lsu_results_valid_i[1];
+  assign alu_lsu_fpr_valids[1] = alu_lsu_result_tags_i[1].dest_reg2_is_fp ? alu_lsu_results_valid_i[1] : 1'b0;
+  assign alu_lsu_results_ready_o[1] = alu_lsu_result_tags_i[1].dest_reg2_is_fp ? alu_lsu_fpr_readys[1] : alu_lsu_gpr_readys[1];
 
   assign fpu_gpr_valid = fpu_result_tag_i.dest_reg_is_fp ? 1'b0               : fpu_result_valid_i;
   assign fpu_fpr_valid = fpu_result_tag_i.dest_reg_is_fp ? fpu_result_valid_i : 1'b0;
@@ -142,7 +146,7 @@ module schnizo_writeback import schnizo_pkg::*; #(
     alu_gpr_ready = '0;
     csr_gpr_ready = '0;
     lsu_gpr_ready = '0;
-    alu_lsu_gpr_ready = '0;
+    alu_lsu_gpr_readys = '0;
     fpu_gpr_ready = '0;
     acc_gpr_ready = '0;
 
@@ -183,34 +187,53 @@ module schnizo_writeback import schnizo_pkg::*; #(
         if (csr_gpr_valid && csr_result_tag_i.dest_reg == '0) begin
           csr_gpr_ready = 1'b1;
         end
-        if (alu_lsu_gpr_valid && alu_lsu_result_tag_i.dest_reg != '0) begin
+
+        if (alu_lsu_gpr_valids[0] && alu_lsu_result_tags_i[0].dest_reg != '0) begin
           gpr_we_o = 1'b1;
-          gpr_waddr_o = alu_lsu_result_tag_i.dest_reg;
-          if (alu_lsu_result_tag_i.is_jump) begin
+          gpr_waddr_o = alu_lsu_result_tags_i[0].dest_reg;
+          if (alu_lsu_result_tags_i[0].is_jump) begin
             gpr_wdata_o = consecutive_pc_i;
           end else begin
-            gpr_wdata_o = alu_lsu_result_i.result;
+            gpr_wdata_o = alu_lsu_results_i[0];
           end
-          alu_lsu_gpr_ready = 1'b1;
+          alu_lsu_gpr_readys[0] = 1'b1;
         end else begin
-          if (alu_lsu_gpr_valid && alu_lsu_result_tag_i.dest_reg == '0) begin
-            alu_lsu_gpr_ready = 1'b1;
+
+          if (alu_lsu_gpr_valids[0] && alu_lsu_result_tags_i[0].dest_reg == '0) begin
+            alu_lsu_gpr_readys[0] = 1'b1;
           end
-          if (lsu_gpr_valid) begin
+
+          if (alu_lsu_gpr_valids[1] && alu_lsu_result_tags_i[1].dest_reg2 != '0) begin
             gpr_we_o = 1'b1;
-            gpr_waddr_o = lsu_result_tag_i.dest_reg;
-            gpr_wdata_o = lsu_result_i[XLEN-1:0];
-            lsu_gpr_ready = 1'b1;
-          end else if (fpu_gpr_valid) begin
-            gpr_we_o = 1'b1;
-            gpr_waddr_o = fpu_result_tag_i.dest_reg;
-            gpr_wdata_o = fpu_result_i[XLEN-1:0];
-            fpu_gpr_ready = 1'b1;
-          end else if (acc_gpr_valid) begin
-            gpr_we_o = 1'b1;
-            gpr_waddr_o = acc_result_tag_i.dest_reg;
-            gpr_wdata_o = acc_result_i[XLEN-1:0];
-            acc_gpr_ready = 1'b1;
+            gpr_waddr_o = alu_lsu_result_tags_i[1].dest_reg2;
+            if (alu_lsu_result_tags_i[1].is_jump) begin
+              gpr_wdata_o = consecutive_pc_i;
+            end else begin
+              gpr_wdata_o = alu_lsu_results_i[1];
+            end
+            alu_lsu_gpr_readys[1] = 1'b1;
+          end else begin
+            
+            if (alu_lsu_gpr_valids[1] && alu_lsu_result_tags_i[1].dest_reg2 == '0) begin
+              alu_lsu_gpr_readys[1] = 1'b1;
+            end
+
+            if (lsu_gpr_valid) begin
+              gpr_we_o = 1'b1;
+              gpr_waddr_o = lsu_result_tag_i.dest_reg;
+              gpr_wdata_o = lsu_result_i[XLEN-1:0];
+              lsu_gpr_ready = 1'b1;
+            end else if (fpu_gpr_valid) begin
+              gpr_we_o = 1'b1;
+              gpr_waddr_o = fpu_result_tag_i.dest_reg;
+              gpr_wdata_o = fpu_result_i[XLEN-1:0];
+              fpu_gpr_ready = 1'b1;
+            end else if (acc_gpr_valid) begin
+              gpr_we_o = 1'b1;
+              gpr_waddr_o = acc_result_tag_i.dest_reg;
+              gpr_wdata_o = acc_result_i[XLEN-1:0];
+              acc_gpr_ready = 1'b1;
+            end
           end
         end
       end
@@ -223,14 +246,19 @@ module schnizo_writeback import schnizo_pkg::*; #(
     fpr_wdata_o = '0;
 
     // interfaces to FU writing back to the integer RF
-    alu_lsu_fpr_ready = '0;
+    alu_lsu_fpr_readys = '0;
     lsu_fpr_ready = '0;
     fpu_fpr_ready = '0;
-    if (alu_lsu_fpr_valid) begin
+    if (alu_lsu_fpr_valids[0]) begin
       fpr_we_o = 1'b1;
-      fpr_waddr_o = alu_lsu_result_tag_i.dest_reg;
-      fpr_wdata_o = alu_lsu_result_i.result[FLEN-1:0];
-      alu_lsu_fpr_ready = 1'b1;
+      fpr_waddr_o = alu_lsu_result_tags_i[0].dest_reg;
+      fpr_wdata_o = alu_lsu_results_i[0][FLEN-1:0];
+      alu_lsu_fpr_readys[0] = 1'b1;
+    end else if (alu_lsu_fpr_valids[1]) begin
+      fpr_we_o = 1'b1;
+      fpr_waddr_o = alu_lsu_result_tags_i[1].dest_reg2;
+      fpr_wdata_o = alu_lsu_results_i[1][FLEN-1:0];
+      alu_lsu_fpr_readys[1] = 1'b1;
     end else if (lsu_fpr_valid) begin
       fpr_we_o = 1'b1;
       fpr_waddr_o = lsu_result_tag_i.dest_reg;

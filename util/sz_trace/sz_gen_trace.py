@@ -39,7 +39,7 @@ import formatter
 from formatter import int_lit, flt_lit, flt_fmt
 from architecture import REG_ABI_NAMES_I, REG_ABI_NAMES_F, get_fu_type, CSR_NAMES
 from architecture import LSU_SIZE_TO_FLOAT
-from architecture import FU_LSU, FU_FPU, FU_ALU_LSU, FU_CSR, FU_ACC, FU_MULDIV, FU_DMA, FU_NONE
+from architecture import FU_LSU, FU_FPU, FU_ALU_LSU, FU_CSR, FU_ACC, FU_MULDIV, FU_DMA, FU_NONE, FU_ALU
 from processor import ProcessorState
 
 
@@ -350,7 +350,18 @@ def gen_dispatch_perfetto(sim_time, cycle, priv_lvl, loop_state, extras,
         annotations.update({'iteration': iter_count})
 
     # Emit Perfetto slice begin event
-    insn_uuid = trace.start_insn(fu_str, mnemonic, cycle * CLOCK_PERIOD_NS, annotations)
+    if fu_str.startswith(FU_ALU_LSU):
+        if extras['fu_type'] == FU_ALU_LSU:
+            trace.start_insn(fu_str, mnemonic + " (ALU)", cycle * CLOCK_PERIOD_NS, annotations, queue_id=1)
+            insn_uuid_lsu = trace.start_insn(fu_str, mnemonic + " (LSU)", cycle * CLOCK_PERIOD_NS, annotations, queue_id=0)
+            if (extras['lsu_is_store']):
+                trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid_lsu)
+            return
+        else:
+            queue_id = 1 if extras['fu_type'] == FU_ALU else 0
+            insn_uuid = trace.start_insn(fu_str, mnemonic + " (LSU)", cycle * CLOCK_PERIOD_NS, annotations, queue_id=queue_id)
+    else:
+        insn_uuid = trace.start_insn(fu_str, mnemonic, cycle * CLOCK_PERIOD_NS, annotations)
 
     # Immediately end instructions for FU_NONE as there is no retirement event.
     if (fu_str == FU_NONE):
@@ -373,7 +384,7 @@ def gen_retirement_perfetto(sim_time, cycle, priv_lvl, loop_state, extras, trace
         if (fu_str not in {FU_CSR, FU_ACC, FU_NONE}):
             fu_str = f"{fu_str}.0"
         # The instruction ends in this cycle. Thus the event is at the end of this cycle.
-        trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS)
+        trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, queue_id=int(extras['valids'])-1)
 
 
 def gen_rescap_perfetto(sim_time, cycle, priv_lvl, loop_state, extras, trace):

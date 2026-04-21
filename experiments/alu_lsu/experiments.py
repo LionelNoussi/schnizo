@@ -45,12 +45,16 @@ def gen_experiments():
     }
     # hardwares = ['sz_baseline', 'sz_alu_lsu']
     hardwares = ['sz_small']
+
+    # axpy_modes = ['scalar', 'superscalar', 'peeled', 'unrolled', 'post_increment']
+    axpy_modes = ['post_increment']
+
     sizes = [64]
     experiments = []
 
     app = 'sz_axpy'
     for hw in hardwares:
-        for mode in ['scalar', 'superscalar', 'peeled', 'unrolled', 'post_increment']:
+        for mode in axpy_modes:
             for n in sizes:
                 verify_script = Path(f"{schnizo_dir}/sw/kernels/blas/{app}/scripts/verify.py")
                 experiments.extend([
@@ -67,24 +71,24 @@ def gen_experiments():
                     },
                 ])
 
-    app = 'sz_dot'
-    for hw in hardwares:
-        for mode in ['scalar', 'superscalar', 'AluLsuOpt']:
-            for n in sizes:
-                verify_script = Path(f"{schnizo_dir}/sw/kernels/blas/{app}/scripts/verify.py")
-                experiments.extend([
-                    {
-                        'app': app,
-                        'roi': Path(f"roi/{app}_roi.json.tpl"),
-                        'mode': mode,
-                        'data_cfg': {
-                            'n': n,
-                            'funcptr': app.lstrip("sz_") + mode_to_funcptr[mode],
-                        },
-                        'hw': hw,
-                        'verify_script': verify_script
-                    },
-                ])
+    # app = 'sz_dot'
+    # for hw in hardwares:
+    #     for mode in ['scalar', 'superscalar', 'AluLsuOpt']:
+    #         for n in sizes:
+    #             verify_script = Path(f"{schnizo_dir}/sw/kernels/blas/{app}/scripts/verify.py")
+    #             experiments.extend([
+    #                 {
+    #                     'app': app,
+    #                     'roi': Path(f"roi/{app}_roi.json.tpl"),
+    #                     'mode': mode,
+    #                     'data_cfg': {
+    #                         'n': n,
+    #                         'funcptr': app.lstrip("sz_") + mode_to_funcptr[mode],
+    #                     },
+    #                     'hw': hw,
+    #                     'verify_script': verify_script
+    #                 },
+    #             ])
 
     return experiments
 

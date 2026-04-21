@@ -38,7 +38,8 @@ module schnizo_fu_block import schnizo_pkg::*; #(
   parameter type         ext_res_req_t  = logic,
   parameter type         available_result_t  = logic,
   parameter type         dest_mask_t    = logic,
-  parameter type         res_rsp_t      = logic
+  parameter type         res_rsp_t      = logic,
+  parameter int unsigned NofResPorts     = 1
 ) (
   input  logic clk_i,
   input  logic rst_i,
@@ -76,15 +77,15 @@ module schnizo_fu_block import schnizo_pkg::*; #(
   input  logic       issue_req_ready_i,
   output logic       instr_exec_commit_o,
   // From FU to the result DEMUX
-  input  result_t    result_i,          // TODO(lnoussi): Make to array [num_result_ports]
-  input  instr_tag_t result_tag_i,
-  input  logic       result_valid_i,
-  output logic       result_ready_o,
+  input  result_t    [0:NofResPorts-1]    result_i,
+  input  instr_tag_t [0:NofResPorts-1]    result_tag_i,
+  input  logic       [0:NofResPorts-1]    result_valid_i,
+  output logic       [0:NofResPorts-1]    result_ready_o,
   // From writeback MUX to writeback
-  output result_t    wb_result_o,
-  output instr_tag_t wb_result_tag_o,
-  output logic       wb_result_valid_o,
-  input  logic       wb_result_ready_i,
+  output result_t    [0:NofResPorts-1]   wb_result_o,
+  output instr_tag_t [0:NofResPorts-1]   wb_result_tag_o,
+  output logic       [0:NofResPorts-1]   wb_result_valid_o,
+  input  logic       [0:NofResPorts-1]   wb_result_ready_i,
 
   /// Operand distribution network
   // Info required for arbitration in request XBAR
@@ -117,7 +118,7 @@ module schnizo_fu_block import schnizo_pkg::*; #(
 
   typedef logic [cf_math_pkg::idx_width(NofRss)-1:0] rs_tag_t;
 
-  if (Xfrep && (NofRss > 0)) begin : gen_superscalar
+  if (Xfrep && (NofRss > 0) && (NofResPorts == 1)) begin : gen_superscalar
     // Module global switch between regular execution and superscalar path
     logic sel_lxp_path;
     assign sel_lxp_path = in_lxp_i;

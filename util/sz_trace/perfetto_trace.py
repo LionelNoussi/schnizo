@@ -162,7 +162,7 @@ class PerfettoInstructionTrace(PerfettoTrace):
         for cycle count synchronization.
         """
         super().__init__()
-        self.outstanding_insns = defaultdict(deque)
+        self.outstanding_insns = [defaultdict(deque), defaultdict(deque)]
         self.ipc = 0
         self.ipc_time = None
 
@@ -184,7 +184,7 @@ class PerfettoInstructionTrace(PerfettoTrace):
             self.ipc_time = timestamp
             self.ipc = 1
 
-    def start_insn(self, fu, name, timestamp, annotations={}):
+    def start_insn(self, fu, name, timestamp, annotations={}, queue_id=0):
         """Record the start of an instruction execution.
 
         Creates a slice begin event to mark the start of instruction execution
@@ -211,7 +211,7 @@ class PerfettoInstructionTrace(PerfettoTrace):
 
         # We must keep track of the uuid of the event we started to end it later. We assign it to a
         # dict with a deque indexed by the hierarchical track uuid.
-        self.outstanding_insns[fu_string].appendleft(insn_uuid)
+        self.outstanding_insns[queue_id][fu_string].appendleft(insn_uuid)
 
         # Create slice begin event
         annotations['slot_id'] = slot_id
@@ -221,7 +221,7 @@ class PerfettoInstructionTrace(PerfettoTrace):
         self.update_ipc(timestamp)
         return insn_uuid
 
-    def end_insn(self, fu, timestamp, insn_uuid=None):
+    def end_insn(self, fu, timestamp, insn_uuid=None, queue_id=0):
         """Record the end of an instruction execution.
 
         Creates a slice end event to mark the completion of instruction execution
@@ -234,7 +234,7 @@ class PerfettoInstructionTrace(PerfettoTrace):
         """
         fu_string, _ = extract_fu_details(fu)
         if insn_uuid is None:
-            insn_uuid = self.outstanding_insns[fu_string].pop()
+            insn_uuid = self.outstanding_insns[queue_id][fu_string].pop()
         else:
-            self.outstanding_insns[fu_string].remove(insn_uuid)
+            self.outstanding_insns[queue_id][fu_string].remove(insn_uuid)
         self.add_event(insn_uuid, TYPE_SLICE_END, timestamp, None)

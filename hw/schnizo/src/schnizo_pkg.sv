@@ -149,6 +149,8 @@ package schnizo_pkg;
   typedef struct packed {
     logic [RegAddrSize-1:0] dest_reg;
     logic                   dest_reg_is_fp;
+    logic [RegAddrSize-1:0] dest_reg2;
+    logic                   dest_reg2_is_fp;
     logic                   is_branch;
     logic                   is_jump;
   } instr_tag_t;

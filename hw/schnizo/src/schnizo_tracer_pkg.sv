@@ -112,7 +112,7 @@ package schnizo_tracer_pkg;
 
   // retirements
   typedef struct {
-    logic   valid; // high if handshake happens
+    logic [1:0] valid; // high if handshake happens for either result port
     string  producer;
   } retire_fu_trace_t;
 
@@ -268,9 +268,10 @@ package schnizo_tracer_pkg;
 
   function automatic string format_fu_retire_trace(retire_fu_trace_t trace);
     string extras = "";
-    if (!trace.valid) begin
+    if (!(|trace.valid)) begin
       return "";
     end
+    extras = $sformatf("%s'%s':\"%0d\", ", extras, "valids", trace.valid);
     extras = $sformatf("%s'%s':\"%s\", ", extras, "producer", trace.producer);
     return extras;
   endfunction
