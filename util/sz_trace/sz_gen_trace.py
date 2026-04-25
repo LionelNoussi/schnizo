@@ -350,32 +350,30 @@ def gen_dispatch_perfetto(sim_time, cycle, priv_lvl, loop_state, extras,
         annotations.update({'iteration': iter_count})
 
     # Emit Perfetto slice begin event
-    if fu_str.startswith(FU_ALU_LSU):
-        if extras['fu_type'] == FU_ALU_LSU:
-            trace.start_insn(fu_str, mnemonic + " (ALU)", cycle * CLOCK_PERIOD_NS, annotations, queue_id=0)
-            insn_uuid_lsu = trace.start_insn(fu_str, mnemonic + " (LSU)", cycle * CLOCK_PERIOD_NS, annotations, queue_id=1)
-            if (extras['lsu_is_store']):
-                trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid_lsu, queue_id=1)
-            return
-        else:
-            queue_id = 0 if extras['fu_type'] == FU_ALU else 1
-            insn_uuid = trace.start_insn(fu_str, mnemonic, cycle * CLOCK_PERIOD_NS, annotations, queue_id=queue_id)
+    if 'rd' in extras and 'rd_is_fp' in extras:
+        tag1 = f"{extras['rd']}" + ("f" if extras['rd_is_fp'] else "")
+        mnemonic1 = mnemonic + (" (ALU)" if 'use_rd2' in extras and extras['use_rd2'] else "")
+        insn_uuid1 = trace.start_insn(fu_str, mnemonic1, cycle * CLOCK_PERIOD_NS, annotations, tag=tag1)
+        if 'use_rd2' in extras and extras['use_rd2']:
+            tag2 = f"{extras['rd2']}" + ("f" if extras['rd2_is_fp'] else "")
+            trace.start_insn(fu_str, mnemonic + " (LSU)", cycle * CLOCK_PERIOD_NS, annotations, tag=tag2)
     else:
-        insn_uuid = trace.start_insn(fu_str, mnemonic, cycle * CLOCK_PERIOD_NS, annotations)
+        tag1 = ""
+        insn_uuid1 = trace.start_insn(fu_str, mnemonic, cycle * CLOCK_PERIOD_NS, annotations, tag=tag1)
 
     # Immediately end instructions for FU_NONE as there is no retirement event.
     if (fu_str == FU_NONE):
         # The instruction ends in this cycle. Thus the event is at the end of this cycle.
-        trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid)
+        trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid1, tag=tag1)
     # Immediately end store instructions as there is no retirement event.
     if fu_str.startswith(FU_LSU):
         if (extras['lsu_is_store']):
             # The instruction ends in this cycle. Thus the event is at the end of this cycle.
-            trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid, queue_id=0)
-    if fu_str.startswith(FU_ALU_LSU) and (extras['fu_type'] == FU_LSU):
-        if (extras['lsu_is_store']):
-            # The instruction ends in this cycle. Thus the event is at the end of this cycle.
-            trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid, queue_id=1)
+            trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid1, tag=tag1)
+    if fu_str.startswith(FU_ALU_LSU):
+        # The instruction ends in this cycle. Thus the event is at the end of this cycle.
+        if extras['fu_type'] == FU_LSU and extras['lsu_is_store']:
+            trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid1, tag=tag1)
 
 
 def gen_retirement_perfetto(sim_time, cycle, priv_lvl, loop_state, extras, trace):
@@ -388,13 +386,15 @@ def gen_retirement_perfetto(sim_time, cycle, priv_lvl, loop_state, extras, trace
         if (fu_str not in {FU_CSR, FU_ACC, FU_NONE}):
             fu_str = f"{fu_str}.0"
         # The instruction ends in this cycle. Thus the event is at the end of this cycle.
-        trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, queue_id=int(extras['valids'])-1)
+        tag = f"{extras['rd']}" + ("f" if extras['rd_is_fp'] else "")
+        trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, tag=tag)
 
 
 def gen_rescap_perfetto(sim_time, cycle, priv_lvl, loop_state, extras, trace):
     fu_str = extras['producer']
     # The instruction ends in this cycle. Thus the event is at the end of this cycle.
-    trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS)
+    tag = f"{extras['rd']}" + ("f" if extras['rd_is_fp'] else "")
+    trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, tag=tag)
 
 
 def gen_trace_line(line, mc_exec,
@@ -431,7 +431,7 @@ def gen_trace_line(line, mc_exec,
         # Nothing statefull to handle
         trace_body = gen_resreq_trace(data)
     elif (data['event'] == EVENT_RESCAP):
-        proc_state.capture_result(data['producer'], data)
+        # proc_state.capture_result(data['producer'], data)
         trace_body = gen_rescap_trace(data)
         gen_rescap_perfetto(sim_time, cycle, priv_lvl, loop_state, data, trace)
     elif (data['event'] == EVENT_RETIREMENT):

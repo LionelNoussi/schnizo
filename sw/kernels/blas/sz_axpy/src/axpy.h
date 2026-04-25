@@ -162,23 +162,16 @@ static inline void axpy_post_increment_schnizo(uint32_t n, double a, double *x, 
 
     snrt_mcycle();
     
-    for (int i = 0; i < frac; i++) {
-        asm volatile(
-            // "fld     ft0, 0(%[xa])        \n"
-            // "fld     ft1, 0(%[ya])        \n"
-            // "add     %[xa], %[xa], %[inc] \n"
-            // "add     %[ya], %[ya], %[inc] \n"
-            "p.lw     x0, %[inc](%[xa]!) \n"
-            "p.lw     x1, %[inc](%[ya]!) \n" 
-            "fmadd.d ft0, %[a], ft0, ft1  \n"
-            // "fsd     ft0, 0(%[za])        \n"
-            // "add     %[za], %[za], %[inc] \n"
-            "p.sw     x0, %[inc](%[za]!)  \n"
-            : [ xa ] "+r"(x_addr), [ ya ] "+r"(y_addr), [ za ] "+r"(z_addr)
-            : [ n_frep ] "r"(frac - 1), [ a ] "f"(a),
-            [ inc ] "r"(sizeof(double) * num_cores)
-            : "t0", "ft0", "ft1", "memory");
-    }
+    asm volatile(
+        "frep.o  %[n_frep], 4, 0      \n"
+        "p.lw     x0, %[inc](%[xa]!) \n"
+        "p.lw     x1, %[inc](%[ya]!) \n" 
+        "fmadd.d ft0, %[a], ft0, ft1  \n"
+        "p.sw     x0, %[inc](%[za]!)  \n"
+        : [ xa ] "+r"(x_addr), [ ya ] "+r"(y_addr), [ za ] "+r"(z_addr)
+        : [ n_frep ] "r"(frac - 1), [ a ] "f"(a),
+        [ inc ] "r"(sizeof(double) * num_cores)
+        : "t0", "ft0", "ft1", "memory");
 
     snrt_mcycle();
 }

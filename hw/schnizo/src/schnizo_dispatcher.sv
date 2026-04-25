@@ -57,7 +57,7 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
   // ALU + LSU
   output logic      [iomsb(NofAluLsus):0] alu_lsu_disp_req_valid_o,
   input  logic      [iomsb(NofAluLsus):0] alu_lsu_disp_req_ready_i,
-  input  disp_rsp_t [iomsb(NofAluLsus):0] alu_lsu_disp_rsp_i,
+  input  disp_rsp_t [iomsb(NofAluLsus):0][1:0] alu_lsu_disp_rsp_i,
   input  logic      [iomsb(NofAluLsus):0] alu_lsu_rs_full_i,
 
   // Handshake to the CSR FU. There is no response as it does not have a reservation station.
@@ -107,10 +107,13 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
     valid: 1'b0
   };
 
-  // TODO(lnoussi): Add second current_dest_entry when enabling Xfrep for post-load-increment
   rmt_entry_t current_dest_entry;
   assign current_dest_entry = instr_dec_i.rd_is_fp ? rmtf_q[instr_dec_i.rd] :
                                                      rmti_q[instr_dec_i.rd];
+  
+  rmt_entry_t current_dest2_entry;
+  assign current_dest2_entry = instr_dec_i.rd2_is_fp ? rmtf_q[instr_dec_i.rd2] : 
+                                                       rmti_q[instr_dec_i.rd2];
 
   always_comb begin : dispatch_generation
     disp_req_o = '0;
@@ -132,15 +135,17 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
                                  no_mapping;
 
       // current destination producer
-      // TODO(colluca): the comment correctly calls it "current destination producer".
-      //                Align LHS signal name.
-      disp_req_o.current_producer_dest = current_dest_entry;
+      disp_req_o.current_dest_producer = current_dest_entry;
+      disp_req_o.current_dest2_producer = current_dest2_entry;
     end else begin
       disp_req_o.producer_op_a         = '0;
       disp_req_o.producer_op_b         = '0;
       disp_req_o.producer_op_c         = '0;
-      disp_req_o.current_producer_dest = '0;
+      disp_req_o.current_dest_producer = '0;
+      disp_req_o.current_dest2_producer = '0;
     end
+
+    disp_req_o.has_two_dests = instr_dec_i.use_rd2;
 
     // generate the tag
     disp_req_o.tag.dest_reg       = instr_dec_i.rd;
@@ -166,6 +171,7 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
   logic       fu_ready;
   logic       fu_rs_full;
   disp_rsp_t  fu_response;
+  disp_rsp_t  fu_response2;
   logic       dispatched;
 
   // FU selection counters
@@ -261,6 +267,7 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
   // Mux the response from the selected FU
   always_comb begin : fu_selection_rsp
     fu_response = '0;
+    fu_response2 = '0;
     fu_ready    = 1'b0;
     fu_rs_full  = 1'b0;
 
@@ -269,7 +276,7 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
       schnizo_pkg::CTRL_FLOW: begin
         // always select ALU0 for branch and MUL instructions
         if (UseAluLsu) begin
-          fu_response = alu_lsu_disp_rsp_i[0];
+          {fu_response2, fu_response} = alu_lsu_disp_rsp_i[0];
           fu_ready    = alu_lsu_disp_req_ready_i[0];
           fu_rs_full  = alu_lsu_rs_full_i[0];
         end else begin
@@ -280,7 +287,7 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
       end
       schnizo_pkg::ALU: begin
         if (UseAluLsu) begin
-          fu_response = alu_lsu_disp_rsp_i[alu_lsu_idx];
+          {fu_response2, fu_response} = alu_lsu_disp_rsp_i[alu_lsu_idx];
           fu_ready    = alu_lsu_disp_req_ready_i[alu_lsu_idx];
           fu_rs_full  = alu_lsu_rs_full_i[alu_lsu_idx];
         end else begin
@@ -293,7 +300,7 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
       schnizo_pkg::STORE: begin
         // per default take the non consistent mode.
         if (UseAluLsu) begin
-          fu_response = alu_lsu_disp_rsp_i[alu_lsu_idx];
+          {fu_response2, fu_response} = alu_lsu_disp_rsp_i[alu_lsu_idx];
           fu_ready    = alu_lsu_disp_req_ready_i[alu_lsu_idx];
           fu_rs_full  = alu_lsu_rs_full_i[alu_lsu_idx];
         end else begin
@@ -304,7 +311,7 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
       end
       schnizo_pkg::ALU_LSU_LOAD,
       schnizo_pkg::ALU_LSU_STORE: begin
-        fu_response = alu_lsu_disp_rsp_i[alu_lsu_idx];
+        {fu_response2, fu_response} = alu_lsu_disp_rsp_i[alu_lsu_idx];
         fu_ready    = alu_lsu_disp_req_ready_i[alu_lsu_idx];
         fu_rs_full  = alu_lsu_rs_full_i[alu_lsu_idx];
       end
@@ -509,6 +516,12 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
       valid: 1'b1
     };
 
+    rmt_entry_t new_entry2;
+    assign new_entry2 = '{
+      producer:    fu_response2.producer,
+      valid: instr_dec_i.use_rd2
+    };
+
     always_comb begin : rmt_update
       rmti_d = rmti_q;
       rmtf_d = rmtf_q;
@@ -528,6 +541,12 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
             end else begin
               rmti_d[instr_dec_i.rd] = new_entry;
             end
+
+            if (instr_dec_i.rd2_is_fp) begin
+              rmtf_d[instr_dec_i.rd2] = new_entry2;
+            end else begin
+              rmti_d[instr_dec_i.rd2] = new_entry2;
+            end
           end
         end
         LoopLcp2: begin
@@ -540,6 +559,13 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
               rmtf_d[instr_dec_i.rd] = new_entry;
             end else begin
               rmti_d[instr_dec_i.rd] = new_entry;
+            end
+          end
+          if (dispatched && !current_dest2_entry.valid) begin
+            if (instr_dec_i.rd2_is_fp) begin
+              rmtf_d[instr_dec_i.rd2] = new_entry2;
+            end else begin
+              rmti_d[instr_dec_i.rd2] = new_entry2;
             end
           end
         end

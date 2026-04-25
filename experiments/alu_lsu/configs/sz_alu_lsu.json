@@ -79,10 +79,6 @@
                     { $ref: "#/compute_core_template" },
                     { $ref: "#/compute_core_template" },
                     { $ref: "#/compute_core_template" },
-                    { $ref: "#/compute_core_template" },
-                    { $ref: "#/compute_core_template" },
-                    { $ref: "#/compute_core_template" },
-                    { $ref: "#/compute_core_template" },
                     { $ref: "#/dma_core_template" },
                 ]
             }
@@ -122,8 +118,11 @@
         num_alu_lsus: 3,
         num_alu_lsu_slots: 8,
         num_alu_lsu_rsp_ports: 2,
+        num_alu_lsu_constants: 32,
         num_fpus: 1,
         num_fpu_slots: 8,
+        num_fpu_constants: 32,
+        num_alu_lsu_res_ports: 1,
         use_alu_lsu: 1
     },
     dma_core_template: {

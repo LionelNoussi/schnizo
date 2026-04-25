@@ -102,14 +102,14 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
 
   // Trace outputs
   // pragma translate_off
-  output issue_alu_trace_t      alu_trace_o             [iomsb(NofAlus):0],
-  output issue_lsu_trace_t      lsu_trace_o             [iomsb(NofLsus):0],
-  output issue_alu_lsu_trace_t  alu_lsu_trace_o         [iomsb(NofAluLsus):0],
-  output issue_fpu_trace_t      fpu_trace_o             [iomsb(NofFpus):0],
-  output retire_fu_trace_t      alu_retire_trace_o      [iomsb(NofAlus):0],
-  output retire_fu_trace_t      lsu_retire_trace_o      [iomsb(NofLsus):0],
-  output retire_fu_trace_t      alu_lsu_retire_trace_o  [iomsb(NofAluLsus):0],
-  output retire_fu_trace_t      fpu_retire_trace_o      [iomsb(NofFpus):0],
+  output issue_alu_trace_t      alu_trace_o             [0:iomsb(NofAlus)],
+  output issue_lsu_trace_t      lsu_trace_o             [0:iomsb(NofLsus)],
+  output issue_alu_lsu_trace_t  alu_lsu_trace_o         [0:iomsb(NofAluLsus)],
+  output issue_fpu_trace_t      fpu_trace_o             [0:iomsb(NofFpus)],
+  output retire_fu_trace_t      alu_retire_trace_o      [0:iomsb(NofAlus)],
+  output retire_fu_trace_t      lsu_retire_trace_o      [0:iomsb(NofLsus)],
+  output retire_fu_trace_t      alu_lsu_retire_trace_o  [0:iomsb(NofAluLsus)][0:iomsb(AluLsuNofResPorts)],
+  output retire_fu_trace_t      fpu_retire_trace_o      [0:iomsb(NofFpus)],
   // pragma translate_on
 
   /// RS control signals
@@ -151,7 +151,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
 
   input  logic      [iomsb(NofAluLsus):0] alu_lsu_disp_reqs_valid_i,
   output logic      [iomsb(NofAluLsus):0] alu_lsu_disp_reqs_ready_o,
-  output disp_rsp_t [iomsb(NofAluLsus):0] alu_lsu_disp_rsp_o,
+  output disp_rsp_t [iomsb(NofAluLsus):0][1:0] alu_lsu_disp_rsp_o,
   output logic      [iomsb(NofAluLsus):0] alu_lsu_rs_full_o,
   output dreq_t     [iomsb(NofAluLsus):0] alu_lsu_dreq_o,
   input  drsp_t     [iomsb(NofAluLsus):0] alu_lsu_drsp_i,
@@ -862,7 +862,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       alu_trace_o[alu].producer = producer;
     end
     assign alu_retire_trace_o[alu] = '{
-      valid:    {1'b0, alu_result_valid && alu_result_ready},
+      valid:    alu_result_valid && alu_result_ready,
+      rd:       alu_wb_result_tag_o.dest_reg,
+      rd_is_fp: alu_wb_result_tag_o.dest_reg_is_fp,
       producer: producer
     };
     // pragma translate_on
@@ -943,6 +945,15 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   // LSUs //
   //////////
   // TODO(lnoussi): Also extend LSU instr_tag_t to NofRSS
+
+  typedef logic [cf_math_pkg::idx_width(LsuNofRss)-1:0] lsu_rs_tag_t;
+  typedef logic [cf_math_pkg::max($bits(lsu_rs_tag_t),$bits(instr_tag_t))-1:0] lsu_instr_tag_t;
+
+  typedef struct packed {
+    fu_data_t       fu_data;
+    lsu_instr_tag_t tag;
+  } lsu_issue_req_t;
+
   // The LSU always returns a data_t value. Define a type for clarity.
   typedef data_t lsu_result_t;
   typedef struct packed {
@@ -964,7 +975,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
     instr_tag_t  lsu_wb_result_tag;
 
     // Signals connecting the FU block and the actual FU
-    issue_req_t  lsu_issue_req;
+    lsu_issue_req_t  lsu_issue_req;
     logic        lsu_issue_req_valid;
     logic        lsu_issue_req_ready;
     logic        lsu_exec_commit;
@@ -989,7 +1000,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .Xfrep         (Xfrep),
       .disp_req_t    (disp_req_t),
       .disp_rsp_t    (disp_rsp_t),
-      .issue_req_t   (issue_req_t),
+      .issue_req_t   (lsu_issue_req_t),
       .result_t      (lsu_result_t),
       .instr_tag_t   (instr_tag_t),
       .NofRss        (LsuNofRss),
@@ -1063,7 +1074,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
 
     schnizo_lsu #(
       .XLEN               (XLEN),
-      .issue_req_t        (issue_req_t),
+      .issue_req_t        (lsu_issue_req_t),
       .AddrWidth          (AddrWidth),
       .DataWidth          (DataWidth),
       .dreq_t             (dreq_t),
@@ -1116,7 +1127,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       lsu_trace_o[lsu].producer = producer;
     end
     assign lsu_retire_trace_o[lsu] = '{
-      valid:    {1'b0, lsu_result_valid && lsu_result_ready},
+      valid:    lsu_result_valid && lsu_result_ready,
+      rd:       lsu_wb_result_tag_o.dest_reg,
+      rd_is_fp: lsu_wb_result_tag_o.dest_reg_is_fp,
       producer: producer
     };
     // pragma translate_on
@@ -1264,7 +1277,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .dest_mask_t   (dest_mask_t),
       .res_rsp_t     (res_rsp_t),
       .NofResPorts   (AluLsuNofResPorts),
-      .NofDests      (2)
+      .HasTwoDests   (1'b1)
     ) i_fu_block (
       .clk_i,
       .rst_i,
@@ -1392,10 +1405,14 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       alu_lsu_trace_o[alu_lsu] = alu_lsu_trace_int;
       alu_lsu_trace_o[alu_lsu].producer = producer;
     end
-    assign alu_lsu_retire_trace_o[alu_lsu] = '{
-      valid:    alu_lsu_results_valid & alu_lsu_results_ready,
-      producer: producer
-    };
+    for (genvar res_port = 0; res_port < AluLsuNofResPorts; res_port++) begin: gen_alu_lsu_retire_trace
+      assign alu_lsu_retire_trace_o[alu_lsu][res_port] = '{
+        valid:    alu_lsu_results_valid[res_port] && alu_lsu_results_ready[res_port],
+        rd:       alu_lsu_wb_result_tags_o[res_port].dest_reg,
+        rd_is_fp: alu_lsu_wb_result_tags_o[res_port].dest_reg_is_fp,
+        producer: producer
+      };
+    end
     // pragma translate_on
 
     assign alu_lsu_addr_misaligned[alu_lsu] = alu_lsu_addr_misaligned_raw & !in_lxp;
@@ -1467,7 +1484,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       assign alu_lsu_res_rsps_valid = '0;
       assign alu_lsu_op_rsps_ready = '0;
       // pragma translate_off
-      assign alu_lsu_retire_trace_o = '{default: '0};
+      assign alu_lsu_retire_trace_o = '{default: '{default: '0}};
       // pragma translate_on
       assign alu_lsu_wb_result_and_tag_outs = '0;
       assign alu_lsu_wb_results_valid_o = '0;
@@ -1670,7 +1687,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       fpu_trace_o[fpu].producer = producer;
     end
     assign fpu_retire_trace_o[fpu] = '{
-      valid:    {1'b0, fpu_result_valid[fpu] && fpu_result_ready[fpu]},
+      valid:    fpu_result_valid[fpu] && fpu_result_ready[fpu],
+      rd:       fpu_wb_result_tag_o.dest_reg,
+      rd_is_fp: fpu_wb_result_tag_o.dest_reg_is_fp,
       producer: producer
     };
     // pragma translate_on
