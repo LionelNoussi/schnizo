@@ -552,7 +552,7 @@ module schnizo_res_stat import schnizo_pkg::*; #(
   // Issue RSRS Trip-Counter, but checks bound with next value instead of current value
   logic [NofRssWidth:0]   issue_rsrs_next;
   logic [NofRssWidth-1:0] issue_rsrs_bound;
-  assign issue_rsrs_bound = (loop_state_i == LoopLcp1) ? rss_idx_t'(NofRss - 1) : rss_idx_t'(num_allocated_rsrs_q);
+  assign issue_rsrs_bound = (loop_state_i == LoopLcp1) ? rss_idx_t'(NofRss) : rss_idx_t'(num_allocated_rsrs_q);
   assign issue_rsrs_next  = {1'b0, issue_rsrs_idx} + num_expected_results; 
   always_ff @(posedge clk_i or posedge rst_i) begin
     if (rst_i) begin

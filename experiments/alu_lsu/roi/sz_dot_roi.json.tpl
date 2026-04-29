@@ -4,7 +4,7 @@
 
 [
     // Compute cores
-    % for j in range(4):
+    % for j in range(1):
     {
         "thread": "${f'hart_{j}'}",
         // specify which perf.json region we are interested in.
