@@ -314,7 +314,7 @@ module schnizo_res_stat import schnizo_pkg::*; #(
   rss_idx_t disp_idx, rsrs_idx, issue_rsrs_idx, issue_idx, result_idx;
   logic     last_disp;
   logic     trip_issue;
-  logic     last_result, trip_result;
+  logic     trip_result;
 
   logic [MaxIterationsW-1:0] lep_issue_iter_count;
   logic [MaxIterationsW-1:0] lep_result_iter_count;
@@ -550,14 +550,14 @@ module schnizo_res_stat import schnizo_pkg::*; #(
 
 
   // Issue RSRS Trip-Counter, but checks bound with next value instead of current value
-  logic [NofRssWidth:0]   issue_rsrs_next;
-  logic [NofRssWidth-1:0] issue_rsrs_bound;
-  assign issue_rsrs_bound = (loop_state_i == LoopLcp1) ? rss_idx_t'(NofRss) : rss_idx_t'(num_allocated_rsrs_q);
-  assign issue_rsrs_next  = {1'b0, issue_rsrs_idx} + num_expected_results; 
+  rss_cnt_t issue_rsrs_next;
+  rss_cnt_t issue_rsrs_bound;
+  assign issue_rsrs_bound = rss_cnt_t'((loop_state_i == LoopLcp1) ? NofRss : num_allocated_rsrs_q);
+  assign issue_rsrs_next  = rss_cnt_t'(issue_rsrs_idx) + rss_cnt_t'(num_expected_results); 
   always_ff @(posedge clk_i or posedge rst_i) begin
     if (rst_i) begin
       issue_rsrs_idx <= '0;
-    end else if (goto_lcp2_i || restart_i || (issue_rsrs_next == {1'b0, issue_rsrs_bound})) begin
+    end else if (goto_lcp2_i || restart_i || (issue_rsrs_next == issue_rsrs_bound)) begin
       issue_rsrs_idx <= '0;
     end else begin
       issue_rsrs_idx <= issue_rsrs_next[NofRssWidth-1:0];
@@ -569,19 +569,29 @@ module schnizo_res_stat import schnizo_pkg::*; #(
   // TODO(colluca): it would probably be better to make this uniform at the FU level,
   // i.e. to enforce that every FU always produces a response, even if it doesn't carry a result.
   // This would eliminate the need to increment by 2 in some cycles.
-  trip_counter #(
-    .WIDTH(NofRssWidth)
-  ) i_result_counter (
-    .clk_i,
-    .rst_ni  (!rst_i),
-    .clear_i (goto_lcp2_i || restart_i),
-    .en_i    (retire_at_issue || result_hs),
-    .delta_i (rss_idx_t'(retire_at_issue + num_result_hs)),
-    .bound_i (rss_idx_t'((loop_state_i == LoopLcp1) ? (NofRss - 1) : (num_allocated_rsrs_q - 1))),
-    .q_o     (result_idx),
-    .last_o  (last_result),
-    .trip_o  (trip_result)
-  );
+  rss_cnt_t result_idx_next;
+  rss_cnt_t result_idx_bound;
+  logic result_counter_enable, result_counter_reset;
+  assign result_counter_enable = (retire_at_issue || result_hs);
+  assign result_counter_reset = (goto_lcp2_i || restart_i);
+  assign result_idx_bound = rss_cnt_t'((loop_state_i == LoopLcp1) ? NofRss : num_allocated_rsrs_q);
+  assign result_idx_next  = rss_cnt_t'(result_idx) + rss_cnt_t'(retire_at_issue + num_result_hs); 
+  always_ff @(posedge clk_i or posedge rst_i) begin
+    if (rst_i) begin
+      result_idx <= '0;
+    end else if (result_counter_reset) begin
+      result_idx <= '0;
+    end else if (result_counter_enable) begin
+      if (result_idx_next == result_idx_bound) begin
+        result_idx <= '0;
+      end else begin
+        result_idx <= result_idx_next[NofRssWidth-1:0];
+      end
+    end else begin
+      result_idx <= result_idx;
+    end
+  end
+  assign trip_result = (result_idx_next == result_idx_bound) && result_counter_enable;
 
   counter #(
     .WIDTH          (MaxIterationsW),

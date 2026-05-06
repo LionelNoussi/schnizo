@@ -248,7 +248,7 @@ static inline void axpy_peeled_schnizo(uint32_t n, double a, double *x, double *
 
     double *x_addr = &x[offset];
     double *y_addr = &y[offset];
-    double *z_addr = &z[offset] -  stride;
+    double *z_addr = &z[offset] - stride;
 
     snrt_mcycle();
 
@@ -303,7 +303,7 @@ static inline void axpy_peeled_schnizo(uint32_t n, double a, double *x, double *
         "fsd     ft11, 24(%[za])        \n"
         
         : [ xa ] "+r"(x_addr), [ ya ] "+r"(y_addr), [ za ] "+r"(z_addr)
-        : [ n_frep ] "r"(frac - 1), [ a ] "f"(a),
+        : [ n_frep ] "r"(frac - 2), [ a ] "f"(a),
           [ inc ] "r"(stride * sizeof(double))
         : "ft0", "ft1", "ft2", "ft3", "ft4", "ft5", "ft6", "ft7", "ft8", "ft9", "ft10", "ft11", "memory" 
     );

@@ -271,7 +271,7 @@ module schnizo_writeback import schnizo_pkg::*; #(
       fpr_port_used = 1'b1;
     end
     
-    if (AluLsuNofResPorts == 2) begin
+    if (!fpr_port_used && AluLsuNofResPorts == 2) begin
       if (alu_lsu_fpr_valids[1]) begin
         fpr_we_o              = 1'b1;
         fpr_waddr_o           = alu_lsu_result_tags_i[1].dest_reg;
@@ -281,7 +281,7 @@ module schnizo_writeback import schnizo_pkg::*; #(
       end
     end
     
-    if (lsu_fpr_valid) begin
+    if (!fpr_port_used && lsu_fpr_valid) begin
       fpr_we_o              = 1'b1;
       fpr_waddr_o           = lsu_result_tag_i.dest_reg;
       fpr_wdata_o           = lsu_result_i[FLEN-1:0];
@@ -289,7 +289,7 @@ module schnizo_writeback import schnizo_pkg::*; #(
       fpr_port_used = 1'b1;
     end
     
-    if (fpu_fpr_valid) begin
+    if (!fpr_port_used && fpu_fpr_valid) begin
       fpr_we_o              = 1'b1;
       fpr_waddr_o           = fpu_result_tag_i.dest_reg;
       fpr_wdata_o           = fpu_result_i[FLEN-1:0];
