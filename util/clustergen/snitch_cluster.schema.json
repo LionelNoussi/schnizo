@@ -582,7 +582,13 @@
                                         "num_alu_lsu_slots": {
                                             "type": "number",
                                             "title": "Number of Slots per ALU+LSU",
-                                            "description": "Number of Slots to capture instructions per ALU+LSU. Only relevant if Xfrep and UseAluLsu is enabled.",
+                                            "description": "Number of Slots to issue instructions per ALU+LSU. Only relevant if Xfrep and UseAluLsu is enabled.",
+                                            "default": 0
+                                        },
+                                        "num_alu_lsu_result_slots": {
+                                            "type": "number",
+                                            "title": "Number of result slots per ALU+LSU",
+                                            "description": "Number of Result Slots to capture results per ALU+LSU. Only relevant if Xfrep and UseAluLsu is enabled.",
                                             "default": 0
                                         },
                                         "num_alu_lsu_constants": {

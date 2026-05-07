@@ -82,6 +82,7 @@ module ${cfg['cluster']['name']}_wrapper (
   localparam int unsigned NumAluRss [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_alu_slots')}};
   localparam int unsigned NumLsuRss [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_lsu_slots')}};
   localparam int unsigned NumAluLsuRss [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_alu_lsu_slots')}};
+  localparam int unsigned NumAluLsuRsrs [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_alu_lsu_result_slots')}};
   localparam int unsigned NumFpuRss [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_fpu_slots')}};
   localparam int unsigned NumAluConstants [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_alu_constants')}};
   localparam int unsigned NumLsuConstants [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_lsu_constants')}};
@@ -182,6 +183,7 @@ module ${cfg['cluster']['name']}_wrapper (
     .NumAluRss (NumAluRss),
     .NumLsuRss (NumLsuRss),
     .NumAluLsuRss (NumAluLsuRss),
+    .NumAluLsuRsrs (NumAluLsuRsrs),
     .NumFpuRss (NumFpuRss),
     .NumAluConstants (NumAluConstants),
     .NumLsuConstants (NumLsuConstants),

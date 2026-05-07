@@ -9,6 +9,7 @@
 // Contains the slot registers, dispatch pipeline, result capture, and RF writeback path.
 module schnizo_res_stat_slots import schnizo_pkg::*; #(
   parameter  int unsigned     NofRss           = 4,
+  parameter  int unsigned     NofRsrs          = 4,
   parameter  int unsigned     NofConstants     = 4,
   parameter  int unsigned     NofConstantPorts = 2,
   parameter  int unsigned     NofOperands      = 3,
@@ -36,7 +37,9 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
   parameter int unsigned      NofResPorts     = 1,
   parameter bit               HasTwoDests     = 0,
   localparam integer unsigned NofRssWidth      = cf_math_pkg::idx_width(NofRss),
-  localparam type             rss_idx_t        = logic [NofRssWidth-1:0]
+  localparam integer unsigned NofRsrsWidth     = cf_math_pkg::idx_width(NofRsrs),
+  localparam type             rss_idx_t        = logic [NofRssWidth-1:0],
+  localparam type             rsrs_idx_t       = logic [NofRsrsWidth-1:0]
 ) (
   input  logic clk_i,
   input  logic rst_i,
@@ -46,8 +49,8 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
   input  logic         restart_i,
   input  loop_state_e  loop_state_i,
   input  rss_idx_t     disp_idx_i,
-  input  rss_idx_t     rsrs_idx_i,
-  input  rss_idx_t     issue_rsrs_idx_i,
+  input  rsrs_idx_t    rsrs_idx_i,
+  input  rsrs_idx_t    issue_rsrs_idx_i,
   input  rss_idx_t     issue_idx_i,
   input  logic         last_issue_iter_i,
   input  logic         last_result_iter_i,
@@ -79,10 +82,10 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
   input  logic        [NofResPorts-1:0] rf_wb_ready_i,
 
   // Operand request
-  output available_result_t [NofRss-1:0] available_results_o,
-  output operand_req_t [NofOperands-1:0] op_reqs_o,
-  output logic         [NofOperands-1:0] op_reqs_valid_o,
-  input  logic         [NofOperands-1:0] op_reqs_ready_i,
+  output available_result_t [NofRsrs-1:0] available_results_o,
+  output operand_req_t  [NofOperands-1:0] op_reqs_o,
+  output logic          [NofOperands-1:0] op_reqs_valid_o,
+  input  logic          [NofOperands-1:0] op_reqs_ready_i,
 
   // Result request
   input  ext_res_req_t [NofResRspIfs-1:0] res_reqs_i,
@@ -121,12 +124,12 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
   rs_slot_issue_t               slot_issue_rdata;  // registered issue state for the selected slot
   rs_slot_issue_t               slot_issue_wdata;  // post-dispatch-pipeline issue state for the selected slot
   logic                         slot_issue_wen;    // write enable for the issue slot
-  rs_slot_result_t [NofRss-1:0] slot_result_qs;    // registered result state of each slot
-  rs_slot_result_t [NofRss-1:0] slot_result_ds;    // next result state for each slot
+  rs_slot_result_t [NofRsrs-1:0] slot_result_qs;    // registered result state of each slot
+  rs_slot_result_t [NofRsrs-1:0] slot_result_ds;    // next result state for each slot
   rs_slot_result_t [HasTwoDests:0]     slot_result_inits;
   rs_slot_result_t [NofResRspIfs-1:0] handler_slot_out;  // Per-port handler outputs (indexed by response port k)
-  rs_slot_result_t [NofRss-1:0]       slot_base_state;   // Per-slot pre-handler state (registered or dispatch init)
-  rs_slot_result_t [NofRss-1:0]       slot_updated_state; // Per-slot post-handler state, before FU result capture
+  rs_slot_result_t [NofRsrs-1:0]       slot_base_state;   // Per-slot pre-handler state (registered or dispatch init)
+  rs_slot_result_t [NofRsrs-1:0]       slot_updated_state; // Per-slot post-handler state, before FU result capture
   rs_slot_result_t [NofResPorts-1:0] slot_wb_capture;   // post-result-capture result state for the selected slot
   result_tag_t [NofResPorts-1:0] capture_rf_wb_tag;
   logic   [NofResPorts-1:0] capture_rf_do_writeback;
@@ -135,8 +138,8 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
   // Slots //
   ///////////
 
-  slot_id_t     [NofRss-1:0] slot_ids;
-  producer_id_t [NofRss-1:0] rss_ids;
+  slot_id_t     [NofRsrs-1:0] result_slot_ids;
+  producer_id_t [NofRsrs-1:0] rsrs_ids;
 
   rs_slot_result_t slot_result_reset;
   assign slot_result_reset = '{
@@ -226,12 +229,12 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
   // enable_capture_consumers is per-slot state tracking whether we are in the consumer-counting
   // phase (between LCP1 and LCP2 results). It must be per-slot because response ports can be
   // dynamically reassigned across cycles.
-  logic [NofRss-1:0] enable_cap_consumers_q, enable_cap_consumers_d;
+  logic [NofRsrs-1:0] enable_cap_consumers_q, enable_cap_consumers_d;
 
-  for (genvar rsrs = 0; rsrs < NofRss; rsrs++) begin : gen_rsrs
-    assign slot_ids[rsrs] = slot_id_t'(rsrs);
-    assign rss_ids[rsrs] = producer_id_t'{
-      slot_id: slot_ids[rsrs],
+  for (genvar rsrs = 0; rsrs < NofRsrs; rsrs++) begin : gen_rsrs
+    assign result_slot_ids[rsrs] = slot_id_t'(rsrs);
+    assign rsrs_ids[rsrs] = producer_id_t'{
+      slot_id: result_slot_ids[rsrs],
       rs_id:   producer_id_i.rs_id
     };
 
@@ -349,15 +352,15 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
   end
 
   producer_id_t [HasTwoDests:0] dispatcher_result_slot_ids;
-  assign dispatcher_result_slot_ids[0] = rss_ids[rsrs_idx_i];
+  assign dispatcher_result_slot_ids[0] = rsrs_ids[rsrs_idx_i];
   if (HasTwoDests) begin
-    assign dispatcher_result_slot_ids[1] = rss_ids[rsrs_idx_i+1];
+    assign dispatcher_result_slot_ids[1] = rsrs_ids[rsrs_idx_i+1];
   end
 
   producer_id_t [HasTwoDests:0] dispatcher_issue_producer_ids;
-  assign dispatcher_issue_producer_ids[0] = rss_ids[issue_rsrs_idx_i];
+  assign dispatcher_issue_producer_ids[0] = rsrs_ids[issue_rsrs_idx_i];
   if (HasTwoDests) begin
-    assign dispatcher_issue_producer_ids[1] = rss_ids[issue_rsrs_idx_i+1];
+    assign dispatcher_issue_producer_ids[1] = rsrs_ids[issue_rsrs_idx_i+1];
   end
 
   schnizo_rss_dispatch_pipeline #(
@@ -414,13 +417,13 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
   // TODO(colluca): use rss_ids
   // TODO(lnoussi): Double check todo above in new implementation with two dests
   assign disp_rsp_o[0] = producer_id_t'{
-    slot_id: slot_ids[rsrs_idx_i],
+    slot_id: result_slot_ids[rsrs_idx_i],
     rs_id:   producer_id_i.rs_id
   };
 
   if (HasTwoDests) begin
     assign disp_rsp_o[1] = producer_id_t'{
-      slot_id: slot_ids[rsrs_idx_i+1],
+      slot_id: result_slot_ids[rsrs_idx_i+1],
       rs_id:   producer_id_i.rs_id
     };
   end

@@ -8,11 +8,12 @@
 module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   parameter int unsigned NofAlus            = 3,
   parameter int unsigned NofLsus            = 1,
-  parameter int unsigned NofAluLsus    = 1,
+  parameter int unsigned NofAluLsus         = 1,
   parameter int unsigned NofFpus            = 1,
   parameter int unsigned AluNofRss          = 3,
   parameter int unsigned LsuNofRss          = 2,
-  parameter int unsigned AluLsuNofRss  = 3,
+  parameter int unsigned AluLsuNofRss       = 3,
+  parameter int unsigned AluLsuNofRsrs      = 3,
   parameter int unsigned FpuNofRss          = 4,
   parameter int unsigned AluNofResRspPorts  = 1,
   parameter int unsigned LsuNofResRspPorts  = 1,
@@ -57,7 +58,7 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg:
   input  resreq_trace_t           fpu_resreq_traces [0:iomsb(NofFpus)][0:iomsb(FpuNofResRspPorts)][NofOperandIfs],
   input  rescap_trace_t           alu_rescap_traces [0:iomsb(NofAlus)][0:iomsb(AluNofRss)],
   input  rescap_trace_t           lsu_rescap_traces [0:iomsb(NofLsus)][0:iomsb(LsuNofRss)],
-  input  rescap_trace_t           alu_lsu_rescap_traces [0:iomsb(NofAluLsus)][0:iomsb(AluLsuNofRss)][0:iomsb(AluLsuNofResPorts)],
+  input  rescap_trace_t           alu_lsu_rescap_traces [0:iomsb(NofAluLsus)][0:iomsb(AluLsuNofRsrs)][0:iomsb(AluLsuNofResPorts)],
   input  rescap_trace_t           fpu_rescap_traces [0:iomsb(NofFpus)][0:iomsb(FpuNofRss)]
 );
 
@@ -344,11 +345,11 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg:
                             format_fu_retire_trace(alu_lsu_retirements[alu_lsu][res_port]),
                             alu_lsu_retirements[alu_lsu][res_port].valid);
         end
-        for (int rss = 0; rss < AluLsuNofRss; rss++) begin
+        for (int rsrs = 0; rsrs < AluLsuNofRss; rsrs++) begin
           for (int res_port = 0; res_port < AluLsuNofResPorts; res_port++) begin
             write_trace_event(file_id, trace_header, "rescap",
-                              format_rescap_trace(alu_lsu_rescap_traces[alu_lsu][rss][res_port]),
-                              alu_lsu_rescap_traces[alu_lsu][rss][res_port].valid);
+                              format_rescap_trace(alu_lsu_rescap_traces[alu_lsu][rsrs][res_port]),
+                              alu_lsu_rescap_traces[alu_lsu][rsrs][res_port].valid);
           end
         end
       end

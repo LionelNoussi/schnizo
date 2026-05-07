@@ -44,9 +44,11 @@ def gen_experiments():
         'post_increment': '_post_increment_schnizo'
     }
     hardwares = ['sz_baseline', 'sz_alu_lsu', 'sz_alu_lsu_2port']
+    # hardwares = ['sz_alu_lsu', 'sz_alu_lsu_2port']
     # hardwares = ['sz_alu_lsu']
 
     axpy_modes = ['scalar', 'superscalar', 'peeled', 'unrolled', 'post_increment']
+    # axpy_modes = ['scalar', 'superscalar', 'post_increment']
     # axpy_modes = ['post_increment']
 
     sizes = [64]

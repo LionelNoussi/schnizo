@@ -16,6 +16,7 @@
 // RF:  Register File
 module schnizo_res_stat import schnizo_pkg::*; #(
   parameter int unsigned NofRss         = 4,
+  parameter int unsigned NofRsrs        = 4,
   parameter int unsigned NofConstants   = 4,
   // The maximal number of operands
   parameter int unsigned NofOperands    = 3,
@@ -89,7 +90,7 @@ module schnizo_res_stat import schnizo_pkg::*; #(
 
   /// Operand distribution network
   // Info required for arbitration in request XBAR
-  output available_result_t [NofRss-1:0] available_results_o,
+  output available_result_t [NofRsrs-1:0] available_results_o,
 
   // Operand request interface - outgoing - request a result as operand
   output operand_req_t [NofOperands-1:0] op_reqs_o,
@@ -119,11 +120,16 @@ module schnizo_res_stat import schnizo_pkg::*; #(
 
   // The RSS pointer / index vector width
   localparam integer unsigned NofRssWidth    = cf_math_pkg::idx_width(NofRss);
+  localparam integer unsigned NofRsrsWidth    = cf_math_pkg::idx_width(NofRsrs);
   // We need to count from 0 to NofRss for the control logic -> +1 bit
   localparam integer unsigned NofRssWidthExt = cf_math_pkg::idx_width(NofRss+1);
+  localparam integer unsigned NofRsrsWidthExt = cf_math_pkg::idx_width(NofRsrs+1);
 
   typedef logic [NofRssWidth-1:0] rss_idx_t;
   typedef logic [NofRssWidthExt-1:0] rss_cnt_t;
+
+  typedef logic [NofRsrsWidth-1:0] rsrs_idx_t;
+  typedef logic [NofRsrsWidthExt-1:0] rsrs_cnt_t;
 
   localparam integer unsigned ConsumerCountWidth = cf_math_pkg::idx_width(ConsumerCount);
 
@@ -310,8 +316,10 @@ module schnizo_res_stat import schnizo_pkg::*; #(
   logic retire_at_issue;
 
   // Dispatch and result trip counter outputs
-  rss_cnt_t disp_cnt, rsrs_cnt;
-  rss_idx_t disp_idx, rsrs_idx, issue_rsrs_idx, issue_idx, result_idx;
+  rss_cnt_t disp_cnt;
+  rsrs_cnt_t rsrs_cnt;
+  rss_idx_t disp_idx, issue_idx;
+  rsrs_idx_t rsrs_idx, issue_rsrs_idx, result_idx;
   logic     last_disp;
   logic     trip_issue;
   logic     trip_result;
@@ -326,11 +334,11 @@ module schnizo_res_stat import schnizo_pkg::*; #(
   `FFAR(num_allocated_rss_q, num_allocated_rss_d, '0, clk_i, rst_i);
 
   // Number of allocated Reservation-Station-Result-Slots (RSRS)
-  rss_cnt_t num_allocated_rsrs_d, num_allocated_rsrs_q;
+  rsrs_cnt_t num_allocated_rsrs_d, num_allocated_rsrs_q;
   assign num_allocated_rsrs_d = goto_lcp2_i ? rsrs_cnt + num_rsrs_allocs : num_allocated_rsrs_q;
   `FFAR(num_allocated_rsrs_q, num_allocated_rsrs_d, '0, clk_i, rst_i);
 
-  assign rs_full_o = (disp_cnt == NofRss) | (rsrs_cnt == NofRss); //TODO(lnoussi): Change to NumResultSlots
+  assign rs_full_o = (disp_cnt == NofRss) | (rsrs_cnt == NofRsrs);
 
   logic last_result_iter;
   assign last_result_iter = lep_result_iter_count == 1;
@@ -427,6 +435,7 @@ module schnizo_res_stat import schnizo_pkg::*; #(
 
   schnizo_res_stat_slots #(
     .NofRss          (NofRss),
+    .NofRsrs         (NofRsrs),
     .NofConstants    (NofConstants),
     .NofOperands     (NofOperands),
     .NofResRspIfs    (NofResRspIfs),
@@ -520,19 +529,19 @@ module schnizo_res_stat import schnizo_pkg::*; #(
 
   // TODO(lnoussi): Adapt to NofResPorts
   trip_counter #(
-    .WIDTH(NofRssWidthExt)
+    .WIDTH($bits(rsrs_cnt_t))
   ) i_rsrs_counter (
     .clk_i,
     .rst_ni  (!rst_i),
     .clear_i (goto_lcp2_i || restart_i),
     .en_i    (rsrs_alloc_hs && (loop_state_i inside {LoopLcp1, LoopLcp2})),
-    .delta_i (rss_cnt_t'(num_rsrs_allocs)),
-    .bound_i (rss_cnt_t'(NofRss)),
+    .delta_i (rsrs_cnt_t'(num_rsrs_allocs)),
+    .bound_i (rsrs_cnt_t'(NofRsrs)),
     .q_o     (rsrs_cnt),
     .last_o  (),
     .trip_o  ()
   );
-  assign rsrs_idx = (rsrs_cnt == NofRss) ? '0 : rsrs_cnt;
+  assign rsrs_idx = (rsrs_cnt == NofRsrs) ? '0 : rsrs_cnt;
 
   trip_counter #(
     .WIDTH(NofRssWidth)
@@ -550,17 +559,17 @@ module schnizo_res_stat import schnizo_pkg::*; #(
 
 
   // Issue RSRS Trip-Counter, but checks bound with next value instead of current value
-  rss_cnt_t issue_rsrs_next;
-  rss_cnt_t issue_rsrs_bound;
-  assign issue_rsrs_bound = rss_cnt_t'((loop_state_i == LoopLcp1) ? NofRss : num_allocated_rsrs_q);
-  assign issue_rsrs_next  = rss_cnt_t'(issue_rsrs_idx) + rss_cnt_t'(num_expected_results); 
+  rsrs_cnt_t issue_rsrs_next;
+  rsrs_cnt_t issue_rsrs_bound;
+  assign issue_rsrs_bound = rsrs_cnt_t'((loop_state_i == LoopLcp1) ? NofRsrs : num_allocated_rsrs_q);
+  assign issue_rsrs_next  = rsrs_cnt_t'(issue_rsrs_idx) + rsrs_cnt_t'(num_expected_results); 
   always_ff @(posedge clk_i or posedge rst_i) begin
     if (rst_i) begin
       issue_rsrs_idx <= '0;
     end else if (goto_lcp2_i || restart_i || (issue_rsrs_next == issue_rsrs_bound)) begin
       issue_rsrs_idx <= '0;
     end else begin
-      issue_rsrs_idx <= issue_rsrs_next[NofRssWidth-1:0];
+      issue_rsrs_idx <= issue_rsrs_next[NofRsrsWidth-1:0];
     end
   end
 
@@ -569,13 +578,13 @@ module schnizo_res_stat import schnizo_pkg::*; #(
   // TODO(colluca): it would probably be better to make this uniform at the FU level,
   // i.e. to enforce that every FU always produces a response, even if it doesn't carry a result.
   // This would eliminate the need to increment by 2 in some cycles.
-  rss_cnt_t result_idx_next;
-  rss_cnt_t result_idx_bound;
+  rsrs_cnt_t result_idx_next;
+  rsrs_cnt_t result_idx_bound;
   logic result_counter_enable, result_counter_reset;
   assign result_counter_enable = (retire_at_issue || result_hs);
   assign result_counter_reset = (goto_lcp2_i || restart_i);
-  assign result_idx_bound = rss_cnt_t'((loop_state_i == LoopLcp1) ? NofRss : num_allocated_rsrs_q);
-  assign result_idx_next  = rss_cnt_t'(result_idx) + rss_cnt_t'(retire_at_issue + num_result_hs); 
+  assign result_idx_bound = rsrs_cnt_t'((loop_state_i == LoopLcp1) ? NofRsrs : num_allocated_rsrs_q);
+  assign result_idx_next  = rsrs_cnt_t'(result_idx) + rsrs_cnt_t'(retire_at_issue + num_result_hs); 
   always_ff @(posedge clk_i or posedge rst_i) begin
     if (rst_i) begin
       result_idx <= '0;
@@ -585,7 +594,7 @@ module schnizo_res_stat import schnizo_pkg::*; #(
       if (result_idx_next == result_idx_bound) begin
         result_idx <= '0;
       end else begin
-        result_idx <= result_idx_next[NofRssWidth-1:0];
+        result_idx <= result_idx_next[NofRsrsWidth-1:0];
       end
     end else begin
       result_idx <= result_idx;

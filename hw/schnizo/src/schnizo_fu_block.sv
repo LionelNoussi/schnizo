@@ -22,6 +22,7 @@ module schnizo_fu_block import schnizo_pkg::*; #(
   parameter type         instr_tag_t    = logic,
   /// Reservation Station parameters
   parameter int unsigned NofRss         = 4,
+  parameter int unsigned NofRsrs        = 4,
   parameter int unsigned NofConstants   = 4,
   // The maximal number of operands
   parameter int unsigned NofOperands    = 3,
@@ -90,7 +91,7 @@ module schnizo_fu_block import schnizo_pkg::*; #(
 
   /// Operand distribution network
   // Info required for arbitration in request XBAR
-  output available_result_t [cf_math_pkg::iomsb(NofRss):0] available_results_o,
+  output available_result_t [cf_math_pkg::iomsb(NofRsrs):0] available_results_o,
 
   // TODO(colluca): use generic_reqrsp interfaces for all of these. Would then reduce to four signals:
   // operand_req_o, operand_rsp_i, result_req_i, result_rsp_o.
@@ -117,7 +118,7 @@ module schnizo_fu_block import schnizo_pkg::*; #(
   output logic     [NofOperands-1:0] op_rsps_ready_o
 );
 
-  typedef logic [cf_math_pkg::idx_width(NofRss)-1:0] rs_tag_t;
+  typedef logic [cf_math_pkg::idx_width(NofRsrs)-1:0] rs_tag_t;
 
   if (Xfrep && (NofRss > 0)) begin : gen_superscalar
     // Module global switch between regular execution and superscalar path
@@ -285,6 +286,7 @@ module schnizo_fu_block import schnizo_pkg::*; #(
     // is calculated as max(wb_tag_t, rs_tag_t)? If not, just pass rs_tag_t here
     schnizo_res_stat #(
       .NofRss        (NofRss),
+      .NofRsrs       (NofRsrs),
       .NofConstants  (NofConstants),
       .NofOperands   (NofOperands),
       .NofResRspIfs  (NofResRspIfs),

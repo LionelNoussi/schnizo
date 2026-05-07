@@ -30,6 +30,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   parameter int unsigned LsuNofResRspPorts = 1,
   parameter int unsigned NofAluLsus         = 1,
   parameter int unsigned AluLsuNofRss       = 3,
+  parameter int unsigned AluLsuNofRsrs      = 3,
   parameter int unsigned AluLsuNofConstants   = 4,
   parameter int unsigned AluLsuNofOperands  = 3,
   parameter int unsigned AluLsuNofResReqIfs = 3,
@@ -209,9 +210,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   // ---------------------------
 
   localparam int unsigned NofRs = NofAlus + NofLsus + NofAluLsus + NofFpus;
-  localparam int unsigned TotalNofRss = NofAlus * AluNofRss +
+  localparam int unsigned TotalNofRsrs = NofAlus * AluNofRss +
                                         NofLsus * LsuNofRss +
-                                        NofAluLsus * AluLsuNofRss +
+                                        NofAluLsus * AluLsuNofRsrs +
                                         NofFpus * FpuNofRss;
   localparam int unsigned TotalNofResRspPorts = NofAlus * AluNofResRspPorts +
                                                 NofLsus * LsuNofResRspPorts +
@@ -245,7 +246,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
     return tmp;
   endfunction
 
-  localparam rs_param_array_t NofRss = gen_rs_param_array(AluNofRss, LsuNofRss, AluLsuNofRss, FpuNofRss);
+  localparam rs_param_array_t NofRsrs = gen_rs_param_array(AluNofRss, LsuNofRss, AluLsuNofRsrs, FpuNofRss);
   localparam rs_param_array_t NofRspPorts = gen_rs_param_array(AluNofResRspPorts,
     LsuNofResRspPorts, AluLsuNofResRspPorts, FpuNofResRspPorts);
 
@@ -352,7 +353,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   logic         [iomsb(NofAluLsus):0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs_valid;
   logic         [iomsb(NofAluLsus):0][AluLsuNofOperands-1:0]  alu_lsu_op_reqs_ready;
   // TODO(colluca): this should be done for all FUs to support NofRss==0 (i.e. no Xfrep)
-  available_result_t [iomsb(NofAluLsus):0][iomsb(AluLsuNofRss):0]       alu_lsu_available_results;
+  available_result_t [iomsb(NofAluLsus):0][iomsb(AluLsuNofRsrs):0]       alu_lsu_available_results;
   ext_res_req_t   [iomsb(NofAluLsus):0][iomsb(AluLsuNofResRspPorts):0]               alu_lsu_res_reqs;
   logic         [iomsb(NofAluLsus):0][iomsb(AluLsuNofResRspPorts):0]                 alu_lsu_res_reqs_valid;
   logic         [iomsb(NofAluLsus):0][iomsb(AluLsuNofResRspPorts):0]                 alu_lsu_res_reqs_ready;
@@ -384,7 +385,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   ext_res_req_t   [TotalNofResRspPorts-1:0] res_reqs;
   logic         [TotalNofResRspPorts-1:0] res_reqs_valid;
   logic         [TotalNofResRspPorts-1:0] res_reqs_ready;
-  available_result_t [TotalNofRss-1:0] available_results;
+  available_result_t [TotalNofRsrs-1:0] available_results;
 
   res_rsp_t     [TotalNofResRspPorts-1:0] res_rsps;
   logic         [TotalNofResRspPorts-1:0] res_rsps_valid;
@@ -483,7 +484,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
     // TODO(colluca): think if this code can be streamlined
     always_comb begin : fu_res_reqs_rsps
       automatic integer req_if = 0;
-      automatic integer rss = 0;
+      automatic integer rsrs = 0;
       automatic integer rsp_if = 0;
 
       res_reqs_ready     = '0;
@@ -504,9 +505,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       fpu_res_rsps_ready = '0;
 
       for (int alu = 0; alu < NofAlus; alu++) begin
-        for (int alu_rss = 0; alu_rss < AluNofRss; alu_rss++) begin
-          available_results[rss] = alu_available_results[alu][alu_rss];
-          rss = rss + 1;
+        for (int alu_rsrs = 0; alu_rsrs < AluNofRss; alu_rsrs++) begin
+          available_results[rsrs] = alu_available_results[alu][alu_rsrs];
+          rsrs = rsrs + 1;
         end
         for (int alu_req_if = 0; alu_req_if < AluNofResRspPorts; alu_req_if++) begin
           // requests
@@ -524,9 +525,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
         end
       end
       for (int lsu = 0; lsu < NofLsus; lsu++) begin
-        for (int lsu_rss = 0; lsu_rss < LsuNofRss; lsu_rss++) begin
-          available_results[rss] = lsu_available_results[lsu][lsu_rss];
-          rss = rss + 1;
+        for (int lsu_rsrs = 0; lsu_rsrs < LsuNofRss; lsu_rsrs++) begin
+          available_results[rsrs] = lsu_available_results[lsu][lsu_rsrs];
+          rsrs = rsrs + 1;
         end
         for (int lsu_req_if = 0; lsu_req_if < LsuNofResRspPorts; lsu_req_if++) begin
           // requests
@@ -544,9 +545,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
         end
       end
       for (int alu_lsu = 0; alu_lsu < NofAluLsus; alu_lsu++) begin
-        for (int alu_lsu_rss = 0; alu_lsu_rss < AluLsuNofRss; alu_lsu_rss++) begin
-          available_results[rss] = alu_lsu_available_results[alu_lsu][alu_lsu_rss];
-          rss = rss + 1;
+        for (int alu_lsu_rsrs = 0; alu_lsu_rsrs < AluLsuNofRsrs; alu_lsu_rsrs++) begin
+          available_results[rsrs] = alu_lsu_available_results[alu_lsu][alu_lsu_rsrs];
+          rsrs = rsrs + 1;
         end
         for (int alu_lsu_req_if = 0; alu_lsu_req_if < AluLsuNofResRspPorts; alu_lsu_req_if++) begin
           // requests
@@ -564,9 +565,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
         end
       end
       for (int fpu = 0; fpu < NofFpus; fpu++) begin
-        for (int fpu_rss = 0; fpu_rss < FpuNofRss; fpu_rss++) begin
-          available_results[rss] = fpu_available_results[fpu][fpu_rss];
-          rss = rss + 1;
+        for (int fpu_rsrs = 0; fpu_rsrs < FpuNofRss; fpu_rsrs++) begin
+          available_results[rsrs] = fpu_available_results[fpu][fpu_rsrs];
+          rsrs = rsrs + 1;
         end
         for (int fpu_req_if = 0; fpu_req_if < FpuNofResRspPorts; fpu_req_if++) begin
           // requests
@@ -592,9 +593,9 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
     schnizo_req_xbar #(
       .NofOperandReqs(NofOperandIfs),
       .NofRs         (NofRs),
-      .NofRss        (NofRss),
+      .NofRsrs       (NofRsrs),
       .NofResRspIfs  (NofRspPorts),
-      .TotalNofRss   (TotalNofRss),
+      .TotalNofRsrs   (TotalNofRsrs),
       .TotalNofResRspIfs(TotalNofResRspPorts),
       .operand_req_t (operand_req_t),
       .res_req_t     (res_req_t),
@@ -753,6 +754,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .result_t      (alu_res_val_t),
       .instr_tag_t   (alu_instr_tag_t),
       .NofRss        (AluNofRss),
+      .NofRsrs       (AluNofRss),
       .NofConstants  (AluNofConstants),
       .NofOperands   (AluNofOperands),
       .NofResRspIfs  (AluNofResRspPorts),
@@ -1004,6 +1006,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .result_t      (lsu_result_t),
       .instr_tag_t   (instr_tag_t),
       .NofRss        (LsuNofRss),
+      .NofRsrs       (LsuNofRss),
       .NofConstants  (LsuNofConstants),
       .NofOperands   (LsuNofOperands),
       .NofResRspIfs  (LsuNofResRspPorts),
@@ -1196,7 +1199,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   // ALU + LSUs //
   ////////////////
 
-  typedef logic [cf_math_pkg::idx_width(AluLsuNofRss)-1:0] alu_lsu_rs_tag_t;
+  typedef logic [cf_math_pkg::idx_width(AluLsuNofRsrs)-1:0] alu_lsu_rs_tag_t;
   typedef logic [cf_math_pkg::max($bits(alu_lsu_rs_tag_t),$bits(instr_tag_t))-1:0] alu_lsu_instr_tag_t;
 
   typedef struct packed {
@@ -1261,6 +1264,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .result_t      (alu_lsu_result_t),
       .instr_tag_t   (alu_lsu_instr_tag_t),
       .NofRss        (AluLsuNofRss),
+      .NofRsrs       (AluLsuNofRsrs),
       .NofConstants  (AluLsuNofConstants),
       .NofOperands   (AluLsuNofOperands),
       .NofResRspIfs  (AluLsuNofResRspPorts),
@@ -1577,6 +1581,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .result_t      (fpu_result_t),
       .instr_tag_t   (fpu_instr_tag_t),
       .NofRss        (FpuNofRss),
+      .NofRsrs       (FpuNofRss),
       .NofConstants  (FpuNofConstants),
       .NofOperands   (FpuNofOperands),
       .NofResRspIfs  (FpuNofResRspPorts),

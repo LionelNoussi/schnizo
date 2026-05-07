@@ -116,6 +116,7 @@
         num_lsu_constants: 32,
         num_alu_lsus: 0,
         num_alu_lsu_slots: 0,
+        num_alu_lsu_result_slots: 0,
         num_fpu_constants: 32,
         num_fpus: 1,
         num_fpu_slots: 8,
