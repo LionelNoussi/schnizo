@@ -64,7 +64,7 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   output logic caq_rsp_valid_o
 );
 
-///////////
+  ///////////
   // DEMUX //
   ///////////
 

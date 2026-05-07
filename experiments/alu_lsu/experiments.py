@@ -43,15 +43,19 @@ def gen_experiments():
         'naive': '_naive',
         'post_increment': '_post_increment_schnizo'
     }
-    hardwares = ['sz_baseline', 'sz_alu_lsu', 'sz_alu_lsu_2port']
-    # hardwares = ['sz_alu_lsu', 'sz_alu_lsu_2port']
-    # hardwares = ['sz_alu_lsu']
 
-    axpy_modes = ['scalar', 'superscalar', 'peeled', 'unrolled', 'post_increment']
-    # axpy_modes = ['scalar', 'superscalar', 'post_increment']
-    # axpy_modes = ['post_increment']
+    # hardwares = ['sz_baseline', 'sz_alu_lsu', 'sz_alu_lsu_2port']
+    hardwares = ['sz_alu_lsu_2port']
 
     sizes = [64]
+
+    # axpy_modes = ['scalar', 'superscalar', 'peeled', 'unrolled', 'post_increment']
+    axpy_modes = ['post_increment']
+
+    # dot_modes = ['scalar', 'superscalar', 'peeled', 'unrolled', 'post_increment']
+    dot_modes = ['post_increment']
+
+
     experiments = []
 
     app = 'sz_axpy'
@@ -77,7 +81,9 @@ def gen_experiments():
 
     app = 'sz_dot'
     for hw in hardwares:
-        for mode in ['scalar', 'superscalar', 'AluLsuOpt']:
+        for mode in dot_modes:
+            if hw == 'sz_baseline' and mode == 'post_increment':
+                continue
             for n in sizes:
                 verify_script = Path(f"{schnizo_dir}/sw/kernels/blas/{app}/scripts/verify.py")
                 experiments.extend([

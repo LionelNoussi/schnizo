@@ -137,6 +137,50 @@ static inline void dot_schnizo(uint32_t n, double *x, double *y,
 }
 
 
+static inline void dot_post_increment_schnizo(uint32_t n, double *x, double *y,
+    double *output) {
+    double sum1 = 0;
+    double sum2 = 0;
+    double sum3 = 0;
+    double sum4 = 0;
+
+    int unroll = 4;
+
+    int inc = sizeof(double);
+    int n_iter_m1 = (n / unroll) - 1;
+    double *x_addr = &x[0];
+    double *y_addr = &y[0];
+
+    asm volatile(
+    // clang-format off
+    FREP   " %[n_frep], 12, 0            \n"
+    "p.lw     x0, %[inc](%[xa]!)         \n"
+    "p.lw     x1, %[inc](%[ya]!)         \n"
+    "p.lw     x2, %[inc](%[xa]!)         \n"
+    "p.lw     x3, %[inc](%[ya]!)         \n"
+    "p.lw     x4, %[inc](%[xa]!)         \n"
+    "p.lw     x5, %[inc](%[ya]!)         \n"
+    "p.lw     x6, %[inc](%[xa]!)         \n"
+    "p.lw     x7, %[inc](%[ya]!)         \n"
+    "fmadd.d %[sum1], ft0, ft1, %[sum1]  \n"  // LCP overhead as the 1st fmadd can start
+    "fmadd.d %[sum2], ft2, ft3, %[sum2]  \n"  // immediately.
+    "fmadd.d %[sum3], ft4, ft5, %[sum3]  \n"
+    "fmadd.d %[sum4], ft6, ft7, %[sum4]  \n"
+    // clang-format on
+    : [ sum1 ] "+f"(sum1), [ sum2 ] "+f"(sum2), [ sum3 ] "+f"(sum3),
+    [ sum4 ] "+f"(sum4), [ xa ] "+r"(x_addr), [ ya ] "+r"(y_addr)
+    : [ n_frep ] "r"(n_iter_m1), [ inc ] "r"(inc)
+    : "ft0", "ft1", "ft2", "ft3", "ft4", "ft5", "ft6", "ft7");
+
+    // Reduce the 4 streams
+    sum1 += sum2;
+    sum3 += sum4;
+    sum1 += sum3;
+
+    *output = sum1;
+}
+
+
 static inline void dot_AluLsuOpt_schnizo(uint32_t n, double *x, double *y,
     double *output) {
     double sum1 = 0;

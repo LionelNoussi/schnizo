@@ -113,7 +113,7 @@
         num_lsus: 0,
         num_lsu_slots: 0,
         num_alu_lsus: 3,
-        num_alu_lsu_slots: 4,
+        num_alu_lsu_slots: 5,
         num_alu_lsu_result_slots: 8,
         num_alu_lsu_rsp_ports: 2,
         num_alu_lsu_constants: 32,
