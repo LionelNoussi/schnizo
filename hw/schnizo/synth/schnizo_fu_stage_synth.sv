@@ -8,21 +8,28 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
   parameter bit          MulInAlu0       = 1'b1,
   parameter int unsigned NofRss          = 0,
 
-  parameter int unsigned NofAlus         = 1,
+  parameter int unsigned NofAlus           = 1,
   parameter int unsigned AluNofRss         = NofRss,
   parameter int unsigned AluNofResRspPorts = 1,
+  parameter int unsigned AluNofConstants   = 4,
 
-  parameter int unsigned NofLsus         = 1,
+  parameter int unsigned NofLsus           = 1,
   parameter int unsigned LsuNofRss         = NofRss,
   parameter int unsigned LsuNofResRspPorts = 1,
+  parameter int unsigned LsuNofConstants   = 4,
 
-  parameter int unsigned NofAluLsus      = 1,
+  parameter int unsigned NofAluLsus         = 1,
   parameter int unsigned AluLsuNofRss       = NofRss,
+  parameter int unsigned AluLsuNofRsrs      = NofRss,
   parameter int unsigned AluLsuNofResRspPorts = 2,
+  parameter int unsigned AluLsuNofResPorts    = 2,
+  parameter int unsigned AluLsuNofConstants   = 4,
 
-  parameter int unsigned NofFpus         = 1,
+  // FPU Parameters
+  parameter int unsigned NofFpus           = 1,
   parameter int unsigned FpuNofRss         = NofRss,
-  parameter int unsigned FpuNofResRspPorts = 1
+  parameter int unsigned FpuNofResRspPorts = 1,
+  parameter int unsigned FpuNofConstants   = 4
 
 ) (
   input  logic                                                    clk_i,
@@ -48,7 +55,7 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
   output logic               [iomsb(NofLsus):0]                        lsu_rs_full_o,
   input  logic                          [iomsb(NofAluLsus):0]   alu_lsu_disp_reqs_valid_i,
   output logic                          [iomsb(NofAluLsus):0]   alu_lsu_disp_reqs_ready_o,
-  output schnizo_synth_pkg::disp_rsp_t  [iomsb(NofAluLsus):0]   alu_lsu_disp_rsp_o,
+  output schnizo_synth_pkg::disp_rsp_t  [iomsb(NofAluLsus):0][1:0] alu_lsu_disp_rsp_o,
   output logic                          [iomsb(NofAluLsus):0]   alu_lsu_rs_full_o,
   output schnizo_synth_pkg::data_req_t  [iomsb(NofAluLsus):0]   alu_lsu_dreq_o,
   input  schnizo_synth_pkg::data_rsp_t  [iomsb(NofAluLsus):0]   alu_lsu_drsp_i,
@@ -67,10 +74,10 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
   output schnizo_pkg::instr_tag_t                                 lsu_wb_result_tag_o,
   output logic                                                    lsu_wb_result_valid_o,
   input  logic                                                    lsu_wb_result_ready_i,
-  output schnizo_synth_pkg::alu_result_t                          alu_lsu_wb_result_o,
-  output schnizo_pkg::instr_tag_t                                 alu_lsu_wb_result_tag_o,
-  output logic                                                    alu_lsu_wb_result_valid_o,
-  input  logic                                                    alu_lsu_wb_result_ready_i,
+  output schnizo_synth_pkg::alu_lsu_result_t [AluLsuNofResPorts-1:0] alu_lsu_wb_results_o,
+  output schnizo_pkg::instr_tag_t            [AluLsuNofResPorts-1:0] alu_lsu_wb_result_tags_o,
+  output logic                               [AluLsuNofResPorts-1:0] alu_lsu_wb_results_valid_o,
+  input  logic                               [AluLsuNofResPorts-1:0] alu_lsu_wb_results_ready_i,
   output logic [schnizo_synth_pkg::FLEN-1:0]                      fpu_wb_result_o,
   output schnizo_pkg::instr_tag_t                                 fpu_wb_result_tag_o,
   output logic                                                    fpu_wb_result_valid_o,
@@ -84,39 +91,36 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
 
   localparam integer unsigned NofResReqIfs = NofAlus + NofLsus + NofAluLsus + NofFpus;
 
-  localparam integer unsigned NofResRspIfs = NofAlus * NofRss +
-                                             NofLsus * NofRss +
-                                             NofAluLsus * NofRss +
-                                             NofFpus * NofRss;
-
   schnizo_fu_stage #(
     .Xfrep(Xfrep),
     .MulInAlu0(MulInAlu0),
     .NofAlus(NofAlus),
     .AluNofRss(AluNofRss),
+    .AluNofConstants(AluNofConstants),     // Mapped
     .AluNofOperands(2),
-    .AluNofOpPorts(1),
     .AluNofResReqIfs(1),
     .AluNofResRspPorts(AluNofResRspPorts),
     .NofLsus(NofLsus),
     .LsuNofRss(LsuNofRss),
+    .LsuNofConstants(LsuNofConstants),     // Mapped
     .LsuNofOperands(3),
-    .LsuNofOpPorts(1),
     .LsuNofResReqIfs(1),
     .LsuNofResRspPorts(LsuNofResRspPorts),
-    .NofAluLsus(NofAluLsus),
-    .AluLsuNofRss(AluLsuNofRss),
-    .AluLsuNofOperands(3),
-    .AluLsuNofOpPorts(1),
-    .AluLsuNofResReqIfs(1),
-    .AluLsuNofResRspPorts(AluLsuNofResRspPorts),
     .NofFpus(NofFpus),
     .FpuNofRss(FpuNofRss),
+    .FpuNofConstants(FpuNofConstants),     // Mapped
     .FpuNofOperands(3),
-    .FpuNofOpPorts(1),
     .FpuNofResReqIfs(1),
     .FpuNofResRspPorts(FpuNofResRspPorts),
     .UseAluLsu(UseAluLsu),
+    .NofAluLsus(NofAluLsus),
+    .AluLsuNofRss(AluLsuNofRss),
+    .AluLsuNofRsrs(AluLsuNofRsrs),
+    .AluLsuNofConstants(AluLsuNofConstants), // Mapped
+    .AluLsuNofOperands(3),
+    .AluLsuNofResReqIfs(1),
+    .AluLsuNofResRspPorts(AluLsuNofResRspPorts),
+    .AluLsuNofResPorts(AluLsuNofResPorts),
     .NofOperandIfs(NofOperandIfs),
     .NofResReqIfs(NofResReqIfs),
     .XLEN(schnizo_synth_pkg::XLEN),
@@ -151,7 +155,6 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
     .alu_result_t(schnizo_synth_pkg::alu_result_t),
     .alu_res_val_t(schnizo_synth_pkg::alu_res_val_t),
     .alu_lsu_result_t(schnizo_synth_pkg::alu_lsu_result_t),
-    .alu_lsu_res_val_t(schnizo_synth_pkg::alu_lsu_res_val_t),
     .dreq_t(schnizo_synth_pkg::data_req_t),
     .drsp_t(schnizo_synth_pkg::data_rsp_t)
   ) i_fu_stage (
@@ -165,14 +168,7 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
     .all_rs_finish_o,
     .disp_req_i,
     .instr_exec_commit_i,
-    .alu_trace_o(),
-    .lsu_trace_o(),
-    .alu_lsu_trace_o(),
-    .fpu_trace_o(),
-    .alu_retire_trace_o(),
-    .lsu_retire_trace_o(),
-    .alu_lsu_retire_trace_o(),
-    .fpu_retire_trace_o(),
+    .fpu_instr_exec_commit_i(instr_exec_commit_i),
     .alu_disp_reqs_valid_i,
     .alu_disp_reqs_ready_o,
     .alu_disp_rsp_o,
@@ -212,10 +208,10 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
     .lsu_wb_result_tag_o,
     .lsu_wb_result_valid_o,
     .lsu_wb_result_ready_i,
-    .alu_lsu_wb_result_o,
-    .alu_lsu_wb_result_tag_o,
-    .alu_lsu_wb_result_valid_o,
-    .alu_lsu_wb_result_ready_i,
+    .alu_lsu_wb_results_o,
+    .alu_lsu_wb_result_tags_o,
+    .alu_lsu_wb_results_valid_o,
+    .alu_lsu_wb_results_ready_i,
     .fpu_wb_result_o,
     .fpu_wb_result_tag_o,
     .fpu_wb_result_valid_o,

@@ -74,7 +74,7 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   logic alu_result_valid, alu_result_ready;
 
   // ---------------------------------------------------------
-  // 1. Pending Result Trackers (Execution Phase)
+  // Pending Result Trackers (Execution Phase)
   // ---------------------------------------------------------
   // These track how many instructions are inside the FUs 
   // waiting to return a result handshake.
@@ -86,20 +86,23 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   assign lsu_result_fire = lsu_result_valid & lsu_result_ready;
 
   // ---------------------------------------------------------
-  // 2. Issue Buffer State (Issue Phase)
+  // Instruction Buffer
   // ---------------------------------------------------------
   // These hold an instruction if it's an ALU_LSU instruction
   // where one unit was ready but the other wasn't.
   alu_lsu_issue_req_t issue_buf_d, issue_buf_q;
-  logic is_buffering_d,    is_buffering_q;
+  logic is_buffering_d,     is_buffering_q;
   logic buffer_committed_d, buffer_committed_q;
-  logic alu_part_issued_d, alu_part_issued_q;
-  logic lsu_part_issued_d, lsu_part_issued_q;
+  logic alu_part_issued_d,  alu_part_issued_q;
+  logic lsu_part_issued_d,  lsu_part_issued_q;
 
   // The active instruction is either the buffered one or the incoming one
   alu_lsu_issue_req_t active_req;
   assign active_req = is_buffering_q ? issue_buf_q : issue_req_i;
 
+  // ---------------------------------------------------------
+  // Select Functional Unit
+  // ---------------------------------------------------------
   // Decode the active instruction
   logic sel_alu, sel_lsu, is_store;
   always_comb begin
@@ -120,10 +123,13 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   end
 
   // ---------------------------------------------------------
-  // 3. Issue Gating & Mutual Exclusion
+  // Issue Gating & Mutual Exclusion
   // ---------------------------------------------------------
   // ALU cannot issue if LSU is executing. LSU cannot issue if ALU is executing.
   // Combined instructions bypass this rule.
+
+  // TODO(lnoussi): Weird rule if combined instruction bypasses it.
+  // I would always enforce it, but only if there is only one result port. Otherwise we're good.
   logic issue_allowed;
   assign issue_allowed = (sel_alu & sel_lsu) ? 1'b1 : 
                          (sel_alu ? (lsu_pending_results_q == '0) : (alu_pending_results_q == '0));
@@ -137,7 +143,7 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   assign issue_commit = is_buffering_q ? buffer_committed_q : issue_commit_i;
 
   // ---------------------------------------------------------
-  // 4. Demux Valid Handshakes
+  // Demux Valid Handshakes
   // ---------------------------------------------------------
   // Only assert valid if the instruction needs this FU and hasn't already issued to it
   assign alu_issue_req_valid = active_req_valid & sel_alu & ~alu_part_issued_q;
@@ -158,7 +164,7 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   assign issue_req_ready_o = ~is_buffering_q & issue_allowed;
 
   // ---------------------------------------------------------
-  // 5. State Updates (Combinational)
+  // State Updates
   // ---------------------------------------------------------
   always_comb begin
     // Defaults
@@ -198,7 +204,7 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   end
 
   // ---------------------------------------------------------
-  // 6. Sequential Registers
+  // Registers
   // ---------------------------------------------------------
   always_ff @(posedge clk_i or posedge rst_i) begin
     if (rst_i) begin

@@ -32,7 +32,7 @@ class FrepExperimentManager(eu.ExperimentManager):
         return self.dir / Path(f"configs/{experiment['hw']}.json")
 
 
-def gen_experiments():
+def gen_experiments(hardwares, sizes, axpy_modes, dot_modes):
     schnizo_dir = os.path.expanduser("/scratch/sem26f5/schnizo")
     mode_to_funcptr = {
         'scalar': '_baseline',
@@ -43,18 +43,6 @@ def gen_experiments():
         'naive': '_naive',
         'post_increment': '_post_increment_schnizo'
     }
-
-    # hardwares = ['sz_baseline', 'sz_alu_lsu', 'sz_alu_lsu_2port']
-    hardwares = ['sz_alu_lsu_2port']
-
-    sizes = [64]
-
-    # axpy_modes = ['scalar', 'superscalar', 'peeled', 'unrolled', 'post_increment']
-    axpy_modes = ['post_increment']
-
-    # dot_modes = ['scalar', 'superscalar', 'peeled', 'unrolled', 'post_increment']
-    dot_modes = ['post_increment']
-
 
     experiments = []
 
@@ -104,7 +92,21 @@ def gen_experiments():
 
 
 def main():
-    experiments = gen_experiments()
+    # hardwares = ['sz_baseline', 'sz_alu_lsu', 'sz_alu_lsu_2port']
+    # sizes = [64]
+    # axpy_modes = ['scalar', 'superscalar', 'peeled', 'unrolled', 'post_increment']
+    # dot_modes = ['scalar', 'superscalar', 'AluLsuOpt', 'post_increment']
+
+    sizes = [64]
+    axpy_modes = []
+
+    hardwares = ['sz_alu_lsu_2port']
+    dot_modes = ['AluLsuOpt']
+    experiments = gen_experiments(hardwares, sizes, axpy_modes, dot_modes)
+
+    hardwares = ['sz_baseline']
+    dot_modes = ['superscalar']
+    experiments.extend(gen_experiments(hardwares, sizes, axpy_modes, dot_modes))
 
     manager = FrepExperimentManager(experiments=experiments)
     manager.run()

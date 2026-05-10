@@ -116,9 +116,9 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
   // Connections //
   /////////////////
 
-  rss_idx_t [NofResPorts-1:0] result_rss_sel;
+  rsrs_idx_t [NofResPorts-1:0] result_rsrs_sel;
   for (genvar res_port = 0; res_port < NofResPorts; res_port++) begin
-    assign result_rss_sel[res_port] = rss_idx_t'(result_tag_i[res_port]);
+    assign result_rsrs_sel[res_port] = rsrs_idx_t'(result_tag_i[res_port]);
   end
 
   rs_slot_issue_t               slot_issue_rdata;  // registered issue state for the selected slot
@@ -245,7 +245,7 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
     // Per-slot enable_capture_consumers state machine.
     logic [0:NofResPorts-1] retired_rsrs_port;
     for (genvar res_port = 0; res_port < NofResPorts; res_port++) begin
-      assign retired_rsrs_port[res_port] = result_valid_i[res_port] && result_ready_o[res_port] && (rss_idx_t'(rsrs) == result_rss_sel[res_port]);
+      assign retired_rsrs_port[res_port] = result_valid_i[res_port] && result_ready_o[res_port] && (rsrs_idx_t'(rsrs) == result_rsrs_sel[res_port]);
     end
     logic retired_rsrs;
     assign retired_rsrs = |retired_rsrs_port;
@@ -273,12 +273,12 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
     always_comb begin
       slot_base_state[rsrs] = slot_result_qs[rsrs];
 
-      if (disp_req_valid_i && rsrs_idx_i == rss_idx_t'(rsrs)) begin
+      if (disp_req_valid_i && rsrs_idx_i == rsrs_idx_t'(rsrs)) begin
         slot_base_state[rsrs] = slot_result_inits[0];
       end
 
       if (HasTwoDests) begin
-        if (disp_req_valid_i && rsrs_idx_i + 1 == rss_idx_t'(rsrs) && disp_req_i.has_two_dests) begin
+        if (disp_req_valid_i && rsrs_idx_i + 1 == rsrs_idx_t'(rsrs) && disp_req_i.has_two_dests) begin
           slot_base_state[rsrs] = slot_result_inits[1];
         end
       end
@@ -289,7 +289,7 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
     always_comb begin
       slot_updated_state[rsrs] = slot_base_state[rsrs];
       for (int k = 0; k < NofResRspIfs; k++) begin
-        if (res_reqs_valid_i[k] && res_reqs_i[k].slot_id == rss_idx_t'(rsrs)) begin
+        if (res_reqs_valid_i[k] && res_reqs_i[k].slot_id == rsrs_idx_t'(rsrs)) begin
           slot_updated_state[rsrs] = handler_slot_out[k];
         end
       end
@@ -300,7 +300,7 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
       slot_result_ds[rsrs] = slot_updated_state[rsrs];
 
       for (int res_port = 0; res_port < NofResPorts; res_port++) begin
-        if (rss_idx_t'(rsrs) == result_rss_sel[res_port] && result_valid_i[res_port]) begin
+        if (rsrs_idx_t'(rsrs) == result_rsrs_sel[res_port] && result_valid_i[res_port]) begin
           slot_result_ds[rsrs] = slot_wb_capture[res_port];
         end
       end
@@ -311,7 +311,7 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
 
   // NofResRspIfs result request handlers — one per response port.
   for (genvar k = 0; k < NofResRspIfs; k++) begin : gen_rsp_ports
-    rss_idx_t slot_sel;
+    rsrs_idx_t slot_sel;
     assign slot_sel = res_reqs_i[k].slot_id;
 
     schnizo_rss_res_req_handling #(
@@ -500,7 +500,7 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
       .result_tag_t    (result_tag_t),
       .disp_req_t      (disp_req_t)
     ) i_result_capture (
-      .slot_i               (slot_updated_state[result_rss_sel[res_port]]),
+      .slot_i               (slot_updated_state[result_rsrs_sel[res_port]]),
       .result_i             (result_i[res_port]),
       .result_valid_i       (rss_wb_valid_sync),
       .loop_state_i         (loop_state_i),

@@ -36,7 +36,7 @@ except ImportError as e:
 
 
 ACTIONS = ['sw', 'hw', 'run', 'verify', 'traces', 'annotate', 'perf', 'roi', 'visual-trace', 'power', 'all',
-           'elab', 'synth', 'none']
+           'elab', 'fast_synth', 'synth', 'none']
 
 CLEAN_ACTIONS = ['sw', 'hw', 'runs', 'verify', 'all', 'none']
 
@@ -462,9 +462,11 @@ class ExperimentManager:
                         )
 
         # Run synthesis
-        if any(x in ['elab', 'synth', 'all'] for x in self.actions):
+        if any(x in ['elab', 'fast_synth', 'synth', 'all'] for x in self.actions):
             if 'synth' in self.actions:
                 action = 'synth'
+            elif 'fast_synth' in self.actions:
+                action = 'fast_synth'
             else:
                 action = 'elab'
             processes = []

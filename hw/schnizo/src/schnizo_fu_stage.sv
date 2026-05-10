@@ -28,6 +28,13 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   parameter int unsigned LsuNofOperands    = 4,
   parameter int unsigned LsuNofResReqIfs   = 3,
   parameter int unsigned LsuNofResRspPorts = 1,
+  parameter int unsigned NofFpus           = 1,
+  parameter int unsigned FpuNofRss         = 2,
+  parameter int unsigned FpuNofConstants   = 4,
+  parameter int unsigned FpuNofOperands    = 3,
+  parameter int unsigned FpuNofResReqIfs   = 3,
+  parameter int unsigned FpuNofResRspPorts = 1,
+  parameter logic UseAluLsu = 0,
   parameter int unsigned NofAluLsus         = 1,
   parameter int unsigned AluLsuNofRss       = 3,
   parameter int unsigned AluLsuNofRsrs      = 3,
@@ -35,14 +42,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   parameter int unsigned AluLsuNofOperands  = 3,
   parameter int unsigned AluLsuNofResReqIfs = 3,
   parameter int unsigned AluLsuNofResRspPorts = 1,
-  parameter int unsigned NofFpus           = 1,
-  parameter int unsigned FpuNofRss         = 2,
-  parameter int unsigned FpuNofConstants   = 4,
-  parameter int unsigned FpuNofOperands    = 3,
-  parameter int unsigned FpuNofResReqIfs   = 3,
-  parameter int unsigned FpuNofResRspPorts = 1,
   parameter int unsigned AluLsuNofResPorts = 2,
-  parameter logic UseAluLsu = 0,
   // The following 3 NofIfs parameters depend directly on the previous FU specific Nof parameters
   // but they must be defined on the outer scope as they are needed there as well.
   // Make sure to match them!

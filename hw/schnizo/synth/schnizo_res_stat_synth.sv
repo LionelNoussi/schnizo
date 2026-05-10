@@ -3,12 +3,15 @@
 // SPDX-License-Identifier: SHL-0.51
 
 module schnizo_res_stat_synth #(
-  parameter int unsigned NofRss        = 4,
-  parameter int unsigned NofConstants  = 4,
-  parameter int unsigned NofOperands   = 2,
-  parameter int unsigned NofResRspIfs  = 1,
-  parameter int unsigned ConsumerCount = 32,
-  parameter bit          UseSram       = 1'b0
+  parameter int unsigned NofRss         = 4,
+  parameter int unsigned NofRsrs        = 4,
+  parameter int unsigned NofConstants   = 4,
+  parameter int unsigned NofOperands    = 2,
+  parameter int unsigned NofResRspIfs   = 1,
+  parameter int unsigned ConsumerCount  = 32,
+  parameter int unsigned NofResPorts    = 1,
+  parameter bit          HasTwoDests    = 0,
+  parameter bit          UseSram        = 1'b0
 ) (
   input  logic                                                  clk_i,
   input  logic                                                  rst_ni,
@@ -23,32 +26,32 @@ module schnizo_res_stat_synth #(
   input  logic                                                  disp_req_valid_i,
   output logic                                                  disp_req_ready_o,
   input  logic                                                  instr_exec_commit_i,
-  output schnizo_synth_pkg::disp_rsp_t                          disp_rsp_o,
+  output schnizo_synth_pkg::disp_rsp_t [HasTwoDests:0]          disp_rsp_o,
   output schnizo_synth_pkg::issue_req_t                         issue_req_o,
   output logic                                                  issue_req_valid_o,
   input  logic                                                  issue_req_ready_i,
   output logic                                                  instr_exec_commit_o,
-  input  schnizo_synth_pkg::alu_result_t                        result_i,
-  input  schnizo_pkg::instr_tag_t                               result_tag_i,
-  input  logic                                                  result_valid_i,
-  output logic                                                  result_ready_o,
-  output schnizo_synth_pkg::alu_result_t                        rf_wb_result_o,
-  output schnizo_pkg::instr_tag_t                               rf_wb_tag_o,
-  output logic                                                  rf_wb_valid_o,
-  input  logic                                                  rf_wb_ready_i,
-  output schnizo_synth_pkg::available_result_t [NofRss-1:0]     available_results_o,
+  input  schnizo_synth_pkg::alu_result_t [NofResPorts-1:0]      result_i,
+  input  schnizo_pkg::instr_tag_t        [NofResPorts-1:0]      result_tag_i,
+  input  logic                           [NofResPorts-1:0]      result_valid_i,
+  output logic                           [NofResPorts-1:0]      result_ready_o,
+  output schnizo_synth_pkg::alu_result_t [NofResPorts-1:0]      rf_wb_result_o,
+  output schnizo_pkg::instr_tag_t        [NofResPorts-1:0]      rf_wb_tag_o,
+  output logic                           [NofResPorts-1:0]      rf_wb_valid_o,
+  input  logic                           [NofResPorts-1:0]      rf_wb_ready_i,
+  output schnizo_synth_pkg::available_result_t [NofRsrs-1:0]    available_results_o,
   output schnizo_synth_pkg::operand_req_t [NofOperands-1:0]     op_reqs_o,
   output logic                            [NofOperands-1:0]     op_reqs_valid_o,
   input  logic                            [NofOperands-1:0]     op_reqs_ready_i,
-  input  schnizo_synth_pkg::ext_res_req_t[NofResRspIfs-1:0]     res_reqs_i,
-  input  logic                           [NofResRspIfs-1:0]     res_reqs_valid_i,
-  output logic                           [NofResRspIfs-1:0]     res_reqs_ready_o,
-  output schnizo_synth_pkg::res_rsp_t    [NofResRspIfs-1:0]     res_rsps_o,
-  output logic                           [NofResRspIfs-1:0]     res_rsps_valid_o,
-  input  logic                           [NofResRspIfs-1:0]     res_rsps_ready_i,
-  input  schnizo_synth_pkg::operand_t    [NofOperands-1:0]      op_rsps_i,
-  input  logic                           [NofOperands-1:0]      op_rsps_valid_i,
-  output logic                           [NofOperands-1:0]      op_rsps_ready_o
+  input  schnizo_synth_pkg::ext_res_req_t [NofResRspIfs-1:0]    res_reqs_i,
+  input  logic                            [NofResRspIfs-1:0]    res_reqs_valid_i,
+  output logic                            [NofResRspIfs-1:0]    res_reqs_ready_o,
+  output schnizo_synth_pkg::res_rsp_t     [NofResRspIfs-1:0]    res_rsps_o,
+  output logic                            [NofResRspIfs-1:0]    res_rsps_valid_o,
+  input  logic                            [NofResRspIfs-1:0]    res_rsps_ready_i,
+  input  schnizo_synth_pkg::operand_t     [NofOperands-1:0]     op_rsps_i,
+  input  logic                            [NofOperands-1:0]     op_rsps_valid_i,
+  output logic                            [NofOperands-1:0]     op_rsps_ready_o
 );
 
   schnizo_synth_pkg::producer_id_t producer_id;
@@ -59,6 +62,7 @@ module schnizo_res_stat_synth #(
 
   schnizo_res_stat #(
     .NofRss            (NofRss),
+    .NofRsrs           (NofRsrs),
     .NofConstants      (NofConstants),
     .NofOperands       (NofOperands),
     .NofResRspIfs      (NofResRspIfs),
@@ -68,7 +72,7 @@ module schnizo_res_stat_synth #(
     .UseSram           (UseSram),
     .disp_req_t        (schnizo_synth_pkg::disp_req_t),
     .disp_rsp_t        (schnizo_synth_pkg::disp_rsp_t),
-    .issue_req_t       (schnizo_synth_pkg::issue_req_t),
+    .issue_req_t       (schnizo_synth_pkg::issue_req_two_tags_t),
     .result_t          (schnizo_synth_pkg::alu_result_t),
     .result_tag_t      (schnizo_pkg::instr_tag_t),
     .producer_id_t     (schnizo_synth_pkg::producer_id_t),
@@ -79,7 +83,9 @@ module schnizo_res_stat_synth #(
     .ext_res_req_t     (schnizo_synth_pkg::ext_res_req_t),
     .available_result_t(schnizo_synth_pkg::available_result_t),
     .dest_mask_t       (schnizo_synth_pkg::dest_mask_t),
-    .res_rsp_t         (schnizo_synth_pkg::res_rsp_t)
+    .res_rsp_t         (schnizo_synth_pkg::res_rsp_t),
+    .NofResPorts       (NofResPorts),
+    .HasTwoDests       (HasTwoDests)
   ) i_res_stat (
     .clk_i,
     .rst_i             (!rst_ni),

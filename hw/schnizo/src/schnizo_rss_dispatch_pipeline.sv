@@ -272,9 +272,10 @@ module schnizo_rss_dispatch_pipeline import schnizo_pkg::*; #(
   // - LCP2: pass through the current result state, only updating `do_writeback` if needed.
   // This output is fed into res_req_handling as slot_i (instead of slot_result_qs) when dispatching,
   // so any concurrent consumer reads are applied on top of the dispatch update — no bypass needed.
+  // Handle Slot 0 (Always exists)
   always_comb begin
-    slot_result_o = slot_result_i;
-    // TODO(lnoussi): Create another result slot of disp_req_i.tag2 is used
+    slot_result_o[0] = slot_result_i[0];
+    
     unique case (loop_state_i)
       LoopLcp1: begin
         slot_result_o[0] = '{
@@ -288,8 +289,26 @@ module schnizo_rss_dispatch_pipeline import schnizo_pkg::*; #(
           dest_is_fp:     disp_req_i.tag.dest_reg_is_fp,
           do_writeback:   1'b0
         };
+      end
+      LoopLcp2: begin
+        if ((result_slot_id_i[0] == disp_req_i.current_dest_producer.producer) &&
+            disp_req_i.current_dest_producer.valid) begin
+          slot_result_o[0].do_writeback = 1'b1;
+        end
+      end
+      default: ;
+    endcase
 
-        if (HasTwoDests) begin
+    if (restart_i) slot_result_o[0] = slot_result_reset_val_i;
+  end
+
+  // Handle Slot 1 (Only compiled if HasTwoDests is true)
+  if (HasTwoDests) begin : gen_second_result_slot_logic
+    always_comb begin
+      slot_result_o[1] = slot_result_i[1];
+      
+      unique case (loop_state_i)
+        LoopLcp1: begin
           if (disp_req_i.has_two_dests) begin
             slot_result_o[1] = '{
               consumer_count: '0,
@@ -302,29 +321,16 @@ module schnizo_rss_dispatch_pipeline import schnizo_pkg::*; #(
             };
           end
         end
-      end
-      LoopLcp2: begin
-        // TODO(colluca): this could be provided by the dispatcher directly
-        // Current destination producer
-        if ((result_slot_id_i[0] == disp_req_i.current_dest_producer.producer) &&
-            disp_req_i.current_dest_producer.valid) begin
-          slot_result_o[0].do_writeback = 1'b1;
-        end
-        if (HasTwoDests) begin
+        LoopLcp2: begin
           if ((result_slot_id_i[1] == disp_req_i.current_dest2_producer.producer) &&
               disp_req_i.current_dest2_producer.valid) begin
             slot_result_o[1].do_writeback = 1'b1;
           end
         end
-      end
-      default: ;
-    endcase
+        default: ;
+      endcase
 
-    if (restart_i) begin
-      slot_result_o[0] = slot_result_reset_val_i;
-      if (HasTwoDests) begin
-        slot_result_o[1] = slot_result_reset_val_i;
-      end
+      if (restart_i) slot_result_o[1] = slot_result_reset_val_i;
     end
   end
 
@@ -500,7 +506,7 @@ module schnizo_rss_dispatch_pipeline import schnizo_pkg::*; #(
     // by all consumers yet.
     // Tag used for the operation is the slot_id, to identify the result destination in case
     // results can come back OoO from the FU (as is the case for the FPU).
-    issue_req_o                      = '0;
+    issue_req_o.fu_data              = '0;
     issue_req_o.fu_data.fu           = alloc_const_op_slot.fu;
     issue_req_o.fu_data.alu_op       = alloc_const_op_slot.alu_op;
     issue_req_o.fu_data.lsu_op       = alloc_const_op_slot.lsu_op;
@@ -508,14 +514,22 @@ module schnizo_rss_dispatch_pipeline import schnizo_pkg::*; #(
     issue_req_o.fu_data.fpu_op       = alloc_const_op_slot.fpu_op;
     issue_req_o.fu_data.operand_a    = response_op_slots[0].value;
     issue_req_o.fu_data.operand_b    = response_op_slots[1].value;
-    issue_req_o.fu_data.imm          = (NofOperands >= 3) ? response_op_slots[2].value : '0;
+    if (NofOperands >= 3) begin
+      issue_req_o.fu_data.imm        = response_op_slots[2].value;
+    end else begin
+      issue_req_o.fu_data.imm        = '0;
+    end
     issue_req_o.fu_data.lsu_size     = alloc_const_op_slot.lsu_size;
     issue_req_o.fu_data.fpu_fmt_src  = alloc_const_op_slot.fpu_fmt_src;
     issue_req_o.fu_data.fpu_fmt_dst  = alloc_const_op_slot.fpu_fmt_dst;
     issue_req_o.fu_data.fpu_rnd_mode = alloc_const_op_slot.fpu_rnd_mode;
     issue_req_o.tag                  = issue_producer_id_i[0].slot_id;
-    if (HasTwoDests) begin
-      issue_req_o.tag2               = issue_producer_id_i[1].slot_id;
+  end
+
+  // Use a generate block to "hide" tag2 from the compiler when not in use
+  if (HasTwoDests) begin : gen_issue_tag2
+    always_comb begin
+      issue_req_o.tag2 = issue_producer_id_i[1].slot_id;
     end
   end
 

@@ -100,10 +100,10 @@ def gen_dispatch_trace(loop_state, extras, proc_state, mc_exec) -> str:
     if loop_state in {LOOP_REGULAR, LOOP_HWLOOP}:
         fu_str = ''
     elif loop_state in {LOOP_LCP1}:
-        fu_str = extras['producer']
+        fu_str = extras['disp_resp']
         proc_state.lcp1_dispatch(fu_str)
     elif loop_state in {LOOP_LCP2}:
-        fu_str = extras['producer']
+        fu_str = extras['disp_resp']
         proc_state.lcp2_dispatch(fu_str, extras)
     elif loop_state in {LOOP_LEP}:
         fu_str = extras['producer']
