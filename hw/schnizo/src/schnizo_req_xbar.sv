@@ -53,12 +53,13 @@ module schnizo_req_xbar #(
   res_req_t [NofOperandReqs-1:0][NofRs-1:0] demuxed_reqs;
   logic     [NofOperandReqs-1:0][NofRs-1:0] demuxed_reqs_valid, demuxed_reqs_ready;
   for (genvar req = 0; req < NofOperandReqs; req++) begin : gen_demux_stage
+    localparam int unsigned SelWidth = (NofRs > 1) ? $clog2(NofRs) : 1;
     stream_demux #(
       .N_OUP(NofRs)
     ) i_demux (
       .inp_valid_i(op_reqs_valid_i[req]),
       .inp_ready_o(op_reqs_ready_o[req]),
-      .oup_sel_i  (op_reqs_i[req].producer),
+      .oup_sel_i  (op_reqs_i[req].producer[SelWidth-1:0]),
       .oup_valid_o(demuxed_reqs_valid[req]),
       .oup_ready_i(demuxed_reqs_ready[req])
     );

@@ -385,8 +385,8 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
       .oup_ready_i(result_ready_i)
     );
 
-    assign result_o = result_and_tag.value;
-    assign tag_o = result_and_tag.tag;
+    assign result_o[0] = result_and_tag.value;
+    assign tag_o[0] = result_and_tag.tag;
   end
 
   assign busy_o = alu_busy || lsu_busy || is_buffering_q;

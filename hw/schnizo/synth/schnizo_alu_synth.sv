@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: SHL-0.51
 
 module schnizo_alu_synth #(
-  parameter int unsigned XLEN          = 32,
   parameter bit          HasBranch     = 1'b1,
   parameter bit          HasMultiplier = 1'b0
 ) (
@@ -14,7 +13,7 @@ module schnizo_alu_synth #(
   input  logic                                  issue_req_valid_i,
   output logic                                  issue_req_ready_o,
   
-  output logic [XLEN-1:0]                       result_o,
+  output logic [schnizo_synth_pkg::XLEN-1:0]                       result_o,
   output logic                                  compare_res_o,
   output schnizo_pkg::instr_tag_t               tag_o,
   output logic                                  result_valid_o,
@@ -23,7 +22,7 @@ module schnizo_alu_synth #(
 );
 
   schnizo_alu #(
-    .XLEN          (XLEN),
+    .XLEN          (schnizo_synth_pkg::XLEN),
     .HasBranch     (HasBranch),
     .HasMultiplier (HasMultiplier),
     .issue_req_t   (schnizo_synth_pkg::issue_req_t),

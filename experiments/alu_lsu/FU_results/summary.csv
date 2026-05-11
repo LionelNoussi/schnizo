@@ -1,0 +1,8 @@
+config,StdCellArea,WNS
+schnizo_alu_synth,139.0,-1.164
+schnizo_alu_synth_HasBranch_True_HasMultiplier_True,1410.0,-8.362
+schnizo_lsu_synth,224.0,-1.023
+schnizo_alu_lsu_synth,647.0,-3.009
+schnizo_alu_lsu_synth_HasBranch_True_HasMultiplier_True,1915.0,-10.333
+schnizo_alu_lsu_synth_NofResPorts_2,637.0,-3.12
+schnizo_alu_lsu_synth_NofResPorts_2_HasBranch_True_HasMultiplier_True,1901.0,-10.322

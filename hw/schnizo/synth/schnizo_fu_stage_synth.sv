@@ -3,126 +3,145 @@
 // SPDX-License-Identifier: SHL-0.51
 
 module schnizo_fu_stage_synth import cf_math_pkg::*; #(
-  parameter bit          Xfrep           = 1,
-  parameter bit          UseAluLsu       = 0,
-  parameter bit          MulInAlu0       = 1'b1,
-  parameter int unsigned NofRss          = 0,
-
-  parameter int unsigned NofAlus           = 1,
-  parameter int unsigned AluNofRss         = NofRss,
-  parameter int unsigned AluNofResRspPorts = 1,
-  parameter int unsigned AluNofConstants   = 4,
-
-  parameter int unsigned NofLsus           = 1,
-  parameter int unsigned LsuNofRss         = NofRss,
-  parameter int unsigned LsuNofResRspPorts = 1,
-  parameter int unsigned LsuNofConstants   = 4,
-
-  parameter int unsigned NofAluLsus         = 1,
-  parameter int unsigned AluLsuNofRss       = NofRss,
-  parameter int unsigned AluLsuNofRsrs      = NofRss,
-  parameter int unsigned AluLsuNofResRspPorts = 2,
-  parameter int unsigned AluLsuNofResPorts    = 2,
-  parameter int unsigned AluLsuNofConstants   = 4,
-
-  // FPU Parameters
-  parameter int unsigned NofFpus           = 1,
-  parameter int unsigned FpuNofRss         = NofRss,
-  parameter int unsigned FpuNofResRspPorts = 1,
-  parameter int unsigned FpuNofConstants   = 4
-
+  parameter bit          X    = 1,    // Xfrep
+  parameter bit          UAL  = 0,    // UseAluLsu
+  parameter bit          MA0  = 1'b1, // MulInAlu0
+  parameter int unsigned RS   = 0,    // NofRss
+  // ALU
+  parameter int unsigned NA   = 1,    // NofAlus
+  parameter int unsigned AR   = RS,   // AluNofRss
+  parameter int unsigned AP   = 1,    // AluNofResRspPorts
+  parameter int unsigned AC   = 4,    // AluNofConstants
+  // LSU
+  parameter int unsigned NL   = 1,    // NofLsus
+  parameter int unsigned LR   = RS,   // LsuNofRss
+  parameter int unsigned LP   = 1,    // LsuNofResRspPorts
+  parameter int unsigned LC   = 4,    // LsuNofConstants
+  // ALU-LSU
+  parameter int unsigned NX   = 1,    // NofAluLsus
+  parameter int unsigned XR   = RS,   // AluLsuNofRss
+  parameter int unsigned XRR  = RS,   // AluLsuNofRsrs
+  parameter int unsigned XP   = 2,    // AluLsuNofResRspPorts
+  parameter int unsigned XW   = 2,    // AluLsuNofResPorts
+  parameter int unsigned XC   = 4,    // AluLsuNofConstants
+  // FPU
+  parameter int unsigned NF   = 1,    // NofFpus
+  parameter int unsigned FR   = RS,   // FpuNofRss
+  parameter int unsigned FP   = 1,    // FpuNofResRspPorts
+  parameter int unsigned FC   = 4     // FpuNofConstants
 ) (
-  input  logic                                                    clk_i,
-  input  logic                                                    rst_ni,
-  input  logic                                                    restart_i,
-  input  schnizo_pkg::loop_state_e                                loop_state_i,
-  input  logic [schnizo_pkg::FrepMaxItersWidth-1:0]               lep_iterations_i,
-  input  logic                                                    goto_lcp2_i,
-  output logic                                                    all_rs_finish_o,
-  input  schnizo_synth_pkg::disp_req_t                            disp_req_i,
-  input  logic                                                    instr_exec_commit_i,
-  input  logic               [iomsb(NofAlus):0]                        alu_disp_reqs_valid_i,
-  output logic               [iomsb(NofAlus):0]                        alu_disp_reqs_ready_o,
-  output schnizo_synth_pkg::disp_rsp_t          [iomsb(NofAlus):0]     alu_disp_rsp_o,
-  output logic               [iomsb(NofAlus):0]                        alu_rs_full_o,
-  input  logic               [iomsb(NofLsus):0]                        lsu_disp_reqs_valid_i,
-  output logic               [iomsb(NofLsus):0]                        lsu_disp_reqs_ready_o,
-  output schnizo_synth_pkg::disp_rsp_t          [iomsb(NofLsus):0]     lsu_disp_rsp_o,
-  output logic                                                    lsu_empty_o,
-  output logic                                                    lsu_addr_misaligned_o,
-  output schnizo_synth_pkg::data_req_t              [iomsb(NofLsus):0] lsu_dreq_o,
-  input  schnizo_synth_pkg::data_rsp_t              [iomsb(NofLsus):0] lsu_drsp_i,
-  output logic               [iomsb(NofLsus):0]                        lsu_rs_full_o,
-  input  logic                          [iomsb(NofAluLsus):0]   alu_lsu_disp_reqs_valid_i,
-  output logic                          [iomsb(NofAluLsus):0]   alu_lsu_disp_reqs_ready_o,
-  output schnizo_synth_pkg::disp_rsp_t  [iomsb(NofAluLsus):0][1:0] alu_lsu_disp_rsp_o,
-  output logic                          [iomsb(NofAluLsus):0]   alu_lsu_rs_full_o,
-  output schnizo_synth_pkg::data_req_t  [iomsb(NofAluLsus):0]   alu_lsu_dreq_o,
-  input  schnizo_synth_pkg::data_rsp_t  [iomsb(NofAluLsus):0]   alu_lsu_drsp_i,
-  input  logic                          [iomsb(NofFpus):0]      fpu_disp_reqs_valid_i,
-  output logic                          [iomsb(NofFpus):0]      fpu_disp_reqs_ready_o,
-  output schnizo_synth_pkg::disp_rsp_t          [iomsb(NofFpus):0]     fpu_disp_rsp_o,
-  output logic               [iomsb(NofFpus):0]                        fpu_rs_full_o,
-  output fpnew_pkg::status_t                                      fpu_status_o,
-  output logic                                                    fpu_status_valid_o,
-  output schnizo_synth_pkg::alu_result_t                          alu_wb_result_o,
-  output schnizo_pkg::instr_tag_t                                 alu_wb_result_tag_o,
-  output logic                                                    alu_wb_result_valid_o,
-  input  logic                                                    alu_wb_result_ready_i,
-  output schnizo_synth_pkg::alu_result_t                          branch_result_o,
-  output schnizo_synth_pkg::data_t                                lsu_wb_result_o,
-  output schnizo_pkg::instr_tag_t                                 lsu_wb_result_tag_o,
-  output logic                                                    lsu_wb_result_valid_o,
-  input  logic                                                    lsu_wb_result_ready_i,
-  output schnizo_synth_pkg::alu_lsu_result_t [AluLsuNofResPorts-1:0] alu_lsu_wb_results_o,
-  output schnizo_pkg::instr_tag_t            [AluLsuNofResPorts-1:0] alu_lsu_wb_result_tags_o,
-  output logic                               [AluLsuNofResPorts-1:0] alu_lsu_wb_results_valid_o,
-  input  logic                               [AluLsuNofResPorts-1:0] alu_lsu_wb_results_ready_i,
-  output logic [schnizo_synth_pkg::FLEN-1:0]                      fpu_wb_result_o,
-  output schnizo_pkg::instr_tag_t                                 fpu_wb_result_tag_o,
-  output logic                                                    fpu_wb_result_valid_o,
-  input  logic                                                    fpu_wb_result_ready_i
+  input  logic                                     clk_i,
+  input  logic                                     rst_ni,
+  input  logic                                     restart_i,
+  input  schnizo_pkg::loop_state_e                 loop_state_i,
+  input  logic [schnizo_pkg::FrepMaxItersWidth-1:0] lep_iterations_i,
+  input  logic                                     goto_lcp2_i,
+  output logic                                     all_rs_finish_o,
+  input  schnizo_synth_pkg::disp_req_t             disp_req_i,
+  input  logic                                     instr_exec_commit_i,
+  input  logic               [iomsb(NA):0]         alu_disp_reqs_valid_i,
+  output logic               [iomsb(NA):0]         alu_disp_reqs_ready_o,
+  output schnizo_synth_pkg::disp_rsp_t [iomsb(NA):0] alu_disp_rsp_o,
+  output logic               [iomsb(NA):0]         alu_rs_full_o,
+  input  logic               [iomsb(NL):0]         lsu_disp_reqs_valid_i,
+  output logic               [iomsb(NL):0]         lsu_disp_reqs_ready_o,
+  output schnizo_synth_pkg::disp_rsp_t [iomsb(NL):0] lsu_disp_rsp_o,
+  output logic                                     lsu_empty_o,
+  output logic                                     lsu_addr_misaligned_o,
+  output schnizo_synth_pkg::data_req_t [iomsb(NL):0] lsu_dreq_o,
+  input  schnizo_synth_pkg::data_rsp_t [iomsb(NL):0] lsu_drsp_i,
+  output logic               [iomsb(NL):0]         lsu_rs_full_o,
+  input  logic               [iomsb(NX):0]         alu_lsu_disp_reqs_valid_i,
+  output logic               [iomsb(NX):0]         alu_lsu_disp_reqs_ready_o,
+  output schnizo_synth_pkg::disp_rsp_t [iomsb(NX):0][1:0] alu_lsu_disp_rsp_o,
+  output logic               [iomsb(NX):0]         alu_lsu_rs_full_o,
+  output schnizo_synth_pkg::data_req_t [iomsb(NX):0] alu_lsu_dreq_o,
+  input  schnizo_synth_pkg::data_rsp_t [iomsb(NX):0] alu_lsu_drsp_i,
+  input  logic               [iomsb(NF):0]         fpu_disp_reqs_valid_i,
+  output logic               [iomsb(NF):0]         fpu_disp_reqs_ready_o,
+  output schnizo_synth_pkg::disp_rsp_t [iomsb(NF):0] fpu_disp_rsp_o,
+  output logic               [iomsb(NF):0]         fpu_rs_full_o,
+  output fpnew_pkg::status_t                       fpu_status_o,
+  output logic                                     fpu_status_valid_o,
+  output schnizo_synth_pkg::alu_result_t           alu_wb_result_o,
+  output schnizo_pkg::instr_tag_t                  alu_wb_result_tag_o,
+  output logic                                     alu_wb_result_valid_o,
+  input  logic                                     alu_wb_result_ready_i,
+  output schnizo_synth_pkg::alu_result_t           branch_result_o,
+  output schnizo_synth_pkg::data_t                 lsu_wb_result_o,
+  output schnizo_pkg::instr_tag_t                  lsu_wb_result_tag_o,
+  output logic                                     lsu_wb_result_valid_o,
+  input  logic                                     lsu_wb_result_ready_i,
+  output schnizo_synth_pkg::alu_lsu_result_t [XW-1:0] alu_lsu_wb_results_o,
+  output schnizo_pkg::instr_tag_t            [XW-1:0] alu_lsu_wb_result_tags_o,
+  output logic                               [XW-1:0] alu_lsu_wb_results_valid_o,
+  input  logic                               [XW-1:0] alu_lsu_wb_results_ready_i,
+  output logic [schnizo_synth_pkg::FLEN-1:0]       fpu_wb_result_o,
+  output schnizo_pkg::instr_tag_t                  fpu_wb_result_tag_o,
+  output logic                                     fpu_wb_result_valid_o,
+  input  logic                                     fpu_wb_result_ready_i
 );
 
-  localparam integer unsigned NofOperandIfs = NofAlus * 2 +
-                                              NofLsus * 3 +
-                                              NofAluLsus * 3 +
-                                              NofFpus * 3;
+  localparam int unsigned NOI = NA*2 + NL*3 + NX*3 + NF*3; // NofOperandIfs
+  localparam int unsigned NRI = NA + NL + NX + NF;         // NofResReqIfs
 
-  localparam integer unsigned NofResReqIfs = NofAlus + NofLsus + NofAluLsus + NofFpus;
+  localparam int unsigned ActualRsIdWidth   = cf_math_pkg::idx_width(NRI);
+  localparam int unsigned ActualSlotIdWidth = schnizo_synth_pkg::SlotIdWidth;
+
+  typedef struct packed {
+    logic[ActualSlotIdWidth-1:0] slot_id;
+    actual_rs_id_t               rs_id; // Perfectly sized!
+  } actual_producer_id_t;
+
+  typedef struct packed {
+    actual_producer_id_t producer;
+    logic                valid;
+  } actual_rmt_entry_t;
+
+  typedef struct packed {
+    schnizo_synth_pkg::fu_data_t fu_data;
+    actual_rmt_entry_t           producer_op_a;
+    actual_rmt_entry_t           producer_op_b;
+    actual_rmt_entry_t           producer_op_c;
+    logic                        has_two_dests;
+    actual_rmt_entry_t           current_dest_producer;
+    actual_rmt_entry_t           current_dest2_producer;
+    schnizo_pkg::instr_tag_t     tag;
+    schnizo_pkg::instr_tag_t     tag2;
+  } actual_disp_req_t;
 
   schnizo_fu_stage #(
-    .Xfrep(Xfrep),
-    .MulInAlu0(MulInAlu0),
-    .NofAlus(NofAlus),
-    .AluNofRss(AluNofRss),
-    .AluNofConstants(AluNofConstants),     // Mapped
+    .Xfrep(X),
+    .MulInAlu0(MA0),
+    .NofAlus(NA),
+    .AluNofRss(AR),
+    .AluNofConstants(AC),
     .AluNofOperands(2),
     .AluNofResReqIfs(1),
-    .AluNofResRspPorts(AluNofResRspPorts),
-    .NofLsus(NofLsus),
-    .LsuNofRss(LsuNofRss),
-    .LsuNofConstants(LsuNofConstants),     // Mapped
+    .AluNofResRspPorts(AP),
+    .NofLsus(NL),
+    .LsuNofRss(LR),
+    .LsuNofConstants(LC),
     .LsuNofOperands(3),
     .LsuNofResReqIfs(1),
-    .LsuNofResRspPorts(LsuNofResRspPorts),
-    .NofFpus(NofFpus),
-    .FpuNofRss(FpuNofRss),
-    .FpuNofConstants(FpuNofConstants),     // Mapped
+    .LsuNofResRspPorts(LP),
+    .NofFpus(NF),
+    .FpuNofRss(FR),
+    .FpuNofConstants(FC),
     .FpuNofOperands(3),
     .FpuNofResReqIfs(1),
-    .FpuNofResRspPorts(FpuNofResRspPorts),
-    .UseAluLsu(UseAluLsu),
-    .NofAluLsus(NofAluLsus),
-    .AluLsuNofRss(AluLsuNofRss),
-    .AluLsuNofRsrs(AluLsuNofRsrs),
-    .AluLsuNofConstants(AluLsuNofConstants), // Mapped
+    .FpuNofResRspPorts(FP),
+    .UseAluLsu(UAL),
+    .NofAluLsus(NX),
+    .AluLsuNofRss(XR),
+    .AluLsuNofRsrs(XRR),
+    .AluLsuNofConstants(XC),
     .AluLsuNofOperands(3),
     .AluLsuNofResReqIfs(1),
-    .AluLsuNofResRspPorts(AluLsuNofResRspPorts),
-    .AluLsuNofResPorts(AluLsuNofResPorts),
-    .NofOperandIfs(NofOperandIfs),
-    .NofResReqIfs(NofResReqIfs),
+    .AluLsuNofResRspPorts(XP),
+    .AluLsuNofResPorts(XW),
+    .NofOperandIfs(NOI),
+    .NofResReqIfs(NRI),
     .XLEN(schnizo_synth_pkg::XLEN),
     .FLEN(schnizo_synth_pkg::FLEN),
     .OpLen(schnizo_synth_pkg::OpLen),

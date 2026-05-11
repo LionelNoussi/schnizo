@@ -31,7 +31,7 @@ package schnizo_synth_pkg;
     addr_t                 data_argc;
   } acc_req_t;
 
-    typedef struct packed {
+  typedef struct packed {
     logic [4:0] id;
     logic       error;
     data_t      data;

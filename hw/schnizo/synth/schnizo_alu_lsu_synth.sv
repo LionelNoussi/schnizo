@@ -4,28 +4,18 @@
 
 module schnizo_alu_lsu_synth #(
   parameter int unsigned NofResPorts         = 2,
-  parameter int unsigned XLEN                = 32,
   parameter bit          HasBranch             = 1'b1,
-  parameter bit          HasMultiplier         = 1'b0,
-  parameter int unsigned AddrWidth           = 32,
-  parameter int unsigned DataWidth           = 32,
-  parameter int unsigned NumOutstandingMem   = 1,
-  parameter int unsigned NumOutstandingLoads = 1,
-  parameter bit          Caq                 = 0,
-  parameter int unsigned CaqDepth            = 0,
-  parameter int unsigned CaqTagWidth         = 0,
-  parameter bit          CaqRespSrc          = 0,
-  parameter bit          CaqRespTrackSeq     = 0
+  parameter bit          HasMultiplier         = 1'b0
 ) (
   input  logic                                          clk_i,
   input  logic                                          rst_ni,
 
-  input  schnizo_synth_pkg::issue_req_t                 issue_req_i,
+  input  schnizo_synth_pkg::issue_req_two_tags_t        issue_req_i,
   input  logic                                          issue_req_valid_i,
   input  logic                                          issue_commit_i,
   output logic                                          issue_req_ready_o,
   
-  output schnizo_synth_pkg::alu_result_t [NofResPorts-1:0] result_o,
+  output schnizo_synth_pkg::alu_lsu_result_t [NofResPorts-1:0] result_o,
   output logic                                          compare_res_o,
   output schnizo_pkg::instr_tag_t        [NofResPorts-1:0] tag_o,
   output logic                                          result_error_o,
@@ -36,10 +26,10 @@ module schnizo_alu_lsu_synth #(
   output logic                                          empty_o,
   output logic                                          addr_misaligned_o,
 
-  output schnizo_synth_pkg::dreq_t                      data_req_o,
-  input  schnizo_synth_pkg::drsp_t                      data_rsp_i,
+  output schnizo_synth_pkg::data_req_t                  data_req_o,
+  input  schnizo_synth_pkg::data_rsp_t                  data_rsp_i,
 
-  input  logic [AddrWidth-1:0]                          caq_addr_i,
+  input  logic [schnizo_synth_pkg::AddrWidth-1:0]       caq_addr_i,
   input  logic                                          caq_track_write_i,
   input  logic                                          caq_req_valid_i,
   output logic                                          caq_req_ready_o,
@@ -48,25 +38,26 @@ module schnizo_alu_lsu_synth #(
 );
 
   schnizo_alu_lsu #(
-    .alu_lsu_result_t    (schnizo_synth_pkg::alu_result_t),
+    .alu_lsu_result_t    (schnizo_synth_pkg::alu_lsu_result_t),
     .alu_lsu_instr_tag_t (schnizo_pkg::instr_tag_t),
-    .alu_lsu_issue_req_t (schnizo_synth_pkg::issue_req_t),
+    .alu_lsu_issue_req_t (schnizo_synth_pkg::issue_req_two_tags_t),
     .fu_issue_req_t      (schnizo_synth_pkg::issue_req_t),
     .NofResPorts         (NofResPorts),
-    .XLEN                (XLEN),
+    .XLEN                (schnizo_synth_pkg::XLEN),
     .HasBranch           (HasBranch),
     .HasMultiplier       (HasMultiplier),
-    .AddrWidth           (AddrWidth),
-    .DataWidth           (DataWidth),
-    .NumOutstandingMem   (NumOutstandingMem),
-    .NumOutstandingLoads (NumOutstandingLoads),
-    .Caq                 (Caq),
-    .CaqDepth            (CaqDepth),
-    .CaqTagWidth         (CaqTagWidth),
-    .CaqRespSrc          (CaqRespSrc),
-    .CaqRespTrackSeq     (CaqRespTrackSeq),
-    .dreq_t              (schnizo_synth_pkg::dreq_t),
-    .drsp_t              (schnizo_synth_pkg::drsp_t)
+    .alu_res_val_t       (schnizo_synth_pkg::alu_res_val_t),
+    .AddrWidth           (schnizo_synth_pkg::AddrWidth),
+    .DataWidth           (schnizo_synth_pkg::DataWidth),
+    .NumOutstandingMem   (schnizo_synth_pkg::NumIntOutstandingMem),
+    .NumOutstandingLoads (schnizo_synth_pkg::NumIntOutstandingLoads),
+    .Caq                 (0),
+    .CaqDepth            (8),
+    .CaqTagWidth         (16),
+    .CaqRespSrc          (0),
+    .CaqRespTrackSeq     (0),
+    .dreq_t              (schnizo_synth_pkg::data_req_t),
+    .drsp_t              (schnizo_synth_pkg::data_rsp_t)
   ) i_alu_lsu (
     .clk_i,
     .rst_i               (!rst_ni),
