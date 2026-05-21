@@ -345,7 +345,7 @@ module schnizo_tracer import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg:
                             format_fu_retire_trace(alu_lsu_retirements[alu_lsu][res_port]),
                             alu_lsu_retirements[alu_lsu][res_port].valid);
         end
-        for (int rsrs = 0; rsrs < AluLsuNofRss; rsrs++) begin
+        for (int rsrs = 0; rsrs < AluLsuNofRsrs; rsrs++) begin
           for (int res_port = 0; res_port < AluLsuNofResPorts; res_port++) begin
             write_trace_event(file_id, trace_header, "rescap",
                               format_rescap_trace(alu_lsu_rescap_traces[alu_lsu][rsrs][res_port]),

@@ -370,6 +370,9 @@ def gen_dispatch_perfetto(sim_time, cycle, priv_lvl, loop_state, extras,
         if (extras['lsu_is_store']):
             # The instruction ends in this cycle. Thus the event is at the end of this cycle.
             trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid1, tag=tag1)
+    if fu_str.startswith(FU_ACC):
+        if mnemonic.startswith('dmsrc') or mnemonic.startswith('dmdst'):
+            trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid1, tag=tag1)
     if fu_str.startswith(FU_ALU_LSU):
         # The instruction ends in this cycle. Thus the event is at the end of this cycle.
         if extras['fu_type'] == FU_LSU and extras['lsu_is_store']:
@@ -605,6 +608,9 @@ def main():
         for lineno, (line, nextl) in enumerate(current_and_next(line_iter)):
             if line:
                 try:
+                    extras = ast.literal_eval(line.strip())
+                    if 'producer' in extras and extras['producer'] == 'ALU_LSU0.1' and extras['state'] == 'LEP':
+                        pass
                     # Process each event independently
                     trace_line, sim_time, cycle = gen_trace_line(line, args.mc_exec,
                                                                  lsu_pipelines, alu_lsu_pipelines, 

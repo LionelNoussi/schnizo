@@ -5,6 +5,7 @@
 // The decoder for the Schnizo Core. Based on CVA6.
 module schnizo_decoder import schnizo_pkg::*; #(
   parameter int unsigned XLEN        = 32,
+  parameter bit          PostIncrement = 0,
   parameter bit          Xdma        = 0,
   parameter bit          Xfrep       = 1,
   /// Enable F Extension (single).
@@ -900,27 +901,30 @@ module schnizo_decoder import schnizo_pkg::*; #(
           // ---------------------------------
           // Post-Increment Store Instructions
           // ---------------------------------
-          unique case (instr.rpitype.funct3) // lio
-            3'b110: begin
-              // store data=rs2 at add address=rs1
-              // Do rs1 = rs1 + rs3
-              instr_dec_o.fu = schnizo_pkg::ALU_LSU_STORE;
-              instr_dec_o.alu_op = schnizo_pkg::AluOpAdd;
-              instr_dec_o.lsu_op = schnizo_pkg::LsuOpFpStore;
-              instr_dec_o.lsu_size = lsu_size_e'(2'b11);  // double
+          if (PostIncrement) begin
+            unique case (instr.rpitype.funct3) // lio
+              3'b110: begin
+                // store data=rs2 at add address=rs1
+                // Do rs1 = rs1 + rs3
+                instr_dec_o.fu = schnizo_pkg::ALU_LSU_STORE;
+                instr_dec_o.alu_op = schnizo_pkg::AluOpAdd;
+                instr_dec_o.lsu_op = schnizo_pkg::LsuOpFpStore;
+                instr_dec_o.lsu_size = lsu_size_e'(2'b11);  // double
 
-              // Inputs & Outputs
-              // We re-shuffle these accordingly inside the ALU_LSU FU
-              instr_dec_o.rs1 = instr.rpitype.rs1; // Base
-              instr_dec_o.use_rs1 = 1'b1;
-              instr_dec_o.rs2 = instr.rpitype.rs3; // Offset. We move rs3 to rs2, since rs2 is float and needs to be loaded through immediate 
-              instr_dec_o.use_rs2 = 1'b1;
-              imm_select = RS2_TO_RS3;              // Source
-              instr_dec_o.rd  = instr.rpitype.rs1; // Base again
-            end
-            default: illegal_instr = 1'b1;
-          endcase
-
+                // Inputs & Outputs
+                // We re-shuffle these accordingly inside the ALU_LSU FU
+                instr_dec_o.rs1 = instr.rpitype.rs1; // Base
+                instr_dec_o.use_rs1 = 1'b1;
+                instr_dec_o.rs2 = instr.rpitype.rs3; // Offset. We move rs3 to rs2, since rs2 is float and needs to be loaded through immediate 
+                instr_dec_o.use_rs2 = 1'b1;
+                imm_select = RS2_TO_RS3;              // Source
+                instr_dec_o.rd  = instr.rpitype.rs1; // Base again
+              end
+              default: illegal_instr = 1'b1;
+            endcase
+          end else begin
+            illegal_instr = 1'b1;
+          end
         end
       end
       OpcodeCustom0: begin
@@ -947,34 +951,37 @@ module schnizo_decoder import schnizo_pkg::*; #(
           // ---------------------------------
           // Post-Increment Load Instructions
           // ---------------------------------
-          unique case (instr.rpitype.funct3) // lio
-            3'b111: begin
-              unique case (instr.rpitype.funct7)
-                7'b001_0000: begin
-                  // store data=rs2 at add address=rs1
-                  // Do rs1 = rs1 + rs3
-                  instr_dec_o.fu = schnizo_pkg::ALU_LSU_LOAD;
-                  instr_dec_o.alu_op = schnizo_pkg::AluOpAdd;
-                  instr_dec_o.lsu_op = schnizo_pkg::LsuOpFpLoad;
-                  instr_dec_o.lsu_size = lsu_size_e'(2'b11);  // double
+          if (PostIncrement) begin
+            unique case (instr.rpitype.funct3) // lio
+              3'b111: begin
+                unique case (instr.rpitype.funct7)
+                  7'b001_0000: begin
+                    // store data=rs2 at add address=rs1
+                    // Do rs1 = rs1 + rs3
+                    instr_dec_o.fu = schnizo_pkg::ALU_LSU_LOAD;
+                    instr_dec_o.alu_op = schnizo_pkg::AluOpAdd;
+                    instr_dec_o.lsu_op = schnizo_pkg::LsuOpFpLoad;
+                    instr_dec_o.lsu_size = lsu_size_e'(2'b11);  // double
 
-                  // Inputs & Outputs
-                  // We re-shuffle these accordingly inside the ALU_LSU FU
-                  instr_dec_o.rs1 = instr.rpitype.rs1; // Base
-                  instr_dec_o.use_rs1 = 1'b1;
-                  instr_dec_o.rs2 = instr.rpitype.rs2; // Offset. We move rs3 to rs2, since rs2 is float and needs to be loaded through immediate 
-                  instr_dec_o.use_rs2 = 1'b1;
-                  instr_dec_o.rd  = instr.rpitype.rs1; // base
-                  instr_dec_o.rd_is_fp = 1'b0;
-                  instr_dec_o.rd2  = instr.rpitype.rs3; // Dest
-                  instr_dec_o.rd2_is_fp = 1'b1;
-                  instr_dec_o.use_rd2 = 1'b1;
-                end
-              endcase
-            end
-            default: illegal_instr = 1'b1;
-          endcase
-
+                    // Inputs & Outputs
+                    // We re-shuffle these accordingly inside the ALU_LSU FU
+                    instr_dec_o.rs1 = instr.rpitype.rs1; // Base
+                    instr_dec_o.use_rs1 = 1'b1;
+                    instr_dec_o.rs2 = instr.rpitype.rs2; // Offset. We move rs3 to rs2, since rs2 is float and needs to be loaded through immediate 
+                    instr_dec_o.use_rs2 = 1'b1;
+                    instr_dec_o.rd  = instr.rpitype.rs1; // base
+                    instr_dec_o.rd_is_fp = 1'b0;
+                    instr_dec_o.rd2  = instr.rpitype.rs3; // Dest
+                    instr_dec_o.rd2_is_fp = 1'b1;
+                    instr_dec_o.use_rd2 = 1'b1;
+                  end
+                endcase
+              end
+              default: illegal_instr = 1'b1;
+            endcase
+          end else begin
+            illegal_instr = 1'b1;
+          end
         end
       end
       // --------------------------------

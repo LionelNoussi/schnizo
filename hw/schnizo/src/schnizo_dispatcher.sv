@@ -21,7 +21,8 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
   parameter int unsigned NofLsus     = 1,
   parameter int unsigned NofAluLsus  = 0,
   parameter int unsigned NofFpus     = 1,
-  parameter logic UseAluLsu = 0,
+  parameter bit UseAluLsu = 0,
+  parameter bit PostIncrement = 0,
   parameter type         instr_dec_t = logic,
   parameter type         rmt_entry_t = logic,
   parameter type         disp_req_t  = logic,
@@ -57,7 +58,7 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
   // ALU + LSU
   output logic      [iomsb(NofAluLsus):0] alu_lsu_disp_req_valid_o,
   input  logic      [iomsb(NofAluLsus):0] alu_lsu_disp_req_ready_i,
-  input  disp_rsp_t [iomsb(NofAluLsus):0][1:0] alu_lsu_disp_rsp_i,
+  input  disp_rsp_t [iomsb(NofAluLsus):0][PostIncrement:0] alu_lsu_disp_rsp_i,
   input  logic      [iomsb(NofAluLsus):0] alu_lsu_rs_full_i,
 
   // Handshake to the CSR FU. There is no response as it does not have a reservation station.
@@ -276,7 +277,11 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
       schnizo_pkg::CTRL_FLOW: begin
         // always select ALU0 for branch and MUL instructions
         if (UseAluLsu) begin
-          {fu_response2, fu_response} = alu_lsu_disp_rsp_i[0];
+          if (PostIncrement) begin
+            {fu_response2, fu_response} = alu_lsu_disp_rsp_i[0];
+          end else begin
+            fu_response = alu_lsu_disp_rsp_i[0][0];
+          end
           fu_ready    = alu_lsu_disp_req_ready_i[0];
           fu_rs_full  = alu_lsu_rs_full_i[0];
         end else begin
@@ -287,7 +292,11 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
       end
       schnizo_pkg::ALU: begin
         if (UseAluLsu) begin
-          {fu_response2, fu_response} = alu_lsu_disp_rsp_i[alu_lsu_idx];
+          if (PostIncrement) begin
+            {fu_response2, fu_response} = alu_lsu_disp_rsp_i[alu_lsu_idx];
+          end else begin
+            fu_response = alu_lsu_disp_rsp_i[alu_lsu_idx][0];
+          end
           fu_ready    = alu_lsu_disp_req_ready_i[alu_lsu_idx];
           fu_rs_full  = alu_lsu_rs_full_i[alu_lsu_idx];
         end else begin
@@ -300,7 +309,11 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
       schnizo_pkg::STORE: begin
         // per default take the non consistent mode.
         if (UseAluLsu) begin
-          {fu_response2, fu_response} = alu_lsu_disp_rsp_i[alu_lsu_idx];
+          if (PostIncrement) begin
+            {fu_response2, fu_response} = alu_lsu_disp_rsp_i[alu_lsu_idx];
+          end else begin
+            fu_response = alu_lsu_disp_rsp_i[alu_lsu_idx][0];
+          end
           fu_ready    = alu_lsu_disp_req_ready_i[alu_lsu_idx];
           fu_rs_full  = alu_lsu_rs_full_i[alu_lsu_idx];
         end else begin
@@ -311,7 +324,11 @@ module schnizo_dispatcher import schnizo_pkg::*, cf_math_pkg::*; #(
       end
       schnizo_pkg::ALU_LSU_LOAD,
       schnizo_pkg::ALU_LSU_STORE: begin
-        {fu_response2, fu_response} = alu_lsu_disp_rsp_i[alu_lsu_idx];
+        if (PostIncrement) begin
+          {fu_response2, fu_response} = alu_lsu_disp_rsp_i[alu_lsu_idx];
+        end else begin
+          fu_response = alu_lsu_disp_rsp_i[alu_lsu_idx][0];
+        end
         fu_ready    = alu_lsu_disp_req_ready_i[alu_lsu_idx];
         fu_rs_full  = alu_lsu_rs_full_i[alu_lsu_idx];
       end

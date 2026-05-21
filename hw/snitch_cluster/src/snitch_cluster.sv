@@ -108,6 +108,8 @@ module snitch_cluster
   parameter bit [NrCores-1:0] XFVEC         = '0,
   /// Enable DOTP support.
   parameter bit [NrCores-1:0] XFDOTP        = '0,
+  /// Per-core enabling of the custom `PostIncrement` ISA extensions.
+  parameter bit [NrCores-1:0] PostIncrement = '0,
   /// Per-core enabling of the custom `Xdma` ISA extensions.
   parameter bit [NrCores-1:0] Xdma          = '0,
   /// Per-core enabling of the custom `Xfrep` ISA extensions.
@@ -1187,6 +1189,7 @@ module snitch_cluster
       .XF8ALT (XF8ALT[i]),
       .XFVEC (XFVEC[i]),
       .XFDOTP (XFDOTP[i]),
+      .PostIncrement (PostIncrement[i]),
       .Xdma (Xdma[i]),
       .IsoCrossing (IsoCrossing),
       .Xfrep (Xfrep[i]),

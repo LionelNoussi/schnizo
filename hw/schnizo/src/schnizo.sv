@@ -31,6 +31,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   parameter int unsigned AddrWidth = 48,
   /// Data width of memory interface.
   parameter int unsigned DataWidth = 64,
+  parameter bit          PostIncrement = 0,
   /// Enable Snitch DMA as accelerator.
   parameter bit          Xdma      = 0,
   /// Enable the Superscalar FREP mode
@@ -478,6 +479,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   // to only pass e.g. XLEN here, and internally derive instr_dec_t in the decoder using a macro.
   schnizo_decoder #(
     .XLEN   (XLEN),
+    .PostIncrement (PostIncrement),
     .Xdma   (Xdma),
     .Xfrep  (Xfrep),
     .RVF    (RVF),
@@ -633,6 +635,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
     .NofAluLsus (NofAluLsus),
     .NofFpus    (NofFpus),
     .UseAluLsu  (UseAluLsu),
+    .PostIncrement (PostIncrement),
     .instr_dec_t(instr_dec_t),
     .rmt_entry_t(rmt_entry_t),
     .disp_req_t (disp_req_t),
@@ -777,6 +780,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
     .FpuNofResReqIfs    (FpuNofResReqIfs),
     .FpuNofResRspPorts  (FpuNofResRspPorts),
     .UseAluLsu          (UseAluLsu),
+    .PostIncrement      (PostIncrement),
     .NofAluLsus         (NofAluLsus),
     .AluLsuNofRss       (AluLsuNofRss),
     .AluLsuNofRsrs      (AluLsuNofRsrs),
@@ -1226,7 +1230,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
           valid:          i_fu_stage.gen_alus[alu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.result_valid_i[0] &&
                           i_fu_stage.gen_alus[alu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.result_ready_o[0] &&
                           !i_fu_stage.gen_alus[alu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.slot_wb_capture[0].no_dest &&
-                          (i_fu_stage.gen_alus[alu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.result_rss_sel[0] == rss),
+                          (i_fu_stage.gen_alus[alu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.result_rsrs_sel[0] == rss),
           producer:       i_fu_stage.producer_to_string(
                             i_fu_stage.gen_alus[alu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.rsrs_ids[rss]),
           result_iter:    i_fu_stage.gen_alus[alu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.slot_wb_capture[0].result.iteration,
@@ -1292,7 +1296,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
           valid:          i_fu_stage.gen_lsus[lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.result_valid_i[0] &&
                           i_fu_stage.gen_lsus[lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.result_ready_o[0] &&
                           !i_fu_stage.gen_lsus[lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.slot_wb_capture[0].no_dest &&
-                          (i_fu_stage.gen_lsus[lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.result_rss_sel[0] == rss),
+                          (i_fu_stage.gen_lsus[lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.result_rsrs_sel[0] == rss),
           producer:       i_fu_stage.producer_to_string(
                             i_fu_stage.gen_lsus[lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.rsrs_ids[rss]),
           result_iter:    i_fu_stage.gen_lsus[lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.slot_wb_capture[0].result.iteration,
@@ -1354,8 +1358,10 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
                           i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.issue_req_ready_i &&
                           (i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.issue_idx_i == rss),
           instr_iter:     i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.slot_issue_rdata.instruction_iter,
-          producer:       i_fu_stage.producer_to_string(
-                            i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.rsrs_ids[rss]),
+          producer:       i_fu_stage.producer_to_string(producer_id_t'{
+                            slot_id: i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.issue_req_raw.tag,
+                            rs_id: i_fu_stage.AluLsuRsIdOffset + alu_lsu}
+                          ), // Necessary to match dispatch producer, since alu_lsu can have two destinations
           sel_alu:        sel_alu,
           alu_opa:        i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.issue_req_raw.fu_data.operand_a[XLEN-1:0],
           alu_opb:        i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.issue_req_raw.fu_data.operand_b[XLEN-1:0],
@@ -1384,7 +1390,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
             valid:          i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.result_valid_i[res_port] &&
                             i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.result_ready_o[res_port] &&
                             !i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.slot_wb_capture[res_port].no_dest &&
-                            (i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.result_rss_sel[res_port] == rsrs),
+                            (i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.result_rsrs_sel[res_port] == rsrs),
             producer:       i_fu_stage.producer_to_string(
                               i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.rsrs_ids[rsrs]),
             result_iter:    i_fu_stage.gen_alu_lsus[alu_lsu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.slot_wb_capture[res_port].result.iteration,
@@ -1448,7 +1454,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
           valid:          i_fu_stage.gen_fpus[fpu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.result_valid_i[0] &&
                           i_fu_stage.gen_fpus[fpu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.result_ready_o[0] &&
                           !i_fu_stage.gen_fpus[fpu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.slot_wb_capture[0].no_dest &&
-                          (i_fu_stage.gen_fpus[fpu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.result_rss_sel[0] == rss),
+                          (i_fu_stage.gen_fpus[fpu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.result_rsrs_sel[0] == rss),
           producer:       i_fu_stage.producer_to_string(
                             i_fu_stage.gen_fpus[fpu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.rsrs_ids[rss]),
           result_iter:    i_fu_stage.gen_fpus[fpu].i_fu_block.gen_superscalar.i_res_stat.i_res_stat_slots.slot_wb_capture[0].result.iteration,
@@ -1543,12 +1549,16 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
     fu_rd:       alu_lsu_result_tags[0].dest_reg,
     fu_rd_is_fp: alu_lsu_result_tags[0].dest_reg_is_fp
   };
-  assign alu_lsu_wb_traces[1] = '{
-    valid:       alu_lsu_results_valid[1] && alu_lsu_results_ready[1],
-    fu_result:   alu_lsu_results[1],
-    fu_rd:       alu_lsu_result_tags[1].dest_reg,
-    fu_rd_is_fp: alu_lsu_result_tags[1].dest_reg_is_fp
-  };
+  if (AluLsuNofResPorts == 2) begin
+    assign alu_lsu_wb_traces[1] = '{
+      valid:       alu_lsu_results_valid[1] && alu_lsu_results_ready[1],
+      fu_result:   alu_lsu_results[1],
+      fu_rd:       alu_lsu_result_tags[1].dest_reg,
+      fu_rd_is_fp: alu_lsu_result_tags[1].dest_reg_is_fp
+    };
+  end else begin
+    assign alu_lsu_wb_traces[1] = '{default: '0};
+  end
 
   assign fpu_wb_trace = '{
     valid:       fpu_result_valid && fpu_result_ready,

@@ -34,7 +34,8 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
   parameter int unsigned FpuNofOperands    = 3,
   parameter int unsigned FpuNofResReqIfs   = 3,
   parameter int unsigned FpuNofResRspPorts = 1,
-  parameter logic UseAluLsu = 0,
+  parameter bit UseAluLsu = 0,
+  parameter bit PostIncrement = 0,
   parameter int unsigned NofAluLsus         = 1,
   parameter int unsigned AluLsuNofRss       = 3,
   parameter int unsigned AluLsuNofRsrs      = 3,
@@ -1281,7 +1282,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .dest_mask_t   (dest_mask_t),
       .res_rsp_t     (res_rsp_t),
       .NofResPorts   (AluLsuNofResPorts),
-      .HasTwoDests   (1'b1)
+      .HasTwoDests   (PostIncrement)
     ) i_fu_block (
       .clk_i,
       .rst_i,
@@ -1352,6 +1353,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
       .alu_lsu_issue_req_t  (alu_lsu_issue_req_t),
       .fu_issue_req_t       (alu_lsu_fu_issue_req_t),
       .NofResPorts          (AluLsuNofResPorts),
+      .PostIncrement        (PostIncrement),
       // ALU
       .XLEN                 (XLEN),
       .HasBranch            (alu_lsu == '0), // only the first ALU has the branch logic

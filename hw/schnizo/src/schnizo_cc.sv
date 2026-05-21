@@ -61,6 +61,8 @@ module schnizo_cc #(
   parameter bit          XF16ALT            = 0,
   parameter bit          XFVEC              = 0,
   parameter bit          XFDOTP             = 0,
+  /// Enable PostIncrement Extention
+  parameter bit          PostIncrement      = 0,
   /// Enable Snitch DMA
   parameter bit          Xdma               = 0,
   /// Has `frep` support. For Schnizo this is the superscalar feature.
@@ -225,6 +227,7 @@ module schnizo_cc #(
     .BootAddr              (BootAddr),
     .AddrWidth             (AddrWidth),
     .DataWidth             (DataWidth),
+    .PostIncrement         (PostIncrement),
     .Xdma                  (Xdma),
     .Xfrep                 (Xfrep),
     .RVF                   (RVF),

@@ -34,8 +34,8 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
   parameter  type             available_result_t = logic,
   parameter  type             dest_mask_t      = logic,
   parameter  type             res_rsp_t        = logic,
-  parameter int unsigned      NofResPorts     = 1,
-  parameter bit               HasTwoDests     = 0,
+  parameter int unsigned      NofResPorts      = 1,
+  parameter bit               HasTwoDests      = 0,
   localparam integer unsigned NofRssWidth      = cf_math_pkg::idx_width(NofRss),
   localparam integer unsigned NofRsrsWidth     = cf_math_pkg::idx_width(NofRsrs),
   localparam type             rss_idx_t        = logic [NofRssWidth-1:0],
@@ -138,8 +138,23 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
   // Slots //
   ///////////
 
-  slot_id_t     [NofRsrs-1:0] result_slot_ids;
+  // Pre-compute next indices to save NofRsrs adders in the generated blocks
+  rsrs_idx_t disp_rsrs_idx_next;
+  assign disp_rsrs_idx_next = rsrs_idx_t'(rsrs_idx_i + 1);
+
+  rsrs_idx_t issue_rsrs_idx_next;
+  assign issue_rsrs_idx_next = rsrs_idx_t'(issue_rsrs_idx_i + 1);
+
+
+  // pragma translate_off
   producer_id_t [NofRsrs-1:0] rsrs_ids;
+  for (genvar rsrs = 0; rsrs < NofRsrs; rsrs++) begin: gen_rsrs_ids
+    assign rsrs_ids[rsrs] = producer_id_t'{
+      slot_id: slot_id_t'(rsrs),
+      rs_id:   producer_id_i.rs_id
+    };
+  end
+  // pragma translate_on
 
   rs_slot_result_t slot_result_reset;
   assign slot_result_reset = '{
@@ -232,12 +247,6 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
   logic [NofRsrs-1:0] enable_cap_consumers_q, enable_cap_consumers_d;
 
   for (genvar rsrs = 0; rsrs < NofRsrs; rsrs++) begin : gen_rsrs
-    assign result_slot_ids[rsrs] = slot_id_t'(rsrs);
-    assign rsrs_ids[rsrs] = producer_id_t'{
-      slot_id: result_slot_ids[rsrs],
-      rs_id:   producer_id_i.rs_id
-    };
-
     // Per-slot available result info
     assign available_results_o[rsrs].iteration = slot_result_qs[rsrs].result.iteration;
     assign available_results_o[rsrs].valid = slot_result_qs[rsrs].result.is_valid;
@@ -275,12 +284,8 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
 
       if (disp_req_valid_i && rsrs_idx_i == rsrs_idx_t'(rsrs)) begin
         slot_base_state[rsrs] = slot_result_inits[0];
-      end
-
-      if (HasTwoDests) begin
-        if (disp_req_valid_i && rsrs_idx_i + 1 == rsrs_idx_t'(rsrs) && disp_req_i.has_two_dests) begin
-          slot_base_state[rsrs] = slot_result_inits[1];
-        end
+      end else if (HasTwoDests && disp_req_valid_i && disp_rsrs_idx_next == rsrs_idx_t'(rsrs) && disp_req_i.has_two_dests) begin
+        slot_base_state[rsrs] = slot_result_inits[1];
       end
     end
 
@@ -348,19 +353,32 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
   rs_slot_result_t [HasTwoDests:0] result_slots_for_dispatch;
   assign result_slots_for_dispatch[0] = slot_result_qs[rsrs_idx_i];
   if (HasTwoDests) begin
-    assign result_slots_for_dispatch[1] = slot_result_qs[rsrs_idx_i+1];
+    assign result_slots_for_dispatch[1] = slot_result_qs[disp_rsrs_idx_next];
   end
 
+  // Directly construct structs instead of dynamic constant array indexing to avoid massive muxes
   producer_id_t [HasTwoDests:0] dispatcher_result_slot_ids;
-  assign dispatcher_result_slot_ids[0] = rsrs_ids[rsrs_idx_i];
+  assign dispatcher_result_slot_ids[0] = producer_id_t'{
+    slot_id: slot_id_t'(rsrs_idx_i),
+    rs_id:   producer_id_i.rs_id
+  };
   if (HasTwoDests) begin
-    assign dispatcher_result_slot_ids[1] = rsrs_ids[rsrs_idx_i+1];
+    assign dispatcher_result_slot_ids[1] = producer_id_t'{
+      slot_id: slot_id_t'(disp_rsrs_idx_next),
+      rs_id:   producer_id_i.rs_id
+    };
   end
 
   producer_id_t [HasTwoDests:0] dispatcher_issue_producer_ids;
-  assign dispatcher_issue_producer_ids[0] = rsrs_ids[issue_rsrs_idx_i];
+  assign dispatcher_issue_producer_ids[0] = producer_id_t'{
+    slot_id: slot_id_t'(issue_rsrs_idx_i),
+    rs_id:   producer_id_i.rs_id
+  };
   if (HasTwoDests) begin
-    assign dispatcher_issue_producer_ids[1] = rsrs_ids[issue_rsrs_idx_i+1];
+    assign dispatcher_issue_producer_ids[1] = producer_id_t'{
+      slot_id: slot_id_t'(issue_rsrs_idx_next),
+      rs_id:   producer_id_i.rs_id
+    };
   end
 
   schnizo_rss_dispatch_pipeline #(
@@ -417,13 +435,13 @@ module schnizo_res_stat_slots import schnizo_pkg::*; #(
   // TODO(colluca): use rss_ids
   // TODO(lnoussi): Double check todo above in new implementation with two dests
   assign disp_rsp_o[0] = producer_id_t'{
-    slot_id: result_slot_ids[rsrs_idx_i],
+    slot_id: slot_id_t'(rsrs_idx_i),
     rs_id:   producer_id_i.rs_id
   };
 
   if (HasTwoDests) begin
     assign disp_rsp_o[1] = producer_id_t'{
-      slot_id: result_slot_ids[rsrs_idx_i+1],
+      slot_id: slot_id_t'(disp_rsrs_idx_next),
       rs_id:   producer_id_i.rs_id
     };
   end

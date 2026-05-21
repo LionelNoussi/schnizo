@@ -160,6 +160,7 @@ module ${cfg['cluster']['name']}_wrapper (
     .XF8ALT (${core_cfg_flat('xf8alt')}),
     .XFVEC (${core_cfg_flat('xfvec')}),
     .XFDOTP (${core_cfg_flat('xfdotp')}),
+    .PostIncrement (${core_cfg_flat('post_increment')}),
     .Xdma (${core_cfg_flat('xdma')}),
     .Xfrep (${core_cfg_flat('xfrep')}),
     .Xcopift (${core_cfg_flat('xcopift')}),

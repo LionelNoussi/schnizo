@@ -1,0 +1,12 @@
+#@ # 
+#@ # Running fc_shell Version V-2023.12-SP4 for linux64 -- Jun 03, 2024
+#@ # Date:   Sat May 16 15:14:00 2026
+#@ # Run by: sem26f5@pisoc1.ee.ethz.ch
+#@ 
+
+open_lib experiments/alu_lsu/synth/schnizo_res_stat_synth_CC112_NC32_NO3_NRI2_RSR16_RSS16/out/schnizo_res_stat_synth_NofRss16_NofRsrs16_NofConstants32_NofOperands3_NofResRspIfs2_ConsumerCount112_NofResPorts1_HasTwoDests0_UseSram0/
+list_blocks
+open_block schnizo_res_stat_synth_NofRss16_NofRsrs16_NofConstants32_NofOperands3_NofResRspIfs2_ConsumerCount112_NofResPorts1_HasTwoDests0_UseSram0/6.design
+get_cells -hierarchical -filter "full_name =~ *slot_result_qs*"
+set_attribute [lindex [get_cells -hierarchical -filter "full_name =~ *slot_result_qs_reg*"] 0] dont_use_clock_gating true
+set_clock_gating_objects -exclude [get_cells -hierarchical -filter "full_name =~ *slot_result_qs_reg*"]

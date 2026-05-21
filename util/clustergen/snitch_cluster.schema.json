@@ -645,6 +645,12 @@
                                             "description": "If enabled, the ALU+LSU will be used instead of the normal ALUs and LSUs.",
                                             "default": 0
                                         },
+                                        "post_increment": {
+                                            "type": "boolean",
+                                            "title": "Post-Load/Store-Increment Extension",
+                                            "description": "Enables Post-FloatingPoint-Load/Store-Increment Instruction support.",
+                                            "default": true
+                                        },
                                         "xdma": {
                                             "type": "boolean",
                                             "title": "Xdma Extension",

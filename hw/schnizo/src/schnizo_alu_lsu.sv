@@ -9,6 +9,7 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   parameter type         alu_lsu_issue_req_t = logic,
   parameter type         fu_issue_req_t      = logic,
   parameter int unsigned NofResPorts   = 2,
+  parameter bit          PostIncrement = 0,
   // ALU
   parameter int unsigned XLEN          = 32,
   parameter bit          HasBranch     = 1'b1,

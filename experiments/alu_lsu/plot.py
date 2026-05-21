@@ -32,14 +32,14 @@ def plot_FU_summary_results(
     # -----------------------------
     # Extract metrics
     # -----------------------------
-    df["area_ge"] = df["StdCellArea"] / GE_AREA
+    df["area_kge"] = df["StdCellArea"] / GE_AREA / 1000
     df["wns"] = df["WNS"]
 
     # -----------------------------
     # Base configs
     # -----------------------------
     area_labels = list(df["short_name"])
-    area_values = list(df["area_ge"])
+    area_values = list(df["area_kge"])
 
     # Colors
     color_map = {
@@ -57,9 +57,9 @@ def plot_FU_summary_results(
     # -----------------------------
     # Add synthetic summed configs
     # -----------------------------
-    alu = df[df["short_name"] == "ALU"]["area_ge"].iloc[0]
-    alu_bm = df[df["short_name"] == "ALU+B+M"]["area_ge"].iloc[0]
-    lsu = df[df["short_name"] == "LSU"]["area_ge"].iloc[0]
+    alu = df[df["short_name"] == "ALU"]["area_kge"].iloc[0]
+    alu_bm = df[df["short_name"] == "ALU+B+M"]["area_kge"].iloc[0]
+    lsu = df[df["short_name"] == "LSU"]["area_kge"].iloc[0]
 
     # Stacked contributions
     sum_labels = [
@@ -119,7 +119,7 @@ def plot_FU_summary_results(
         height = bar.get_height()
         ax1.text(
             bar.get_x() + bar.get_width() / 2,
-            height + 150,
+            height + 0.150,
             f"{height:.0f}",
             ha="center",
             va="bottom",
@@ -133,7 +133,7 @@ def plot_FU_summary_results(
     for x, total in zip(x_sum, total_vals):
         ax1.text(
             x,
-            total + 150,
+            total + 0.150,
             f"{total:.0f}",
             ha="center",
             va="bottom",
@@ -198,40 +198,36 @@ def plot_FU_summary_results(
     print(f"Saved plot to {output_path}")
 
 
-def plot_resstat_scaling(
-        csv_path="ResStat_results/summary.csv",
-        output_path="ResStat_results/summary.png"
-    ):
+def plot_resstat_scaling(csv_path="results/summary.csv", output_path="results/summary.png"):
     df = pd.read_csv(csv_path)
 
-    # 1. Parse the config string to extract parameters
     def parse_config(c):
-        # Extract numbers using regex
-        rss = re.search(r'NofRss_(\d+)', c)
-        rsrs = re.search(r'NofRsrs_(\d+)', c)
-        # Default logic for missing params in early strings (assuming 8/8 based on pattern)
-        rss_val = int(rss.group(1)) if rss else 8
-        rsrs_val = int(rsrs.group(1)) if rsrs else 8
+        # RSS matches 'RSS' followed by digits. RSR matches 'RSR' followed by digits.
+        # If not found, it uses the default (4) from your ResStatSynth definition.
+        rss_m = re.search(r'RSS(\d+)', c)
+        rsr_m = re.search(r'RSR(\d+)', c)
         
-        ports = 2 if "NofResPorts_2" in c else 1
-        dests = 2 if "HasTwoDests_True" in c else 1
+        rss_val = int(rss_m.group(1)) if rss_m else 4
+        rsr_val = int(rsr_m.group(1)) if rsr_m else 4
+        
+        # Feature detection using the new short codes
+        ports = 2 if "NP2" in c else 1
+        dests = 2 if "TD1" in c else 1
         
         return pd.Series({
-            "scaling_label": f"{rss_val} RSS / {rsrs_val} RSR",
+            "scaling_label": f"{rss_val} Issue / {rsr_val} Result",
             "ports": ports,
             "dests": dests,
-            "sort_key": rss_val * 1000 + rsrs_val # For chronological sorting
+            "sort_key": rss_val * 1000 + rsr_val
         })
 
-    # Apply parsing
-    config_params = df['config'].apply(parse_config)
-    df = pd.concat([df, config_params], axis=1)
-
-    # Convert Area to kGE
+    # Data Processing
+    df = pd.concat([df, df['config'].apply(parse_config)], axis=1)
     df["area_kge"] = (df["StdCellArea"] / GE_AREA) / 1000
+    df = df.sort_values("sort_key")
 
-    # 2. Group by feature sets to create distinct lines
-    # We define 4 categories based on Ports and Dests
+    # Plotting
+    plt.figure(figsize=(11, 6))
     groups = [
         {"label": "Standard (1P/1D)", "ports": 1, "dests": 1, "color": "#4C72B0", "marker": "o"},
         {"label": "Dual Dest (1P/2D)", "ports": 1, "dests": 2, "color": "#55A868", "marker": "s"},
@@ -239,65 +235,165 @@ def plot_resstat_scaling(
         {"label": "Dual Port & Dest (2P/2D)", "ports": 2, "dests": 2, "color": "#8172B2", "marker": "D"},
     ]
 
-    plt.figure(figsize=(12, 7))
-    
-    # Track labels for the X-axis (unified across all lines)
-    # Sort by the sort_key to ensure the line moves left-to-right logically
-    all_scaling_points = df.sort_values("sort_key")["scaling_label"].unique()
-    x_map = {label: i for i, label in enumerate(all_scaling_points)}
-
     for g in groups:
-        # Filter data for this specific hardware configuration
         subset = df[(df["ports"] == g["ports"]) & (df["dests"] == g["dests"])]
-        subset = subset.sort_values("sort_key")
-        
         if not subset.empty:
-            plt.plot(
-                subset["scaling_label"], 
-                subset["area_kge"], 
-                label=g["label"],
-                color=g["color"],
-                marker=g["marker"],
-                linewidth=2,
-                markersize=8,
-                alpha=0.8
-            )
+            plt.plot(subset["scaling_label"], subset["area_kge"], label=g["label"],
+                     color=g["color"], marker=g["marker"], linewidth=2, markersize=8)
+            
+            # Label point values
+            for _, row in subset.iterrows():
+                plt.text(row["scaling_label"], row["area_kge"] + (df["area_kge"].max() * 0.02),
+                         f'{row["area_kge"]:.1f}', color=g["color"], ha='center', fontweight='bold')
 
-            # Add data labels for the final point of each line
-            last_row = subset.iloc[-1]
-            plt.text(
-                last_row["scaling_label"], 
-                last_row["area_kge"] + 2, 
-                f'{last_row["area_kge"]:.1f}k', 
-                color=g["color"], 
-                fontweight='bold',
-                ha='center'
-            )
-
-    # 3. Aesthetics
-    plt.title("Reservation Station Area Scaling Analysis", fontsize=16, pad=20)
-    plt.xlabel("Design Complexity (NofRss / NofRsrs)", fontsize=12, labelpad=10)
+    plt.title("Reservation Station Area Scaling Analysis", fontsize=15, pad=15)
+    plt.xlabel("Slots (Issue / Result)", fontsize=12)
     plt.ylabel("Area [kGE]", fontsize=12)
-    
-    plt.grid(True, which='both', linestyle='--', alpha=0.5)
-    plt.legend(title="Feature Configuration", fontsize=10, loc='upper left')
-    
-    # Force y-axis to start at 0
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.legend(title="Feature Configuration", loc='upper left')
     plt.ylim(bottom=0)
-    
-    # Improve layout
-    plt.xticks(rotation=15)
     plt.tight_layout()
 
-    # Save
-    output_path = Path(output_path)
-    output_path.parent.mkdir(exist_ok=True)
-    plt.savefig(output_path, dpi=300)
+    out = Path(output_path)
+    out.parent.mkdir(exist_ok=True, parents=True)
+    plt.savefig(out, dpi=300)
     plt.show()
 
-    print(f"Plot generated: {output_path}")
+
+
+def plot_fu_stage_scaling(
+    csv_path="results/summary.csv",
+    output_path="results/summary.png",
+    ge_area=0.121,
+):
+    df = pd.read_csv(csv_path)
+
+    # ------------------------------------------------------------
+    # Parse configuration strings & calculate Total Result Slots
+    # ------------------------------------------------------------
+    def parse_config(cfg):
+        def ext(tag):
+            m = re.search(rf"{tag}(\d+)", cfg)
+            return int(m.group(1)) if m else 0
+
+        xr = ext("XR")
+        xrr = ext("XRR")
+        ar = ext("AR")
+        fr = ext("FR")
+        lr = ext("LR")
+
+        # Architecture classification & X-axis alignment
+        if "UAL1" not in cfg:
+            arch = "Separate ALU and LSU"
+            tot_rsrs = 3*(ar + lr) + fr  # ISO-capability mapping for separate units
+        elif xr == xrr:
+            arch = "Combined FU (Issue Slots = Result Slots)"
+            tot_rsrs = xrr * 3 + fr
+        elif xr * 2 == xrr:
+            arch = "Combined FU (Issue Slots = Result Slots / 2)"
+            tot_rsrs = xrr * 3 + fr
+        else:
+            arch = "Unknown"
+            tot_rsrs = xrr
+
+        return pd.Series({
+            "arch": arch,
+            "tot_rsrs": tot_rsrs,
+        })
+
+    parsed = df["config"].apply(parse_config)
+    df = pd.concat([df, parsed], axis=1)
+
+    # ------------------------------------------------------------
+    # Metrics conversion
+    # ------------------------------------------------------------
+    df["area_kge"] = (df["StdCellArea"] / ge_area) / 1000
+
+    # ------------------------------------------------------------
+    # Plot setup (Clean, modern styling)
+    # ------------------------------------------------------------
+    fig, ax = plt.subplots(figsize=(8.5, 5.5))
+
+    styles = {
+        "Separate ALU and LSU": {
+            "color": "#E26D5C",    # Soft, clean coral/red
+            "marker": "^",
+            "linestyle": ":",
+        },
+        "Combined FU (Issue Slots = Result Slots)": {
+            "color": "#4A7BB0",    # Clean corporate blue
+            "marker": "o",
+            "linestyle": "-",
+        },
+        "Combined FU (Issue Slots = Result Slots / 2)": {
+            "color": "#62B17B",    # Soft sage green
+            "marker": "s",
+            "linestyle": "--",
+        },
+    }
+
+    # ------------------------------------------------------------
+    # Plot each architecture
+    # ------------------------------------------------------------
+    for arch, style in styles.items():
+        subset = df[df["arch"] == arch].sort_values("tot_rsrs")
+        
+        if subset.empty:
+            continue
+
+        ax.plot(
+            subset["tot_rsrs"],
+            subset["area_kge"],
+            label=arch,
+            color=style["color"],
+            marker=style["marker"],
+            linestyle=style["linestyle"],
+            linewidth=2.5,
+            markersize=8,
+            clip_on=False  # Keeps markers from getting clipped at edges
+        )
+
+    # ------------------------------------------------------------
+    # Minimalist Cosmetics
+    # ------------------------------------------------------------
+    ax.set_title("FU Stage Area Scaling", fontsize=14, pad=15, fontweight="semibold", loc="left")
+    ax.set_xlabel("Total Reservation Station Result Slots (TotRSRS)", fontsize=11, labelpad=8)
+    ax.set_ylabel("Area [kGE]", fontsize=11, labelpad=8)
+
+    # Clean layout: Remove top and right borders
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.spines[["left", "bottom"]].set_color("#cccccc")
+
+    # Set X-ticks exactly to your hardware configuration steps (16, 32, 64)
+    unique_ticks = sorted(df["tot_rsrs"].unique())
+    ax.set_xticks(unique_ticks)
+    
+    # Faint, non-distracting gridlines
+    ax.grid(True, linestyle="--", alpha=0.3, color="#888888")
+    
+    # Clean legend without a border box
+    ax.legend(
+        frameon=False,
+        fontsize=10,
+        loc="upper left",
+    )
+
+    ax.set_ylim(bottom=0)
+    plt.tight_layout()
+
+    # ------------------------------------------------------------
+    # Save output
+    # ------------------------------------------------------------
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+    print(f"Saved clean scaling plot to: {output_path}")
 
 
 if __name__ == "__main__":
     # plot_FU_summary_results()
     plot_resstat_scaling()
+    # plot_fu_stage_scaling()

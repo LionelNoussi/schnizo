@@ -52,6 +52,7 @@ module schnizo_synth #(
 		.BootAddr(schnizo_synth_pkg::BootAddr),
 		.AddrWidth(schnizo_synth_pkg::AddrWidth),
 		.DataWidth(schnizo_synth_pkg::DataWidth),
+		.PostIncrement(1'b1),
 		.Xdma(0),
 		.Xfrep(Xfrep),
 		.RVF(1),

@@ -6,13 +6,14 @@ import shutil
 from pathlib import Path
 from dataclasses import dataclass, asdict, fields
 import pandas as pd
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import sys
 
 from snitch.util.experiments import common, experiment_utils as eu
 
 # --- CONSTANTS ---
-SCRATCH_BASE = Path('/scratch/sem26f5/cache')
+SCRATCH_BASE = Path('/scratch1/sem26f5/cache')
 GE_AREA = 0.121
 FINAL_STAGE = '6'
 
@@ -34,24 +35,52 @@ class Design:
                 for k, v in asdict(self).items() if k != 'design_name' and k != 'CP'}
 
     def to_exp(self):
-        """Generates a compact name using only capital letters from parameter names."""
+        """Generates a unique, compact configuration string."""
         overrides = []
         
+        # Priority mapping for specific fields to ensure uniqueness and brevity
+        # This prevents 'NofRss' and 'NofRsrs' both becoming 'NR'
+        SHORT_CODES = {
+            'NofRss': 'RSS',        # Issue Slots
+            'NofRsrs': 'RSR',       # Result Slots
+            'NofResPorts': 'NP',    # Number of Ports
+            'HasTwoDests': 'TD',    # Two Destinations
+            'NofConstants': 'NC',
+            'NofOperands': 'NO',
+            'NofResRspIfs': 'NRI',
+            'ConsumerCount': 'CC',
+            'HasMultiplier': 'HM',
+            'HasBranch': 'HB',
+            'UseSram': 'SR'
+        }
+
         for f in fields(self):
-            if f.name == 'design_name': continue
-            if f.name == 'CP': continue
+            if f.name in ['design_name', 'CP']: continue
             val = getattr(self, f.name)
             
+            # Only include if it differs from the default
             if val != f.default:
-                # Extract capital letters: NofRss -> NR, UseAluLsu -> UAL
-                caps = "".join([c for c in f.name if c.isupper()])
+                # 1. Try priority map
+                # 2. Else use All Caps (e.g., UseAluLsu -> UAL)
+                # 3. Else use first two chars
+                if f.name in SHORT_CODES:
+                    label = SHORT_CODES[f.name]
+                else:
+                    caps = "".join([c for c in f.name if c.isupper()])
+                    label = caps if (caps and len(caps) > 1) else f.name[:2].upper()
                 
-                # Fallback for lowercase params: rss -> rs
-                label = caps if caps else f.name[:2]
-                
-                # Convert bool to 1/0 for brevity
-                short_val = int(val) if isinstance(val, bool) else val
-                overrides.append(f"{label}{short_val}")
+                # Formatting values: Bool -> 1/0, Floats -> int (if whole)
+                if isinstance(val, bool):
+                    val_str = "1" if val else "0"
+                elif isinstance(val, float) and val.is_integer():
+                    val_str = str(int(val))
+                else:
+                    val_str = str(val)
+                    
+                overrides.append(f"{label}{val_str}")
+        
+        # Sort overrides alphabetically so config name is deterministic
+        overrides.sort()
         
         config_name = self.design_name
         if overrides:
@@ -108,25 +137,25 @@ class FuStageSynth(Design):
     UAL: bool = False  # UseAluLsu
     MA0: bool = True   # MulInAlu0
     RS: int   = 0      # Base RSS
-    CP: int   = 0      # Master Const Helper
+    CM: int   = 0      # Master Const Helper
+
     NA: int   = 3      # Num ALUs
-    AR: int   = Default("RS")
-    AP: int   = 2      # ALU Ports
-    AC: int   = Default("CP")
+    AR: int   = Default("RS")   # ALU Reservation Station Slots
+    AC: int   = Default("CM")   # ALU Constant Memory
+
     NL: int   = 3      # Num LSUs
-    LR: int   = Default("RS")
-    LP: int   = 2      # LSU Ports
-    LC: int   = Default("CP")
+    LR: int   = Default("RS")   # LSU Reservation Station Slots
+    LC: int   = Default("CM")   # LSU Constant Memory
+
     NX: int   = 0      # Num AluLsus
-    XR: int   = Default("RS")
-    XRR: int  = Default("RS")
-    XP: int   = 2      # AluLsu Ports
-    XW: int   = 1      # AluLsu Writeback
-    XC: int   = Default("CP")
+    XR: int   = Default("RS")   # AluLsu ResStat Issue Slots
+    XRR: int  = Default("RS")   # AluLsu ResStat Result Slots
+    XW: int   = 1      # AluLsu Writeback Ports
+    XC: int   = Default("CM")   # AluLsu Constant Memory
+    
     NF: int   = 1      # Num FPUs
-    FR: int   = Default("RS")
-    FP: int   = 1      # FPU Ports
-    FC: int   = Default("CP")
+    FR: int   = Default("RS")   # FPU ResStat Slots
+    FC: int   = Default("CM")   # FPU Constant Memory
 
 
 # --- INFRASTRUCTURE ---
@@ -167,9 +196,8 @@ class Manager(eu.ExperimentManager):
         return eu.derive_axes_from_keys(exp, keys=['config'])
     
     def run(self):
-        if any(a in ['elab', 'fast_synth', 'synth', 'all'] for a in self.actions):
-            self.args.n_procs = 1
         create_bender_wrapper()
+        
         if any(x in ['elab', 'fast_synth', 'synth', 'all'] for x in self.actions):
             if 'synth' in self.actions:
                 target = 'synth'
@@ -177,15 +205,31 @@ class Manager(eu.ExperimentManager):
                 target = 'fast_synth'
             else:
                 target = 'elab'
-            for exp in self.experiments:
+                
+            # Helper function to define a single worker task
+            def run_single_experiment(exp):
                 synth_path = Path(exp['synth_dir'])
                 (synth_path / 'tmp').mkdir(parents=True, exist_ok=True)
                 hdl_str = ':'.join([f'{k}={v}' for k, v in exp['hdl_params'].items()])
+                
                 print(f"--- Running {target}: {exp['config']} ---")
                 print(exp['design'])
-                common.make(target=target, vars={
-                    'DESIGN': exp['design'], 'HDL_PARAMS': hdl_str, 'RUNDIR': str(synth_path)
-                }, sync=True)
+                
+                # Executing the make command
+                common.make(
+                    target=target, 
+                    vars={'DESIGN': exp['design'], 'HDL_PARAMS': hdl_str, 'RUNDIR': str(synth_path)}, 
+                    sync=True
+                )
+
+            # Max out workers at self.args.n_procs
+            max_workers = getattr(self.args, 'n_procs', 1) 
+            print(f"--> Spawning synthesis runs in parallel (Max workers: {max_workers})")
+            
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # map automatically submits all experiments and waits for them to complete
+                executor.map(run_single_experiment, self.experiments)
+                
         else:
             super().run()
 
@@ -202,44 +246,46 @@ def main():
     #     AluLsuSynth(NofResPorts=2, HasBranch=True, HasMultiplier=True)
     # ]
 
-    # res_stat_suite = []
-    # for NofResPorts in [1, 2]:
-    #     for HasTwoDests in [False, True]:
-    #         for rss in [8, 16, 32]:
-    #             for rsrs in [rss, rss/2]:
-    #                 res_stat_suite.append(
-    #                     ResStatSynth(NofRss=rss, NofRsrs=rsrs, NofConstants=rss*2, NofOperands=3, NofResRspIfs=2,
-    #                                 ConsumerCount=rss*7, NofResPorts=NofResPorts, HasTwoDests=HasTwoDests)
-    #                 )
+    # fus_experiments = [e.to_exp() for e in fu_suite]
+    # setup_scratch('area_cache_fus')
+
+    res_stat_suite = []
+    for rsrs in [32, 16, 8]:
+        for rss in [int(rsrs), int(rsrs/2)]:
+            for NofResPorts in [2, 1]:
+                for HasTwoDests in [True, False]:
+                    consumer_count = (rss * 12) if rss == rsrs//2 else (rss * 18)
+                    res_stat_suite.append(
+                        ResStatSynth(NofRss=rss, NofRsrs=rsrs, NofConstants=rss*2, NofOperands=3, NofResRspIfs=2,
+                                    ConsumerCount=consumer_count, NofResPorts=NofResPorts, HasTwoDests=HasTwoDests)
+                    )
+
+    # res_stat_experiments = [e.to_exp() for e in res_stat_suite]
+    # setup_scratch('area_cache_res_stat')
+    
     # fu_stage_suite = []
-    # for rss in [8, 16, 32]:
-    #     fu_stage_suite.extend([
-    #         FuStageSynth(NofRss=rss, NofConstantsP=rss*2, UseAluLsu=False, NofAluLsus=0),
-    #         FuStageSynth(NofRss=rss, NofConstantsP=rss*2, UseAluLsu=True, NofAluLsus=3, NofAlus=0, NofLsus=0,
-    #                     AluNofRss=0, AluNofConstants=0, AluNofResRspPorts=0, LsuNofRss=0, LsuNofConstants=0, LsuNofResRspPorts=0),
-    #         FuStageSynth(NofRss=rss, NofConstantsP=rss*2, UseAluLsu=True, NofAluLsus=3, NofAlus=0, NofLsus=0,
-    #                     AluLsuNofRss=int(rss/2), AluLsuNofRsrs=rss, AluLsuNofConstants=int(rss/2), AluLsuNofResPorts=2,
-    #                     AluNofRss=0, AluNofConstants=0, AluNofResRspPorts=0, LsuNofRss=0, LsuNofConstants=0, LsuNofResRspPorts=0)
-    #     ])
-    fu_stage_suite = []
-    for rss in [8, 16, 32]:
-        c = rss * 2 # Constant shorthand
-        # Standard: Sep units
-        fu_stage_suite.append(FuStageSynth(RS=rss, CP=c, UAL=False, NX=0))
+    # for base_rsrs in [8, 16, 32]:
+    #     # Baseline: Sep units
+    #     fu_stage_suite.append(FuStageSynth(RS=base_rsrs, CM=base_rsrs*2,
+    #         NX=0, XR=0, XRR=0, XW=1, XC=0
+    #     ))
         
-        # Unified: AluLsu only
-        fu_stage_suite.append(FuStageSynth(RS=rss, CP=c, UAL=True, NX=3, NA=0, NL=0, 
-                                        AR=0, AC=0, AP=0, LR=0, LC=0, LP=0))
+    #     # ALU_LSU iso # of rsrs
+    #     fu_stage_suite.append(FuStageSynth(
+    #         UAL=True, NA=0, AR=0, AC=0, NL=0, LR=0, LC=0, NF=1, FR=base_rsrs, FC=base_rsrs*2,
+    #         NX=3, XR=base_rsrs*2, XRR=base_rsrs*2, XW=1, XC=base_rsrs*4
+    #     ))
         
-        # Detailed Unified: Custom internal splits
-        fu_stage_suite.append(FuStageSynth(RS=rss, CP=c, UAL=True, NX=3, NA=0, NL=0,
-                                        XR=rss//2, XRR=rss, XC=rss//2, XW=2,
-                                        AR=0, AC=0, AP=0, LR=0, LC=0, LP=0))
+    #     # ALU_LSU iso # of rsrs but half # of rss
+    #     fu_stage_suite.append(FuStageSynth(
+    #         UAL=True, NA=0, AR=0, AC=0, NL=0, LR=0, LC=0, NF=1, FR=base_rsrs, FC=base_rsrs*2,
+    #         NX=3, XR=base_rsrs, XRR=base_rsrs*2, XW=2, XC=base_rsrs*2
+    #     ))
 
-    experiments = [e.to_exp() for e in fu_stage_suite]
-    setup_scratch('cache_' + datetime.now().strftime("%Y%m%d_%H%M%S_%f"))
+    # fu_stage_experiments = [e.to_exp() for e in fu_stage_suite]
+    # setup_scratch('area_cache_fu_stage')
 
-    mgr = Manager(experiments=experiments)
+    mgr = Manager(experiments=fu_stage_experiments)
     mgr.run()
     
     # Results Processing
@@ -255,6 +301,7 @@ def main():
             "WNS": qor.get("WNS"),
         })
 
+    os.makedirs("results", exist_ok=True)
     pd.DataFrame(summary).to_csv("results/summary.csv", index=False)
 
 if __name__ == '__main__':

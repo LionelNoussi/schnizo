@@ -7,28 +7,25 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
   parameter bit          UAL  = 0,    // UseAluLsu
   parameter bit          MA0  = 1'b1, // MulInAlu0
   parameter int unsigned RS   = 0,    // NofRss
+  parameter int unsigned CM   = 0,    // Constant Memory
   // ALU
-  parameter int unsigned NA   = 1,    // NofAlus
+  parameter int unsigned NA   = 3,    // NofAlus
   parameter int unsigned AR   = RS,   // AluNofRss
-  parameter int unsigned AP   = 1,    // AluNofResRspPorts
-  parameter int unsigned AC   = 4,    // AluNofConstants
+  parameter int unsigned AC   = CM,    // AluNofConstants
   // LSU
-  parameter int unsigned NL   = 1,    // NofLsus
+  parameter int unsigned NL   = 3,    // NofLsus
   parameter int unsigned LR   = RS,   // LsuNofRss
-  parameter int unsigned LP   = 1,    // LsuNofResRspPorts
-  parameter int unsigned LC   = 4,    // LsuNofConstants
+  parameter int unsigned LC   = CM,    // LsuNofConstants
   // ALU-LSU
-  parameter int unsigned NX   = 1,    // NofAluLsus
+  parameter int unsigned NX   = 0,    // NofAluLsus
   parameter int unsigned XR   = RS,   // AluLsuNofRss
   parameter int unsigned XRR  = RS,   // AluLsuNofRsrs
-  parameter int unsigned XP   = 2,    // AluLsuNofResRspPorts
   parameter int unsigned XW   = 2,    // AluLsuNofResPorts
   parameter int unsigned XC   = 4,    // AluLsuNofConstants
   // FPU
   parameter int unsigned NF   = 1,    // NofFpus
   parameter int unsigned FR   = RS,   // FpuNofRss
-  parameter int unsigned FP   = 1,    // FpuNofResRspPorts
-  parameter int unsigned FC   = 4     // FpuNofConstants
+  parameter int unsigned FC   = CM     // FpuNofConstants
 ) (
   input  logic                                     clk_i,
   input  logic                                     rst_ni,
@@ -82,15 +79,23 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
   input  logic                                     fpu_wb_result_ready_i
 );
 
+  localparam int unsigned AP = 2;
+  localparam int unsigned LP = 2;
+  localparam int unsigned XP = 2;
+  localparam int unsigned FP = 2;
   localparam int unsigned NOI = NA*2 + NL*3 + NX*3 + NF*3; // NofOperandIfs
-  localparam int unsigned NRI = NA + NL + NX + NF;         // NofResReqIfs
+  localparam int unsigned NRI = (NA * AP) + (NL * LP) + (NX * XP) + (NF * FP); // NofResReqIfs
+  localparam int unsigned TotalNofRss = (NA * AR) + (NL * LR) + (NX * XR) + (NF * FR);
 
-  localparam int unsigned ActualRsIdWidth   = cf_math_pkg::idx_width(NRI);
-  localparam int unsigned ActualSlotIdWidth = schnizo_synth_pkg::SlotIdWidth;
+  localparam int unsigned ActualRsIdWidth   = cf_math_pkg::idx_width(NA + NL + NX + NF);
+  localparam int unsigned ActualSlotIdWidth = cf_math_pkg::idx_width(TotalNofRss);
+
+  typedef logic [ActualSlotIdWidth-1:0] actual_slot_id_t;
+  typedef logic [ActualRsIdWidth-1:0]   actual_rs_id_t;
 
   typedef struct packed {
-    logic[ActualSlotIdWidth-1:0] slot_id;
-    actual_rs_id_t               rs_id; // Perfectly sized!
+    actual_slot_id_t slot_id;
+    actual_rs_id_t   rs_id;
   } actual_producer_id_t;
 
   typedef struct packed {
@@ -109,6 +114,48 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
     schnizo_pkg::instr_tag_t     tag;
     schnizo_pkg::instr_tag_t     tag2;
   } actual_disp_req_t;
+
+  typedef struct packed {
+    actual_producer_id_t producer;
+  } actual_disp_rsp_t;
+
+  typedef struct packed {
+    logic            requested_iter;
+    actual_slot_id_t slot_id;
+  } actual_res_req_t;
+
+  typedef struct packed {
+    actual_rs_id_t   producer;
+    actual_res_req_t request;
+  } actual_operand_req_t;
+
+  typedef struct packed {
+    schnizo_synth_pkg::dest_mask_t dest_mask;
+    actual_slot_id_t               slot_id;
+  } actual_ext_res_req_t;
+
+  actual_disp_req_t disp_req_casted;
+  assign disp_req_casted = disp_req_i; // SV handles truncation of wide package fields to narrow actual fields
+
+  actual_disp_rsp_t [iomsb(NA):0]     alu_disp_rsp_internal;
+  actual_disp_rsp_t [iomsb(NL):0]     lsu_disp_rsp_internal;
+  actual_disp_rsp_t [iomsb(NX):0][1:0] alu_lsu_disp_rsp_internal;
+  actual_disp_rsp_t [iomsb(NF):0]     fpu_disp_rsp_internal;
+
+  // Cast internal results back to wide package ports
+  always_comb begin
+    alu_disp_rsp_o = '0;
+    for (int i=0; i<NA; i++) alu_disp_rsp_o[i] = alu_disp_rsp_internal[i];
+    lsu_disp_rsp_o = '0;
+    for (int i=0; i<NL; i++) lsu_disp_rsp_o[i] = lsu_disp_rsp_internal[i];
+    alu_lsu_disp_rsp_o = '0;
+    for (int i=0; i<NX; i++) begin
+      alu_lsu_disp_rsp_o[i][0] = alu_lsu_disp_rsp_internal[i][0];
+      alu_lsu_disp_rsp_o[i][1] = alu_lsu_disp_rsp_internal[i][1];
+    end
+    fpu_disp_rsp_o = '0;
+    for (int i=0; i<NF; i++) fpu_disp_rsp_o[i] = fpu_disp_rsp_internal[i];
+  end
 
   schnizo_fu_stage #(
     .Xfrep(X),
@@ -132,6 +179,7 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
     .FpuNofResReqIfs(1),
     .FpuNofResRspPorts(FP),
     .UseAluLsu(UAL),
+    .PostIncrement(1),
     .NofAluLsus(NX),
     .AluLsuNofRss(XR),
     .AluLsuNofRsrs(XRR),
@@ -163,12 +211,12 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
     .XFVEC(0),
     .RegisterFPUIn(0),
     .RegisterFPUOut(0),
-    .producer_id_t(schnizo_synth_pkg::producer_id_t),
-    .slot_id_t(schnizo_synth_pkg::slot_id_t),
-    .rs_id_t(schnizo_synth_pkg::rs_id_t),
+    .producer_id_t(actual_producer_id_t),
+    .slot_id_t(actual_slot_id_t),
+    .rs_id_t(actual_rs_id_t),
     .operand_id_t(schnizo_synth_pkg::operand_id_t),
-    .disp_req_t(schnizo_synth_pkg::disp_req_t),
-    .disp_rsp_t(schnizo_synth_pkg::disp_rsp_t),
+    .disp_req_t(actual_disp_req_t),
+    .disp_rsp_t(actual_disp_rsp_t),
     .fu_data_t(schnizo_synth_pkg::fu_data_t),
     .instr_tag_t(schnizo_pkg::instr_tag_t),
     .alu_result_t(schnizo_synth_pkg::alu_result_t),
@@ -176,6 +224,7 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
     .alu_lsu_result_t(schnizo_synth_pkg::alu_lsu_result_t),
     .dreq_t(schnizo_synth_pkg::data_req_t),
     .drsp_t(schnizo_synth_pkg::data_rsp_t)
+
   ) i_fu_stage (
     .clk_i,
     .rst_i(!rst_ni),
@@ -185,16 +234,16 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
     .lep_iterations_i,
     .goto_lcp2_i,
     .all_rs_finish_o,
-    .disp_req_i,
+    .disp_req_i        (disp_req_casted),
     .instr_exec_commit_i,
     .fpu_instr_exec_commit_i(instr_exec_commit_i),
     .alu_disp_reqs_valid_i,
     .alu_disp_reqs_ready_o,
-    .alu_disp_rsp_o,
+    .alu_disp_rsp_o    (alu_disp_rsp_internal),
     .alu_rs_full_o,
     .lsu_disp_reqs_valid_i,
     .lsu_disp_reqs_ready_o,
-    .lsu_disp_rsp_o,
+    .lsu_disp_rsp_o    (lsu_disp_rsp_internal),
     .lsu_empty_o,
     .lsu_addr_misaligned_o,
     .lsu_dreq_o,
@@ -208,13 +257,13 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
     .caq_rsp_valid_o(),
     .alu_lsu_disp_reqs_valid_i,
     .alu_lsu_disp_reqs_ready_o,
-    .alu_lsu_disp_rsp_o,
+    .alu_lsu_disp_rsp_o(alu_lsu_disp_rsp_internal),
     .alu_lsu_rs_full_o,
     .alu_lsu_dreq_o,
     .alu_lsu_drsp_i,
     .fpu_disp_reqs_valid_i,
     .fpu_disp_reqs_ready_o,
-    .fpu_disp_rsp_o,
+    .fpu_disp_rsp_o    (fpu_disp_rsp_internal),
     .fpu_rs_full_o,
     .fpu_status_o,
     .fpu_status_valid_o,
