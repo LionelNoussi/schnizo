@@ -4,101 +4,169 @@
 import os
 import shutil
 from pathlib import Path
-from dataclasses import dataclass, asdict, fields
+from dataclasses import dataclass, asdict, fields, MISSING
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import sys
+import argparse
+from snitch.util.experiments import run
+
 
 from snitch.util.experiments import common, experiment_utils as eu
 
 # --- CONSTANTS ---
-SCRATCH_BASE = Path('/scratch1/sem26f5/cache')
+SCRATCH_BASE = Path('/scratch/sem26f5/cache')
 GE_AREA = 0.121
-FINAL_STAGE = '6'
+FINAL_STAGE = '9'
 
 # --- DESIGN DEFINITIONS ---
 
 class Default:
     """Marks a value as 'use fallback from another field'."""
-    def __init__(self, fallback):
+    def __init__(self, fallback: str):
         self.fallback = fallback
 
 @dataclass
 class Design:
     design_name: str = "TEMPLATE_DESIGN_NAME"
 
-    """Base class that handles experiment generation and auto-naming."""
+    SHORT_CODES = {
+        # Generic / common
+        "Xfrep": "XF",
+        "PostIncrement": "PI",
+        "MulInAlu0": "MA0",
+        "UseAluLsu": "UAL",
+
+        # Unit counts
+        "NofAlus": "NA",
+        "NofLsus": "NL",
+        "NofAluLsus": "NX",
+        "NofFpus": "NF",
+
+        # Reservation-station slots
+        "AluNofRss": "AR",
+        "LsuNofRss": "LR",
+        "AluLsuNofRss": "XR",
+        "FpuNofRss": "FR",
+
+        # Constants
+        "AluNofConstants": "AC",
+        "LsuNofConstants": "LC",
+        "AluLsuNofConstants": "XC",
+        "FpuNofConstants": "FC",
+
+        # Result ports / response ports
+        "AluLsuNofResPorts": "XW",
+        "AluNofResRspPorts": "ARP",
+        "LsuNofResRspPorts": "LRP",
+        "AluLsuNofResRspPorts": "XRP",
+        "FpuNofResRspPorts": "FRP",
+
+        # Existing shorter names from your other sweeps
+        "NofRss": "RSS",
+        "NofRsrs": "RSR",
+        "NofResPorts": "NP",
+        "HasTwoDests": "TD",
+        "NofConstants": "NC",
+        "NofOperands": "NO",
+        "NofResRspIfs": "NRI",
+        "ConsumerCount": "CC",
+        "HasMultiplier": "HM",
+        "HasBranch": "HB",
+        "UseSram": "SR",
+    }
+
+    def __post_init__(self):
+        # Resolve Default(...) values in actual object.
+        for f in fields(self):
+            value = getattr(self, f.name)
+            if isinstance(value, Default):
+                setattr(self, f.name, getattr(self, value.fallback))
+
+    @classmethod
+    def _resolved_default_map(cls) -> dict:
+        """Return dataclass defaults after resolving Default(...) fallbacks."""
+        defaults = {}
+
+        for f in fields(cls):
+            if f.default is MISSING:
+                continue
+            defaults[f.name] = f.default
+
+        # Resolve Default(...) entries against other defaults.
+        changed = True
+        while changed:
+            changed = False
+            for name, value in list(defaults.items()):
+                if isinstance(value, Default):
+                    fallback = value.fallback
+                    if fallback not in defaults:
+                        raise ValueError(
+                            f"Default for {name} refers to unknown field {fallback}"
+                        )
+                    defaults[name] = defaults[fallback]
+                    changed = True
+
+        return defaults
+
     def get_params(self) -> dict:
-        # Convert to dict and handle boolean-to-int for Verilog
-        return {k: (int(v) if isinstance(v, bool) else v) 
-                for k, v in asdict(self).items() if k != 'design_name' and k != 'CP'}
+        """Return HDL parameters. Booleans are converted to 0/1 for Verilog."""
+        params = {}
+        for key, value in asdict(self).items():
+            if key in ("design_name", "CP"):
+                continue
+            params[key] = int(value) if isinstance(value, bool) else value
+        return params
+
+    def _short_label(self, name: str) -> str:
+        if name in self.SHORT_CODES:
+            return self.SHORT_CODES[name]
+
+        caps = "".join(c for c in name if c.isupper())
+        if len(caps) > 1:
+            return caps
+
+        return name[:2].upper()
+
+    def _format_value(self, value) -> str:
+        if isinstance(value, bool):
+            return "1" if value else "0"
+        if isinstance(value, float) and value.is_integer():
+            return str(int(value))
+        return str(value)
 
     def to_exp(self):
-        """Generates a unique, compact configuration string."""
+        """Generate compact experiment name, omitting values equal to defaults."""
+        defaults = self.__class__._resolved_default_map()
         overrides = []
-        
-        # Priority mapping for specific fields to ensure uniqueness and brevity
-        # This prevents 'NofRss' and 'NofRsrs' both becoming 'NR'
-        SHORT_CODES = {
-            'NofRss': 'RSS',        # Issue Slots
-            'NofRsrs': 'RSR',       # Result Slots
-            'NofResPorts': 'NP',    # Number of Ports
-            'HasTwoDests': 'TD',    # Two Destinations
-            'NofConstants': 'NC',
-            'NofOperands': 'NO',
-            'NofResRspIfs': 'NRI',
-            'ConsumerCount': 'CC',
-            'HasMultiplier': 'HM',
-            'HasBranch': 'HB',
-            'UseSram': 'SR'
-        }
 
         for f in fields(self):
-            if f.name in ['design_name', 'CP']: continue
-            val = getattr(self, f.name)
-            
-            # Only include if it differs from the default
-            if val != f.default:
-                # 1. Try priority map
-                # 2. Else use All Caps (e.g., UseAluLsu -> UAL)
-                # 3. Else use first two chars
-                if f.name in SHORT_CODES:
-                    label = SHORT_CODES[f.name]
-                else:
-                    caps = "".join([c for c in f.name if c.isupper()])
-                    label = caps if (caps and len(caps) > 1) else f.name[:2].upper()
-                
-                # Formatting values: Bool -> 1/0, Floats -> int (if whole)
-                if isinstance(val, bool):
-                    val_str = "1" if val else "0"
-                elif isinstance(val, float) and val.is_integer():
-                    val_str = str(int(val))
-                else:
-                    val_str = str(val)
-                    
-                overrides.append(f"{label}{val_str}")
-        
-        # Sort overrides alphabetically so config name is deterministic
+            if f.name in ("design_name", "CP"):
+                continue
+
+            value = getattr(self, f.name)
+            default = defaults.get(f.name, MISSING)
+
+            if default is not MISSING and value == default:
+                continue
+
+            label = self._short_label(f.name)
+            value_str = self._format_value(value)
+            overrides.append(f"{label}{value_str}")
+
         overrides.sort()
-        
+
         config_name = self.design_name
         if overrides:
             config_name += "_" + "_".join(overrides)
 
         return {
-            'design': self.design_name,
-            'config': config_name,
-            'hdl_params': self.get_params()
+            "design": self.design_name,
+            "config": config_name,
+            "hdl_params": self.get_params(),
         }
-    
-    def __post_init__(self):
-        for f in fields(self):
-            value = getattr(self, f.name)
 
-            if isinstance(value, Default):
-                fallback_value = getattr(self, value.fallback)
-                setattr(self, f.name, fallback_value)
 
 @dataclass
 class AluSynth(Design):
@@ -116,6 +184,7 @@ class AluLsuSynth(Design):
     NofResPorts: int = 1
     HasBranch: bool = False
     HasMultiplier: bool = False
+    PostIncrement: bool = False
 
 @dataclass
 class ResStatSynth(Design):
@@ -158,14 +227,48 @@ class FuStageSynth(Design):
     FC: int   = Default("CM")   # FPU Constant Memory
 
 
+@dataclass
+class SchnizoSynth(Design):
+    design_name: str = "schnizo_synth"
+
+    # Match shortened schnizo_synth.sv defaults.
+    XF: bool = True
+
+    NA: int = 3
+    NL: int = 3
+    NX: int = 0
+    NF: int = 1
+
+    AR: int = 4
+    LR: int = 4
+    XR: int = 4
+    XRR: int = 4
+    FR: int = 4
+
+    AC: int = 4
+    LC: int = 4
+    XC: int = 4
+    FC: int = 4
+
+    XW: int = 2
+    UAL: bool = False
+    PI: bool = False
+    MA0: bool = True
+
+    ARP: int = 2
+    LRP: int = 2
+    XRP: int = 2
+    FRP: int = 2
+
+
 # --- INFRASTRUCTURE ---
 
-def setup_scratch(design_name):
+def setup_scratch(design_name, synth_name):
     """
     Sets up the local 'synth' symlink to point to a design-specific scratch dir.
     """
     cwd = Path.cwd()
-    local = cwd / "synth"
+    local = cwd / synth_name
     scratch = SCRATCH_BASE / f"{design_name}_synth"
     
     scratch.mkdir(parents=True, exist_ok=True)
@@ -235,22 +338,54 @@ class Manager(eu.ExperimentManager):
 
 # --- MAIN ---
 
-def main():
-    # fu_suite = [
-    #     AluSynth(),
-    #     AluSynth(HasBranch=True, HasMultiplier=True),
-    #     LsuSynth(),
-    #     AluLsuSynth(NofResPorts=1),
-    #     AluLsuSynth(NofResPorts=1, HasBranch=True, HasMultiplier=True),
-    #     AluLsuSynth(NofResPorts=2),
-    #     AluLsuSynth(NofResPorts=2, HasBranch=True, HasMultiplier=True)
-    # ]
 
-    # fus_experiments = [e.to_exp() for e in fu_suite]
-    # setup_scratch('area_cache_fus')
+def gen_fu_experiments():
+    fu_suite = [
+        AluSynth(),
+        AluSynth(HasBranch=True, HasMultiplier=True),
+        LsuSynth(),
+        AluLsuSynth(NofResPorts=1),
+        AluLsuSynth(NofResPorts=1, HasBranch=True, HasMultiplier=True),
+        AluLsuSynth(NofResPorts=2),
+        AluLsuSynth(NofResPorts=2, HasBranch=True, HasMultiplier=True),
+        AluLsuSynth(NofResPorts=1, PostIncrement=True),
+        AluLsuSynth(NofResPorts=1, HasBranch=True, HasMultiplier=True, PostIncrement=True),
+        AluLsuSynth(NofResPorts=2, PostIncrement=True),
+        AluLsuSynth(NofResPorts=2, HasBranch=True, HasMultiplier=True, PostIncrement=True)
+    ]
 
+    fus_experiments = [e.to_exp() for e in fu_suite]
+    setup_scratch('area_cache_fus', 'synth_fu')
+    return fus_experiments
+
+def gen_fu_stage_experiments():
+    fu_stage_suite = []
+    for base_rsrs in [32, 24, 16, 8, 4]:
+        # Baseline: Sep units
+        fu_stage_suite.append(FuStageSynth(RS=base_rsrs, CM=base_rsrs*2,
+            NX=0, XR=0, XRR=0, XW=1, XC=0
+        ))
+        
+        # ALU_LSU iso # of rsrs
+        fu_stage_suite.append(FuStageSynth(
+            UAL=True, NA=0, AR=0, AC=0, NL=0, LR=0, LC=0, NF=1, FR=base_rsrs, FC=base_rsrs*2,
+            NX=3, XR=base_rsrs*2, XRR=base_rsrs*2, XW=1, XC=base_rsrs*4
+        ))
+        
+        # ALU_LSU iso # of rsrs but half # of rss
+        fu_stage_suite.append(FuStageSynth(
+            UAL=True, NA=0, AR=0, AC=0, NL=0, LR=0, LC=0, NF=1, FR=base_rsrs, FC=base_rsrs*2,
+            NX=3, XR=base_rsrs, XRR=base_rsrs*2, XW=2, XC=base_rsrs*2
+        ))
+
+    fu_stage_experiments = [e.to_exp() for e in fu_stage_suite]
+    setup_scratch('area_cache_fu_stage', 'synth_fu_stage')
+    return fu_stage_experiments
+
+
+def gen_res_stat_experiments():
     res_stat_suite = []
-    for rsrs in [32, 16, 8]:
+    for rsrs in [32, 24, 16, 8, 4]:
         for rss in [int(rsrs), int(rsrs/2)]:
             for NofResPorts in [2, 1]:
                 for HasTwoDests in [True, False]:
@@ -260,32 +395,138 @@ def main():
                                     ConsumerCount=consumer_count, NofResPorts=NofResPorts, HasTwoDests=HasTwoDests)
                     )
 
-    # res_stat_experiments = [e.to_exp() for e in res_stat_suite]
-    # setup_scratch('area_cache_res_stat')
-    
-    # fu_stage_suite = []
-    # for base_rsrs in [8, 16, 32]:
-    #     # Baseline: Sep units
-    #     fu_stage_suite.append(FuStageSynth(RS=base_rsrs, CM=base_rsrs*2,
-    #         NX=0, XR=0, XRR=0, XW=1, XC=0
-    #     ))
-        
-    #     # ALU_LSU iso # of rsrs
-    #     fu_stage_suite.append(FuStageSynth(
-    #         UAL=True, NA=0, AR=0, AC=0, NL=0, LR=0, LC=0, NF=1, FR=base_rsrs, FC=base_rsrs*2,
-    #         NX=3, XR=base_rsrs*2, XRR=base_rsrs*2, XW=1, XC=base_rsrs*4
-    #     ))
-        
-    #     # ALU_LSU iso # of rsrs but half # of rss
-    #     fu_stage_suite.append(FuStageSynth(
-    #         UAL=True, NA=0, AR=0, AC=0, NL=0, LR=0, LC=0, NF=1, FR=base_rsrs, FC=base_rsrs*2,
-    #         NX=3, XR=base_rsrs, XRR=base_rsrs*2, XW=2, XC=base_rsrs*2
-    #     ))
+    res_stat_experiments = [e.to_exp() for e in res_stat_suite]
+    setup_scratch('area_cache_res_stat', 'synth_res_stat')
+    return res_stat_experiments
 
-    # fu_stage_experiments = [e.to_exp() for e in fu_stage_suite]
-    # setup_scratch('area_cache_fu_stage')
 
-    mgr = Manager(experiments=fu_stage_experiments)
+def gen_schnizo_experiments():
+    suite = []
+
+    for x in [8, 16, 32]:
+
+        # Baseline Schnizo:
+        # 3 ALUs + 3 LSUs + 1 FPU.
+        suite.append(SchnizoSynth(
+            AR=x,
+            LR=x,
+            FR=x,
+
+            AC=2*x,
+            LC=2*x,
+            FC=2*x,
+
+            NX=0,
+            XR=0,
+            XRR=0,
+            XC=0,
+
+            UAL=False,
+            PI=False,
+        ))
+
+        # Naive ALU+LSU:
+        # 3 combined units + 1 FPU.
+        # ALU+LSU issue/result slots doubled for iso total result capacity.
+        suite.append(SchnizoSynth(
+            NA=0,
+            NL=0,
+            NX=3,
+            NF=1,
+
+            AR=0,
+            LR=0,
+            XR=2*x,
+            XRR=2*x,
+            FR=x,
+
+            AC=0,
+            LC=0,
+            XC=4*x,
+            FC=2*x,
+
+            UAL=True,
+            XW=1,
+            XRP=2,
+            PI=False,
+        ))
+
+        # ALU+LSU with two FU result ports.
+        suite.append(SchnizoSynth(
+            NA=0,
+            NL=0,
+            NX=3,
+            NF=1,
+
+            AR=0,
+            LR=0,
+            XR=2*x,
+            XRR=2*x,
+            FR=x,
+
+            AC=0,
+            LC=0,
+            XC=4*x,
+            FC=2*x,
+
+            UAL=True,
+            XW=2,
+            XRP=2,
+            PI=False,
+        ))
+
+        # Post-increment final candidate:
+        # issue slots reduced to x while result slots stay 2x.
+        suite.append(SchnizoSynth(
+            NA=0,
+            NL=0,
+            NX=3,
+            NF=1,
+
+            AR=0,
+            LR=0,
+            XR=x,
+            XRR=2*x,
+            FR=x,
+
+            AC=0,
+            LC=0,
+            XC=2*x,
+            FC=2*x,
+
+            UAL=True,
+            XW=2,
+            XRP=2,
+            PI=True,
+        ))
+
+    experiments = [e.to_exp() for e in suite]
+    setup_scratch("area_cache_schnizo", 'synth_schnizo')
+    return experiments
+
+
+def main():
+
+    parser = run.get_parser()
+    parser.add_argument('--actions', nargs='+', default='none', choices=eu.ACTIONS, help='List of actions')
+    parser.add_argument('--clean', nargs='+', default='none', choices=eu.CLEAN_ACTIONS, help='List of actions')
+    parser.add_argument('--experiment', default='none', choices=['res_stat', 'fu', 'fu_stage', 'schnizo'],
+                        help='Which experiment', required=True)
+    args = parser.parse_args()
+
+    if args.experiment == 'res_stat':
+        experiments = gen_res_stat_experiments()
+    elif args.experiment == 'fu':
+        experiments = gen_fu_experiments()
+    elif args.experiment == 'fu_stage':
+        experiments = gen_fu_stage_experiments()
+    elif args.experiment == 'schnizo':
+        experiments = gen_schnizo_experiments()
+    else:
+        print("Provide an --experiment!")
+        sys.exit()
+
+    mgr = Manager(experiments=experiments, args=args, parse_args=False, synth_name=f"synth_{args.experiment}")
     mgr.run()
     
     # Results Processing
@@ -301,8 +542,8 @@ def main():
             "WNS": qor.get("WNS"),
         })
 
-    os.makedirs("results", exist_ok=True)
-    pd.DataFrame(summary).to_csv("results/summary.csv", index=False)
+    os.makedirs(f"results_{args.experiment}", exist_ok=True)
+    pd.DataFrame(summary).to_csv(f"results_{args.experiment}/summary.csv", index=False)
 
 if __name__ == '__main__':
     main()

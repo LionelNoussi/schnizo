@@ -44,7 +44,7 @@ CLEAN_ACTIONS = ['sw', 'hw', 'runs', 'verify', 'all', 'none']
 class ExperimentManager:
 
     def __init__(self, experiments=None, dir=None, actions=None, args=None, callbacks={},
-                 parse_args=True):
+                 parse_args=True, synth_name="synth"):
         """Initializes the class from the command-line arguments."""
         # Get command-line arguments, if any
         if args is not None:
@@ -81,7 +81,7 @@ class ExperimentManager:
         else:
             self.run_dir = self.dir / 'runs'
         self.power_dir = self.dir / 'power'
-        self.synth_dir = self.dir / 'synth'
+        self.synth_dir = self.dir / synth_name
         self.schnizo_dir = next(p for p in self.dir.parents if p.name == 'experiments').parent
 
         # Get experiments

@@ -5,7 +5,8 @@
 module schnizo_alu_lsu_synth #(
   parameter int unsigned NofResPorts         = 2,
   parameter bit          HasBranch             = 1'b1,
-  parameter bit          HasMultiplier         = 1'b0
+  parameter bit          HasMultiplier         = 1'b0,
+  parameter bit          PostIncrement = 1'b0
 ) (
   input  logic                                          clk_i,
   input  logic                                          rst_ni,
@@ -43,6 +44,7 @@ module schnizo_alu_lsu_synth #(
     .alu_lsu_issue_req_t (schnizo_synth_pkg::issue_req_two_tags_t),
     .fu_issue_req_t      (schnizo_synth_pkg::issue_req_t),
     .NofResPorts         (NofResPorts),
+    .PostIncrement       (PostIncrement),
     .XLEN                (schnizo_synth_pkg::XLEN),
     .HasBranch           (HasBranch),
     .HasMultiplier       (HasMultiplier),

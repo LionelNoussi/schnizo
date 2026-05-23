@@ -153,7 +153,7 @@ module schnizo_fu_stage import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pk
 
   input  logic      [iomsb(NofAluLsus):0] alu_lsu_disp_reqs_valid_i,
   output logic      [iomsb(NofAluLsus):0] alu_lsu_disp_reqs_ready_o,
-  output disp_rsp_t [iomsb(NofAluLsus):0][1:0] alu_lsu_disp_rsp_o,
+  output disp_rsp_t [iomsb(NofAluLsus):0][PostIncrement:0] alu_lsu_disp_rsp_o,
   output logic      [iomsb(NofAluLsus):0] alu_lsu_rs_full_o,
   output dreq_t     [iomsb(NofAluLsus):0] alu_lsu_dreq_o,
   input  drsp_t     [iomsb(NofAluLsus):0] alu_lsu_drsp_i,
