@@ -11,6 +11,11 @@
 #define FREP "frep.o"
 #endif
 
+#define BANK_ALIGNMENT 8
+#define TCDM_ALIGNMENT (32 * BANK_ALIGNMENT)
+#define ALIGN_UP(addr, size) (((addr) + (size)-1) & ~((size)-1))
+#define ALIGN_UP_TCDM(addr) ALIGN_UP(addr, TCDM_ALIGNMENT)
+
 inline void dot_naive(uint32_t n, double *x, double *y, double *output) {
     double sum = 0;
     for (int i = 0; i < n; i++) {
@@ -239,10 +244,10 @@ static inline void dot(uint32_t n, double *x, double *y, double *result,
 
     uint32_t start_cycle, end_cycle;
 
-    // Allocate space in TCDM
-    local_x = (double *)snrt_l1_next();
-    local_y = local_x + n;
-    partial_sums = local_y + n;
+    // Allocate space in TCDM with bank alignment and offset
+    local_x = (double *)ALIGN_UP_TCDM((uint64_t)snrt_l1_next());
+    local_y = (double *)(ALIGN_UP_TCDM((uint64_t)local_x + n * sizeof(double)) + 8 * BANK_ALIGNMENT);
+    partial_sums = (double *)ALIGN_UP_TCDM((uint64_t)local_y + n * sizeof(double));
 
     // Copy data in TCDM
     if (snrt_is_dm_core()) {

@@ -22,10 +22,11 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
   parameter int unsigned XRR  = RS,   // AluLsuNofRsrs
   parameter int unsigned XW   = 2,    // AluLsuNofResPorts
   parameter int unsigned XC   = 4,    // AluLsuNofConstants
+  parameter bit          PI   = 1'b0,
   // FPU
   parameter int unsigned NF   = 1,    // NofFpus
   parameter int unsigned FR   = RS,   // FpuNofRss
-  parameter int unsigned FC   = CM     // FpuNofConstants
+  parameter int unsigned FC   = CM    // FpuNofConstants
 ) (
   input  logic                                     clk_i,
   input  logic                                     rst_ni,
@@ -50,7 +51,7 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
   output logic               [iomsb(NL):0]         lsu_rs_full_o,
   input  logic               [iomsb(NX):0]         alu_lsu_disp_reqs_valid_i,
   output logic               [iomsb(NX):0]         alu_lsu_disp_reqs_ready_o,
-  output schnizo_synth_pkg::disp_rsp_t [iomsb(NX):0][1:0] alu_lsu_disp_rsp_o,
+  output schnizo_synth_pkg::disp_rsp_t [iomsb(NX):0][PI:0] alu_lsu_disp_rsp_o,
   output logic               [iomsb(NX):0]         alu_lsu_rs_full_o,
   output schnizo_synth_pkg::data_req_t [iomsb(NX):0] alu_lsu_dreq_o,
   input  schnizo_synth_pkg::data_rsp_t [iomsb(NX):0] alu_lsu_drsp_i,
@@ -86,9 +87,12 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
   localparam int unsigned NOI = NA*2 + NL*3 + NX*3 + NF*3; // NofOperandIfs
   localparam int unsigned NRI = (NA * AP) + (NL * LP) + (NX * XP) + (NF * FP); // NofResReqIfs
   localparam int unsigned TotalNofRss = (NA * AR) + (NL * LR) + (NX * XR) + (NF * FR);
+  localparam int unsigned MaxNofRss = (AR >= LR && AR >= XRR && AR >= FR) ? AR :
+                                      (LR >= XRR && LR >= FR)             ? LR :
+                                      (XRR >= FR)                         ? XRR : FR;
 
   localparam int unsigned ActualRsIdWidth   = cf_math_pkg::idx_width(NA + NL + NX + NF);
-  localparam int unsigned ActualSlotIdWidth = cf_math_pkg::idx_width(TotalNofRss);
+  localparam int unsigned ActualSlotIdWidth = cf_math_pkg::idx_width(MaxNofRss);
 
   typedef logic [ActualSlotIdWidth-1:0] actual_slot_id_t;
   typedef logic [ActualRsIdWidth-1:0]   actual_rs_id_t;
@@ -119,27 +123,13 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
     actual_producer_id_t producer;
   } actual_disp_rsp_t;
 
-  typedef struct packed {
-    logic            requested_iter;
-    actual_slot_id_t slot_id;
-  } actual_res_req_t;
-
-  typedef struct packed {
-    actual_rs_id_t   producer;
-    actual_res_req_t request;
-  } actual_operand_req_t;
-
-  typedef struct packed {
-    schnizo_synth_pkg::dest_mask_t dest_mask;
-    actual_slot_id_t               slot_id;
-  } actual_ext_res_req_t;
 
   actual_disp_req_t disp_req_casted;
   assign disp_req_casted = disp_req_i; // SV handles truncation of wide package fields to narrow actual fields
 
   actual_disp_rsp_t [iomsb(NA):0]     alu_disp_rsp_internal;
   actual_disp_rsp_t [iomsb(NL):0]     lsu_disp_rsp_internal;
-  actual_disp_rsp_t [iomsb(NX):0][1:0] alu_lsu_disp_rsp_internal;
+  actual_disp_rsp_t [iomsb(NX):0][PI:0] alu_lsu_disp_rsp_internal;
   actual_disp_rsp_t [iomsb(NF):0]     fpu_disp_rsp_internal;
 
   // Cast internal results back to wide package ports
@@ -148,14 +138,22 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
     for (int i=0; i<NA; i++) alu_disp_rsp_o[i] = alu_disp_rsp_internal[i];
     lsu_disp_rsp_o = '0;
     for (int i=0; i<NL; i++) lsu_disp_rsp_o[i] = lsu_disp_rsp_internal[i];
-    alu_lsu_disp_rsp_o = '0;
     for (int i=0; i<NX; i++) begin
       alu_lsu_disp_rsp_o[i][0] = alu_lsu_disp_rsp_internal[i][0];
-      alu_lsu_disp_rsp_o[i][1] = alu_lsu_disp_rsp_internal[i][1];
     end
     fpu_disp_rsp_o = '0;
     for (int i=0; i<NF; i++) fpu_disp_rsp_o[i] = fpu_disp_rsp_internal[i];
   end
+
+  generate
+    if (PI) begin
+      always_comb begin
+        for (int i=0; i<NX; i++) begin
+          alu_lsu_disp_rsp_o[i][1] = alu_lsu_disp_rsp_internal[i][1];
+        end
+      end
+    end
+  endgenerate
 
   schnizo_fu_stage #(
     .Xfrep(X),
@@ -179,7 +177,7 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
     .FpuNofResReqIfs(1),
     .FpuNofResRspPorts(FP),
     .UseAluLsu(UAL),
-    .PostIncrement(1),
+    .PostIncrement(PI),
     .NofAluLsus(NX),
     .AluLsuNofRss(XR),
     .AluLsuNofRsrs(XRR),

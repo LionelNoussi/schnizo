@@ -110,16 +110,16 @@
         // Superscalar configuration
         num_alus: 3,
         num_alu_slots: 4,
-        num_alu_constants: 32,
+        num_alu_constants: 8,
         num_lsus: 3,
         num_lsu_slots: 4,
-        num_lsu_constants: 32,
+        num_lsu_constants: 8,
         num_alu_lsus: 0,
         num_alu_lsu_slots: 0,
         num_alu_lsu_result_slots: 0,
-        num_fpu_constants: 32,
+        num_fpu_constants: 8,
         num_fpus: 1,
-        num_fpu_slots: 8,
+        num_fpu_slots: 4,
         use_alu_lsu: 0
     },
     dma_core_template: {

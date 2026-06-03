@@ -64,6 +64,38 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   input  logic caq_rsp_valid_i,
   output logic caq_rsp_valid_o
 );
+  
+  alu_lsu_issue_req_t issue_req_in;
+  always_comb begin
+    // 1. Default tie-off clears out all FPU fields (fpu_op, fpu_fmt_src, fpu_fmt_dst, fpu_rnd_mode)
+    issue_req_in.fu_data = '0;
+
+    // 3. Map required functional unit steering and opcodes
+    issue_req_in.fu_data.fu       = issue_req_i.fu_data.fu;
+    issue_req_in.fu_data.alu_op   = issue_req_i.fu_data.alu_op;
+    issue_req_in.fu_data.lsu_op   = issue_req_i.fu_data.lsu_op;
+    issue_req_in.fu_data.csr_op   = issue_req_i.fu_data.csr_op;
+
+    // 4. Map the source operands and their valid qualifiers
+    issue_req_in.fu_data.operand_a     = issue_req_i.fu_data.operand_a;
+    issue_req_in.fu_data.use_operand_a = issue_req_i.fu_data.use_operand_a;
+    issue_req_in.fu_data.operand_b     = issue_req_i.fu_data.operand_b;
+    issue_req_in.fu_data.use_operand_b = issue_req_i.fu_data.use_operand_b;
+
+    // 5. Map immediate and memory size configurations
+    issue_req_in.fu_data.imm           = issue_req_i.fu_data.imm;
+    issue_req_in.fu_data.use_imm       = issue_req_i.fu_data.use_imm;
+    issue_req_in.fu_data.lsu_size      = issue_req_i.fu_data.lsu_size;
+  end
+
+  assign issue_req_in.tag = issue_req_i.tag;
+  generate
+    if (PostIncrement) begin
+      assign issue_req_in.tag2 = issue_req_i.tag2; // Used by ALU_LSU_LOAD
+    end else begin
+      assign issue_req_in.tag2 = '0;
+    end
+  endgenerate
 
   ///////////
   // DEMUX //
@@ -101,41 +133,67 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
 
   logic sel_alu, sel_lsu, is_store;
 
-  always_comb begin
-    sel_alu  = 1'b0;
-    sel_lsu  = 1'b0;
-    is_store = 1'b0;
+  generate
+    if (PostIncrement) begin
+      always_comb begin
+        sel_alu  = 1'b0;
+        sel_lsu  = 1'b0;
+        is_store = 1'b0;
 
-    unique case (active_req.fu_data.fu)
-      schnizo_pkg::MUL,
-      schnizo_pkg::CTRL_FLOW,
-      schnizo_pkg::ALU: begin
-        sel_alu = 1'b1;
+        unique case (active_req.fu_data.fu)
+          schnizo_pkg::MUL,
+          schnizo_pkg::CTRL_FLOW,
+          schnizo_pkg::ALU: begin
+            sel_alu = 1'b1;
+          end
+
+          schnizo_pkg::LOAD: begin
+            sel_lsu = 1'b1;
+          end
+
+          schnizo_pkg::STORE: begin
+            sel_lsu  = 1'b1;
+            is_store = 1'b1;
+          end
+
+          schnizo_pkg::ALU_LSU_LOAD: begin
+            sel_alu = 1'b1;
+            sel_lsu = 1'b1;
+          end
+
+          schnizo_pkg::ALU_LSU_STORE: begin
+            sel_alu  = 1'b1;
+            sel_lsu  = 1'b1;
+            is_store = 1'b1;
+          end
+
+          default: ;
+        endcase
       end
+    end else begin
+      always_comb begin
+        sel_alu  = 1'b0;
+        sel_lsu  = 1'b0;
+        is_store = 1'b0;
 
-      schnizo_pkg::LOAD: begin
-        sel_lsu = 1'b1;
+        unique case (active_req.fu_data.fu)
+          schnizo_pkg::MUL,
+          schnizo_pkg::CTRL_FLOW,
+          schnizo_pkg::ALU: begin
+            sel_alu = 1'b1;
+          end
+          schnizo_pkg::LOAD: begin
+            sel_lsu = 1'b1;
+          end
+          schnizo_pkg::STORE: begin
+            sel_lsu  = 1'b1;
+            is_store = 1'b1;
+          end
+          default: ;
+        endcase
       end
-
-      schnizo_pkg::STORE: begin
-        sel_lsu  = 1'b1;
-        is_store = 1'b1;
-      end
-
-      schnizo_pkg::ALU_LSU_LOAD: begin
-        sel_alu = 1'b1;
-        sel_lsu = 1'b1;
-      end
-
-      schnizo_pkg::ALU_LSU_STORE: begin
-        sel_alu  = 1'b1;
-        sel_lsu  = 1'b1;
-        is_store = 1'b1;
-      end
-
-      default: ;
-    endcase
-  end
+    end
+  endgenerate
 
   // ---------------------------------------------------------
   // Optional in-flight tracking
@@ -214,7 +272,7 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
       logic alu_part_issued_d,  alu_part_issued_q;
       logic lsu_part_issued_d,  lsu_part_issued_q;
 
-      assign active_req       = is_buffering_q ? issue_buf_q : issue_req_i;
+      assign active_req       = is_buffering_q ? issue_buf_q : issue_req_in;
       assign active_req_valid = is_buffering_q | (issue_req_valid_i & issue_allowed);
       assign issue_commit     = is_buffering_q ? buffer_committed_q : issue_commit_i;
 
@@ -250,7 +308,7 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
             is_buffering_d = 1'b1;
 
             if (!is_buffering_q) begin
-              issue_buf_d        = issue_req_i;
+              issue_buf_d        = issue_req_in;
               buffer_committed_d = issue_commit_i;
             end else begin
               buffer_committed_d = buffer_committed_q | issue_commit_i;
@@ -285,7 +343,7 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
 
     end else begin : gen_no_instr_buffer
 
-      assign active_req       = issue_req_i;
+      assign active_req       = issue_req_in;
       assign active_req_valid = issue_req_valid_i & issue_allowed;
       assign issue_commit     = issue_commit_i;
 
@@ -300,19 +358,6 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
           issue_allowed
         & (sel_alu ? alu_issue_req_ready : 1'b1)
         & (sel_lsu ? lsu_issue_req_ready : 1'b1);
-
-      // pragma translate_off
-      always_ff @(posedge clk_i) begin
-        if (!rst_i && issue_req_valid_i) begin
-          assert (!(issue_req_i.fu_data.fu inside {
-            schnizo_pkg::ALU_LSU_LOAD,
-            schnizo_pkg::ALU_LSU_STORE
-          })) else begin
-            $error("ALU_LSU combined instruction issued while PostIncrement is disabled.");
-          end
-        end
-      end
-      // pragma translate_on
 
     end
   endgenerate
@@ -378,20 +423,31 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // pragma translate_on
 
   fu_issue_req_t lsu_issue_req;
-  always_comb begin
-    lsu_issue_req.fu_data = active_req.fu_data;
+  generate
+    if (PostIncrement) begin
 
-    if (active_req.fu_data.fu == schnizo_pkg::ALU_LSU_STORE) begin
-      lsu_issue_req.fu_data.operand_b = active_req.fu_data.imm;
-      lsu_issue_req.fu_data.imm = '0;
-    end
+      always_comb begin
+        lsu_issue_req.fu_data = active_req.fu_data;
 
-    if (active_req.fu_data.fu == schnizo_pkg::ALU_LSU_LOAD) begin
-      lsu_issue_req.tag = active_req.tag2;
+        if (active_req.fu_data.fu == schnizo_pkg::ALU_LSU_STORE) begin
+          lsu_issue_req.fu_data.operand_b = active_req.fu_data.imm;
+          lsu_issue_req.fu_data.imm = '0;
+        end
+
+        if (active_req.fu_data.fu == schnizo_pkg::ALU_LSU_LOAD) begin
+          lsu_issue_req.tag = active_req.tag2;
+        end else begin
+          lsu_issue_req.tag = active_req.tag;
+        end
+      end
+
     end else begin
-      lsu_issue_req.tag = active_req.tag;
+
+      assign lsu_issue_req.fu_data = active_req.fu_data;
+      assign lsu_issue_req.tag = active_req.tag;
+
     end
-  end
+  endgenerate
 
   schnizo_lsu #(
     .XLEN               (XLEN),

@@ -349,17 +349,35 @@ class ExperimentManager:
             print(colored(f"Global results saved to: {csv_path}", 'blue'))
 
         # Generate traces
+        # if 'traces' in self.actions or 'all' in self.actions:
+        #     for experiment in experiments:
+        #         print(colored('Generate traces', 'black', attrs=['bold']),
+        #               colored(experiment['run_dir'], 'cyan', attrs=['bold']))
+        #         vars = {
+        #             'SIM_DIR': experiment['run_dir'],
+        #             'DEBUG': 'ON'
+        #         }
+        #         if self.args.n_procs:
+        #             flags = ['-j', self.args.n_procs]
+        #         common.make('traces', vars, flags=flags)
+
         if 'traces' in self.actions or 'all' in self.actions:
+            flags = ['-j', self.args.n_procs] if self.args.n_procs else []
+            processes = []
+            
             for experiment in experiments:
                 print(colored('Generate traces', 'black', attrs=['bold']),
                       colored(experiment['run_dir'], 'cyan', attrs=['bold']))
-                vars = {
-                    'SIM_DIR': experiment['run_dir'],
-                    'DEBUG': 'ON'
-                }
-                if self.args.n_procs:
-                    flags = ['-j', self.args.n_procs]
-                common.make('traces', vars, flags=flags)
+                
+                process = common.make(
+                    'traces', 
+                    {'SIM_DIR': experiment['run_dir'], 'DEBUG': 'ON'}, 
+                    flags=flags, 
+                    sync=False if self.args.n_procs != '1' else True
+                )
+                processes.append(process)
+                
+            common.wait_processes(processes, dry_run=dry_run)
 
         # Annotate traces
         if 'annotate' in self.actions or 'all' in self.actions:
@@ -546,7 +564,7 @@ class ExperimentManager:
                 synth_results = df['synth_dir'].apply(lambda synth_dir: SynthResults(synth_dir))
                 synth_results.rename('synth_results', inplace=True)
                 self.synth_results_available = True
-            except FileNotFoundError:
+            except FileNotFoundError as e:
                 pass
 
         # Combine experiment axes and results into a new DataFrame

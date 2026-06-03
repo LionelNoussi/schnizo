@@ -92,22 +92,25 @@ def gen_experiments(hardwares, sizes, axpy_modes, dot_modes):
 
 
 def main():
-    hardwares = ['sz_baseline', 'sz_alu_lsu', 'sz_alu_lsu_2port']
-    sizes = [64]
-    axpy_modes = ['scalar', 'superscalar', 'peeled', 'unrolled', 'post_increment']
-    dot_modes = ['scalar', 'superscalar', 'AluLsuOpt', 'post_increment']
-    experiments = gen_experiments(hardwares, sizes, axpy_modes, dot_modes)
+    experiments = []
 
+    # hardwares = ['sz_baseline', 'sz_alu_lsu', 'sz_alu_lsu_2port']
     # sizes = [64]
-    # axpy_modes = []
+    # axpy_modes = ['scalar', 'superscalar', 'peeled', 'unrolled', 'post_increment']
+    # dot_modes = ['scalar', 'superscalar', 'AluLsuOpt', 'post_increment']
+    # experiments.extend(gen_experiments(hardwares, sizes, axpy_modes, dot_modes))
+
+    sizes = [140]
 
     # hardwares = ['sz_alu_lsu_2port']
+    # axpy_modes = []
     # dot_modes = ['AluLsuOpt']
-    # experiments = gen_experiments(hardwares, sizes, axpy_modes, dot_modes)
-
-    # hardwares = ['sz_baseline']
-    # dot_modes = ['superscalar']
     # experiments.extend(gen_experiments(hardwares, sizes, axpy_modes, dot_modes))
+
+    hardwares = ['sz_alu_lsu']
+    axpy_modes = ['peeled']
+    dot_modes = []
+    experiments.extend(gen_experiments(hardwares, sizes, axpy_modes, dot_modes))
 
     manager = FrepExperimentManager(experiments=experiments)
     manager.run()

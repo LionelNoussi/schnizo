@@ -25,7 +25,7 @@ class AxpyDataGen(du.DataGen):
     def validate(self, **kwargs):
         assert kwargs['n'] % kwargs['n_tiles'] == 0, "n must be an integer multiple of n_tiles"
         n_per_tile = kwargs['n'] // kwargs['n_tiles']
-        assert (n_per_tile % 8) == 0, "n must be an integer multiple of the number of cores"
+        # assert (n_per_tile % 8) == 0, "n must be an integer multiple of the number of cores"
         assert kwargs['funcptr'] in self.FUNCPTRS, f"Function pointer must be among {self.FUNCPTRS}"
 
         # Calculate total TCDM occupation

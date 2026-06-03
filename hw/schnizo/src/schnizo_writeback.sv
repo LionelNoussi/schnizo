@@ -125,6 +125,9 @@ module schnizo_writeback import schnizo_pkg::*; #(
     assign alu_lsu_gpr_valids[1]      = !alu_lsu_result_tags_i[1].dest_reg_is_fp ? alu_lsu_results_valid_i[1] : 1'b0;
     assign alu_lsu_fpr_valids[1]      =  alu_lsu_result_tags_i[1].dest_reg_is_fp ? alu_lsu_results_valid_i[1] : 1'b0;
     assign alu_lsu_results_ready_o[1] =  alu_lsu_result_tags_i[1].dest_reg_is_fp ? alu_lsu_fpr_readys[1]      : alu_lsu_gpr_readys[1];
+  end else begin
+    assign alu_lsu_gpr_valids[1]      = '0;
+    assign alu_lsu_fpr_valids[1]      = '0;
   end
 
   // FPU

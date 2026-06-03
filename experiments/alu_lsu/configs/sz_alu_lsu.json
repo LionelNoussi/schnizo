@@ -113,15 +113,16 @@
         num_lsus: 0,
         num_lsu_slots: 0,
         num_alu_lsus: 3,
-        num_alu_lsu_slots: 5,
-        num_alu_lsu_result_slots: 8,
-        num_alu_lsu_rsp_ports: 2,
-        num_alu_lsu_constants: 32,
+        num_alu_lsu_slots: 24,
+        num_alu_lsu_result_slots: 24,
+        num_alu_lsu_rsp_ports: 3,
+        num_alu_lsu_constants: 48,
         num_fpus: 1,
-        num_fpu_slots: 8,
+        num_fpu_slots: 16,
         num_fpu_constants: 32,
         num_alu_lsu_res_ports: 1,
-        use_alu_lsu: 1
+        use_alu_lsu: 1,
+        num_fpu_rsp_ports: 3
     },
     dma_core_template: {
         isa: "rv32imafd",

@@ -4,12 +4,17 @@
 import os
 import shutil
 from pathlib import Path
-from dataclasses import dataclass, asdict, fields, MISSING
+from dataclasses import dataclass, asdict, fields, MISSING, field
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import sys
 import argparse
+import socket
+import re
+import math
+from typing import Optional, Any
+
 from snitch.util.experiments import run
 
 
@@ -19,6 +24,45 @@ from snitch.util.experiments import common, experiment_utils as eu
 SCRATCH_BASE = Path('/scratch/sem26f5/cache')
 GE_AREA = 0.121
 FINAL_STAGE = '9'
+
+def sanitize_token(s: str, max_len: int = 80) -> str:
+    """
+    Make a short filesystem-safe token.
+
+    This is intentionally boring. Do not encode all parameters here.
+    Full parameters go into the CSV.
+    """
+    s = str(s)
+    s = re.sub(r"[^A-Za-z0-9_.-]+", "_", s)
+    s = re.sub(r"_+", "_", s).strip("_")
+    return s[:max_len]
+
+
+def infer_final_stage(args) -> str:
+    """
+    Infer the QoR stage from the selected action unless explicitly overridden.
+    fast_synth usually ends at 6, full synth at 9.
+    """
+    if getattr(args, "final_stage", None) is not None:
+        return str(args.final_stage)
+
+    actions = getattr(args, "actions", []) or []
+
+    if "fast_synth" in actions:
+        return "6"
+
+    return "9"
+
+
+def area_to_kge(area):
+    if area is None:
+        return math.nan
+    try:
+        if pd.isna(area):
+            return math.nan
+        return float(area) / GE_AREA / 1000.0
+    except Exception:
+        return math.nan
 
 # --- DESIGN DEFINITIONS ---
 
@@ -56,6 +100,7 @@ class Design:
         "AluLsuNofConstants": "XC",
         "FpuNofConstants": "FC",
 
+
         # Result ports / response ports
         "AluLsuNofResPorts": "XW",
         "AluNofResRspPorts": "ARP",
@@ -75,6 +120,7 @@ class Design:
         "HasMultiplier": "HM",
         "HasBranch": "HB",
         "UseSram": "SR",
+        "Use64bit": "U64"
     }
 
     def __post_init__(self):
@@ -135,37 +181,76 @@ class Design:
         if isinstance(value, float) and value.is_integer():
             return str(int(value))
         return str(value)
-
+    
     def to_exp(self):
-        """Generate compact experiment name, omitting values equal to defaults."""
-        defaults = self.__class__._resolved_default_map()
-        overrides = []
+        """
+        Generate experiment dict.
 
-        for f in fields(self):
-            if f.name in ("design_name", "CP"):
-                continue
+        Keep config compact. Do not encode every parameter into config,
+        because RUNDIR is derived from this and long paths have broken FC before.
 
-            value = getattr(self, f.name)
-            default = defaults.get(f.name, MISSING)
-
-            if default is not MISSING and value == default:
-                continue
-
-            label = self._short_label(f.name)
-            value_str = self._format_value(value)
-            overrides.append(f"{label}{value_str}")
-
-        overrides.sort()
-
-        config_name = self.design_name
-        if overrides:
-            config_name += "_" + "_".join(overrides)
-
+        Full resolved parameters are written into the CSV later.
+        """
         return {
             "design": self.design_name,
-            "config": config_name,
+            "config": self.design_name,
             "hdl_params": self.get_params(),
         }
+
+
+@dataclass
+class ExperimentCase:
+    """
+    Thin metadata wrapper around a concrete RTL design parameterization.
+
+    The Design object owns HDL parameters.
+    This object owns experiment/plotting metadata.
+    """
+    design: Design
+    experiment: str
+    sweep: str
+    tag: str
+    notes: str = ""
+    x: Optional[Any] = None
+    config: Optional[str] = None
+    extra_meta: dict = field(default_factory=dict)
+
+    def to_exp(self, run_tag: str = "") -> dict:
+        exp = self.design.to_exp()
+
+        # Prefer explicit readable config names over auto-encoding parameters.
+        if self.config is not None:
+            config_base = f"{self.design.design_name}_{self.config}"
+        else:
+            tokens = [
+                self.design.design_name,
+                self.experiment,
+                self.sweep,
+                self.tag,
+            ]
+            if self.x is not None:
+                tokens.append(f"x{self.x}")
+            config_base = "_".join(sanitize_token(t, max_len=48) for t in tokens if t)
+
+        if run_tag:
+            config_base += "_" + sanitize_token(run_tag, max_len=32)
+
+        exp["config"] = sanitize_token(config_base, max_len=100)
+
+        meta = {
+            "experiment": self.experiment,
+            "sweep": self.sweep,
+            "tag": self.tag,
+            "notes": self.notes,
+        }
+
+        if self.x is not None:
+            meta["x"] = self.x
+
+        meta.update(self.extra_meta)
+
+        exp["meta"] = meta
+        return exp
 
 
 @dataclass
@@ -198,6 +283,7 @@ class ResStatSynth(Design):
     NofResPorts: int = 1
     HasTwoDests: bool = False
     UseSram: bool = False
+    Use64bit: bool = True
 
 @dataclass
 class FuStageSynth(Design):
@@ -221,6 +307,7 @@ class FuStageSynth(Design):
     XRR: int  = Default("RS")   # AluLsu ResStat Result Slots
     XW: int   = 1      # AluLsu Writeback Ports
     XC: int   = Default("CM")   # AluLsu Constant Memory
+    PI: bool  = False
     
     NF: int   = 1      # Num FPUs
     FR: int   = Default("RS")   # FPU ResStat Slots
@@ -338,171 +425,968 @@ class Manager(eu.ExperimentManager):
 
 # --- MAIN ---
 
+def check_experiments(experiments):
+    """
+    Fail early on duplicate config names or duplicate HDL params per design.
+    """
+    seen_configs = {}
+    seen_params = {}
 
-def gen_fu_experiments():
+    for exp in experiments:
+        config = exp["config"]
+        if config in seen_configs:
+            raise ValueError(f"Duplicate config name: {config}")
+        seen_configs[config] = exp
+
+        key = (
+            exp["design"],
+            tuple(sorted(exp["hdl_params"].items())),
+        )
+
+        if key in seen_params:
+            other = seen_params[key]["config"]
+            raise ValueError(
+                "Duplicate HDL parameterization detected:\n"
+                f"  {other}\n"
+                f"  {config}\n"
+                "If you intentionally want identical HDL params under different tags, "
+                "remove or relax this check."
+            )
+
+        seen_params[key] = exp
+
+
+def print_experiment_table(experiments):
+    rows = []
+
+    for exp in experiments:
+        row = {
+            "config": exp["config"],
+            "design": exp["design"],
+            **exp.get("meta", {}),
+        }
+        rows.append(row)
+
+    if not rows:
+        print("No experiments selected.")
+        return
+
+    df = pd.DataFrame(rows)
+    with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 180):
+        print(df.to_string(index=False))
+
+
+def gen_fu_experiments(run_tag: str = "", sweep_filter: Optional[str] = None):
     fu_suite = [
-        AluSynth(),
-        AluSynth(HasBranch=True, HasMultiplier=True),
-        LsuSynth(),
-        AluLsuSynth(NofResPorts=1),
-        AluLsuSynth(NofResPorts=1, HasBranch=True, HasMultiplier=True),
-        AluLsuSynth(NofResPorts=2),
-        AluLsuSynth(NofResPorts=2, HasBranch=True, HasMultiplier=True),
-        AluLsuSynth(NofResPorts=1, PostIncrement=True),
-        AluLsuSynth(NofResPorts=1, HasBranch=True, HasMultiplier=True, PostIncrement=True),
-        AluLsuSynth(NofResPorts=2, PostIncrement=True),
-        AluLsuSynth(NofResPorts=2, HasBranch=True, HasMultiplier=True, PostIncrement=True)
+        ExperimentCase(AluSynth(), "fu", "single_fu", "alu_base"),
+        ExperimentCase(AluSynth(HasBranch=True, HasMultiplier=True), "fu", "single_fu", "alu_branch_mul"),
+
+        ExperimentCase(LsuSynth(), "fu", "single_fu", "lsu_base"),
+
+        ExperimentCase(AluLsuSynth(NofResPorts=1), "fu", "single_fu", "alu_lsu_rp1"),
+        ExperimentCase(AluLsuSynth(NofResPorts=1, HasBranch=True, HasMultiplier=True), "fu", "single_fu", "alu_lsu_rp1_branch_mul"),
+
+        ExperimentCase(AluLsuSynth(NofResPorts=2), "fu", "single_fu", "alu_lsu_rp2"),
+        ExperimentCase(AluLsuSynth(NofResPorts=2, HasBranch=True, HasMultiplier=True), "fu", "single_fu", "alu_lsu_rp2_branch_mul"),
+
+        ExperimentCase(AluLsuSynth(NofResPorts=1, PostIncrement=True), "fu", "single_fu", "alu_lsu_rp1_postinc"),
+        ExperimentCase(AluLsuSynth(NofResPorts=1, HasBranch=True, HasMultiplier=True, PostIncrement=True), "fu", "single_fu", "alu_lsu_rp1_branch_mul_postinc"),
+
+        ExperimentCase(AluLsuSynth(NofResPorts=2, PostIncrement=True), "fu", "single_fu", "alu_lsu_rp2_postinc"),
+        ExperimentCase(AluLsuSynth(NofResPorts=2, HasBranch=True, HasMultiplier=True, PostIncrement=True), "fu", "single_fu", "alu_lsu_rp2_branch_mul_postinc"),
     ]
 
-    fus_experiments = [e.to_exp() for e in fu_suite]
+    if sweep_filter:
+        fu_suite = [c for c in fu_suite if c.sweep == sweep_filter]
+
+    experiments = [c.to_exp(run_tag=run_tag) for c in fu_suite]
     setup_scratch('area_cache_fus', 'synth_fu')
-    return fus_experiments
-
-def gen_fu_stage_experiments():
-    fu_stage_suite = []
-    for base_rsrs in [32, 24, 16, 8, 4]:
-        # Baseline: Sep units
-        fu_stage_suite.append(FuStageSynth(RS=base_rsrs, CM=base_rsrs*2,
-            NX=0, XR=0, XRR=0, XW=1, XC=0
-        ))
-        
-        # ALU_LSU iso # of rsrs
-        fu_stage_suite.append(FuStageSynth(
-            UAL=True, NA=0, AR=0, AC=0, NL=0, LR=0, LC=0, NF=1, FR=base_rsrs, FC=base_rsrs*2,
-            NX=3, XR=base_rsrs*2, XRR=base_rsrs*2, XW=1, XC=base_rsrs*4
-        ))
-        
-        # ALU_LSU iso # of rsrs but half # of rss
-        fu_stage_suite.append(FuStageSynth(
-            UAL=True, NA=0, AR=0, AC=0, NL=0, LR=0, LC=0, NF=1, FR=base_rsrs, FC=base_rsrs*2,
-            NX=3, XR=base_rsrs, XRR=base_rsrs*2, XW=2, XC=base_rsrs*2
-        ))
-
-    fu_stage_experiments = [e.to_exp() for e in fu_stage_suite]
-    setup_scratch('area_cache_fu_stage', 'synth_fu_stage')
-    return fu_stage_experiments
+    return experiments
 
 
-def gen_res_stat_experiments():
-    res_stat_suite = []
-    for rsrs in [32, 24, 16, 8, 4]:
-        for rss in [int(rsrs), int(rsrs/2)]:
-            for NofResPorts in [2, 1]:
-                for HasTwoDests in [True, False]:
-                    consumer_count = (rss * 12) if rss == rsrs//2 else (rss * 18)
-                    res_stat_suite.append(
-                        ResStatSynth(NofRss=rss, NofRsrs=rsrs, NofConstants=rss*2, NofOperands=3, NofResRspIfs=2,
-                                    ConsumerCount=consumer_count, NofResPorts=NofResPorts, HasTwoDests=HasTwoDests)
-                    )
+def gen_res_stat_experiments(run_tag: str = "", sweep_filter: Optional[str] = None):
+    cases = []
 
-    res_stat_experiments = [e.to_exp() for e in res_stat_suite]
+    # Physical slot configurations only.
+    # The plotter can later reinterpret / shift curves as needed.
+    x_values = [2, 4, 8, 16]
+
+    # ALU or LSU-style:
+        #    ALU: 3 units * 2 operands * X issue slots
+        #    LSU: 3 units * 3 operands * X issue slots
+        #    FPU: 1 unit  * 3 operands * X issue slots
+        #
+        #    ConsumerCount = X * (3*2 + 3*3 + 1*3) = X * 18
+
+    # Combined ALU_LSU 2X2X style:
+        #    ALU_LSU: 3 units * 3 operands * 2*X issue slots
+        #    FPU:     1 unit  * 3 operands * X issue slots
+        #
+        #    ConsumerCount = 3*3*2*X + 1*3*X = X * 21
+
+    # Combined ALU_LSU X2X and XX style:
+        #    ALU_LSU: 3 units * 3 operands * X issue slots
+        #    FPU:     1 unit  * 3 operands * X issue slots
+        #
+        #    ConsumerCount = X * (3*3 + 1*3) = X * 12
+
+    for x in x_values:
+        # ALU-style
+        #    Use64bit=False, ConsumerCount = X * (3*2 + 3*3 + 1*3) = X * 18, NofOps=2
+        cases.append(
+            ExperimentCase(
+                design=ResStatSynth(
+                    NofRss=x,
+                    NofRsrs=x,
+                    NofConstants=x,
+                    NofOperands=2,
+                    NofResRspIfs=2,
+                    ConsumerCount=x * 18,
+                    NofResPorts=1,
+                    HasTwoDests=False,
+                    UseSram=False,
+                    Use64bit=False,
+                ),
+                experiment="res_stat",
+                sweep="alu",
+                tag="alu",
+                x=x,
+                config=f"alu_x_issue_x_result_x{x}",
+                extra_meta={
+                    "issue_slots": x,
+                    "result_slots": x,
+                    "slot_scale_x": x,
+                    "logical_units": "3alu_3lsu_1fpu",
+                },
+            )
+        )
+
+        # LSU-style:
+        #    Use64bit=True, ConsumerCount = X * (3*2 + 3*3 + 1*3) = X * 18
+        cases.append(
+            ExperimentCase(
+                design=ResStatSynth(
+                    NofRss=x,
+                    NofRsrs=x,
+                    NofConstants=2 * x,
+                    NofOperands=3,
+                    NofResRspIfs=2,
+                    ConsumerCount=x * 18,
+                    NofResPorts=1,
+                    HasTwoDests=False,
+                    UseSram=False,
+                    Use64bit=True,
+                ),
+                experiment="res_stat",
+                sweep="lsu",
+                tag="lsu",
+                x=x,
+                config=f"lsu_x_issue_x_result_x{x}",
+                extra_meta={
+                    "issue_slots": x,
+                    "result_slots": x,
+                    "slot_scale_x": x,
+                    "logical_units": "3alu_3lsu_1fpu",
+                },
+            )
+        )
+
+        # ALU+LSU, X issue, X result
+        # cases.append(
+        #     ExperimentCase(
+        #         design=ResStatSynth(
+        #             NofRss=x,
+        #             NofRsrs=x,
+        #             NofConstants=2 * x,
+        #             NofOperands=3,
+        #             NofResRspIfs=2,
+        #             ConsumerCount=x * 12,
+        #             NofResPorts=1,
+        #             HasTwoDests=False,
+        #             UseSram=False,
+        #             Use64bit=True,
+        #         ),
+        #         experiment="res_stat",
+        #         sweep="alu_lsu_XX",
+        #         tag="alu_lsu_XX",
+        #         x=x,
+        #         config=f"combined_x_issue_x_result_x{x}",
+        #         extra_meta={
+        #             "issue_slots": x,
+        #             "result_slots": x,
+        #             "slot_scale_x": x,
+        #             "logical_units": "3alu_lsu_1fpu",
+        #         },
+        #     )
+        # )
+
+        # ALU+LSU, X issue, 2X result
+        cases.append(
+            ExperimentCase(
+                design=ResStatSynth(
+                    NofRss=x,
+                    NofRsrs=2*x,
+                    NofConstants=2 * x,
+                    NofOperands=3,
+                    NofResRspIfs=2,
+                    ConsumerCount=x * 12,
+                    NofResPorts=1,
+                    HasTwoDests=False,
+                    UseSram=False,
+                    Use64bit=True,
+                ),
+                experiment="res_stat",
+                sweep="alu_lsu_X2X",
+                tag="alu_lsu_X2X",
+                x=x,
+                config=f"combined_x_issue_2x_result_x{x}",
+                extra_meta={
+                    "issue_slots": x,
+                    "result_slots": 2*x,
+                    "slot_scale_x": x,
+                    "logical_units": "3alu_lsu_1fpu",
+                },
+            )
+        )
+
+        # ALU+LSU, X issue, 2X result, 2 dests
+        cases.append(
+            ExperimentCase(
+                design=ResStatSynth(
+                    NofRss=x,
+                    NofRsrs=2*x,
+                    NofConstants=2 * x,
+                    NofOperands=3,
+                    NofResRspIfs=2,
+                    ConsumerCount=x * 12,
+                    NofResPorts=1,
+                    HasTwoDests=True,
+                    UseSram=False,
+                    Use64bit=True,
+                ),
+                experiment="res_stat",
+                sweep="alu_lsu_X2X_2D",
+                tag="alu_lsu_X2X_2D",
+                x=x,
+                config=f"combined_x_issue_2x_result_2D_x{x}",
+                extra_meta={
+                    "issue_slots": x,
+                    "result_slots": 2*x,
+                    "slot_scale_x": x,
+                    "logical_units": "3alu_lsu_1fpu",
+                },
+            )
+        )
+
+        # ALU+LSU, X issue, 2X result, 2 results
+        cases.append(
+            ExperimentCase(
+                design=ResStatSynth(
+                    NofRss=x,
+                    NofRsrs=2*x,
+                    NofConstants=2 * x,
+                    NofOperands=3,
+                    NofResRspIfs=2,
+                    ConsumerCount=x * 12,
+                    NofResPorts=2,
+                    HasTwoDests=False,
+                    UseSram=False,
+                    Use64bit=True,
+                ),
+                experiment="res_stat",
+                sweep="alu_lsu_X2X_2R",
+                tag="alu_lsu_X2X_2R",
+                x=x,
+                config=f"combined_x_issue_2x_result_2R_x{x}",
+                extra_meta={
+                    "issue_slots": x,
+                    "result_slots": 2*x,
+                    "slot_scale_x": x,
+                    "logical_units": "3alu_lsu_1fpu",
+                },
+            )
+        )
+
+        # ALU+LSU, X issue, 2X result, 2 dests, 2 results
+        cases.append(
+            ExperimentCase(
+                design=ResStatSynth(
+                    NofRss=x,
+                    NofRsrs=2*x,
+                    NofConstants=2 * x,
+                    NofOperands=3,
+                    NofResRspIfs=2,
+                    ConsumerCount=x * 12,
+                    NofResPorts=2,
+                    HasTwoDests=True,
+                    UseSram=False,
+                    Use64bit=True,
+                ),
+                experiment="res_stat",
+                sweep="alu_lsu_X2X_2D_2R",
+                tag="alu_lsu_X2X_2D_2R",
+                x=x,
+                config=f"combined_x_issue_2x_result_2R_2D_x{x}",
+                extra_meta={
+                    "issue_slots": x,
+                    "result_slots": 2*x,
+                    "slot_scale_x": x,
+                    "logical_units": "3alu_lsu_1fpu",
+                },
+            )
+        )
+
+
+        # ALU+LSU, 2X issue, 2X result
+        cases.append(
+            ExperimentCase(
+                design=ResStatSynth(
+                    NofRss=2*x,
+                    NofRsrs=2*x,
+                    NofConstants=4 * x,
+                    NofOperands=3,
+                    NofResRspIfs=2,
+                    ConsumerCount=x * 21,
+                    NofResPorts=1,
+                    HasTwoDests=False,
+                    UseSram=False,
+                    Use64bit=True,
+                ),
+                experiment="res_stat",
+                sweep="alu_lsu_2X2X",
+                tag="alu_lsu_2X2X",
+                x=x,
+                config=f"combined_2x_issue_2x_result_x{x}",
+                extra_meta={
+                    "issue_slots": 2*x,
+                    "result_slots": 2*x,
+                    "slot_scale_x": x,
+                    "logical_units": "3alu_lsu_1fpu",
+                },
+            )
+        )
+
+    if sweep_filter:
+        cases = [c for c in cases if c.sweep == sweep_filter]
+
+    experiments = [c.to_exp(run_tag=run_tag) for c in cases]
     setup_scratch('area_cache_res_stat', 'synth_res_stat')
-    return res_stat_experiments
+    return experiments
 
 
-def gen_schnizo_experiments():
-    suite = []
+def gen_fu_stage_experiments(run_tag: str = "", sweep_filter: Optional[str] = None):
+    cases = []
 
-    for x in [8, 16, 32]:
+    for base_rsrs in [32, 16, 8, 4]:
+        cases.append(
+            ExperimentCase(
+                FuStageSynth(
+                    RS=base_rsrs,
+                    CM=base_rsrs * 2,
+                    NX=0,
+                    XR=0,
+                    XRR=0,
+                    XW=1,
+                    XC=0,
+                    PI=False
+                ),
+                "fu_stage",
+                "separate_units",
+                "separate_units",
+                x=base_rsrs,
+                notes="Separate ALU/LSU units.",
+            )
+        )
 
-        # Baseline Schnizo:
-        # 3 ALUs + 3 LSUs + 1 FPU.
-        suite.append(SchnizoSynth(
-            AR=x,
-            LR=x,
-            FR=x,
+        cases.append(
+            ExperimentCase(
+                FuStageSynth(
+                    UAL=True,
+                    NA=0,
+                    AR=0,
+                    AC=0,
+                    NL=0,
+                    LR=0,
+                    LC=0,
+                    NF=1,
+                    FR=base_rsrs,
+                    FC=base_rsrs * 2,
+                    NX=3,
+                    XR=base_rsrs * 2,
+                    XRR=base_rsrs * 2,
+                    XW=1,
+                    XC=base_rsrs * 4,
+                    PI=False
+                ),
+                "fu_stage",
+                "fu_stage",
+                "combined_iso_result_capacity",
+                x=base_rsrs,
+            )
+        )
 
-            AC=2*x,
-            LC=2*x,
-            FC=2*x,
+        cases.append(
+            ExperimentCase(
+                FuStageSynth(
+                    UAL=True,
+                    NA=0,
+                    AR=0,
+                    AC=0,
+                    NL=0,
+                    LR=0,
+                    LC=0,
+                    NF=1,
+                    FR=base_rsrs,
+                    FC=base_rsrs * 2,
+                    NX=3,
+                    XR=base_rsrs,
+                    XRR=base_rsrs * 2,
+                    XW=2,
+                    XC=base_rsrs * 2,
+                    PI=True
+                ),
+                "fu_stage",
+                "fu_stage",
+                "combined_half_issue_postinc",
+                x=base_rsrs,
+            )
+        )
 
-            NX=0,
-            XR=0,
-            XRR=0,
-            XC=0,
+        cases.append(
+            ExperimentCase(
+                FuStageSynth(
+                    UAL=True,
+                    NA=0,
+                    AR=0,
+                    AC=0,
+                    NL=0,
+                    LR=0,
+                    LC=0,
+                    NF=1,
+                    FR=base_rsrs,
+                    FC=base_rsrs * 2,
+                    NX=3,
+                    XR=base_rsrs,
+                    XRR=base_rsrs * 2,
+                    XW=1,
+                    XC=base_rsrs * 2,
+                    PI=False
+                ),
+                "fu_stage",
+                "fu_stage",
+                "combined_hal_issue",
+                x=base_rsrs,
+            )
+        )
 
-            UAL=False,
-            PI=False,
-        ))
+        cases.append(
+            ExperimentCase(
+                FuStageSynth(
+                    UAL=True,
+                    NA=0,
+                    AR=0,
+                    AC=0,
+                    NL=0,
+                    LR=0,
+                    LC=0,
+                    NF=1,
+                    FR=base_rsrs,
+                    FC=base_rsrs * 2,
+                    NX=3,
+                    XR=base_rsrs,
+                    XRR=base_rsrs * 2,
+                    XW=1,
+                    XC=base_rsrs * 2,
+                    PI=True
+                ),
+                "fu_stage",
+                "fu_stage",
+                "combined_hal_issue_2dests",
+                x=base_rsrs,
+            )
+        )
 
-        # Naive ALU+LSU:
-        # 3 combined units + 1 FPU.
-        # ALU+LSU issue/result slots doubled for iso total result capacity.
-        suite.append(SchnizoSynth(
-            NA=0,
-            NL=0,
-            NX=3,
-            NF=1,
+        cases.append(
+            ExperimentCase(
+                FuStageSynth(
+                    UAL=True,
+                    NA=0,
+                    AR=0,
+                    AC=0,
+                    NL=0,
+                    LR=0,
+                    LC=0,
+                    NF=1,
+                    FR=base_rsrs,
+                    FC=base_rsrs * 2,
+                    NX=3,
+                    XR=base_rsrs,
+                    XRR=base_rsrs * 2,
+                    XW=2,
+                    XC=base_rsrs * 2,
+                    PI=False
+                ),
+                "fu_stage",
+                "fu_stage",
+                "combined_hal_issue_2res",
+                x=base_rsrs,
+            )
+        )
 
-            AR=0,
-            LR=0,
-            XR=2*x,
-            XRR=2*x,
-            FR=x,
+    if sweep_filter:
+        cases = [c for c in cases if c.sweep == sweep_filter]
 
-            AC=0,
-            LC=0,
-            XC=4*x,
-            FC=2*x,
+    experiments = [c.to_exp(run_tag=run_tag) for c in cases]
+    setup_scratch('area_cache_fu_stage', 'synth_fu_stage')
+    return experiments
 
-            UAL=True,
-            XW=1,
-            XRP=2,
-            PI=False,
-        ))
 
-        # ALU+LSU with two FU result ports.
-        suite.append(SchnizoSynth(
-            NA=0,
-            NL=0,
-            NX=3,
-            NF=1,
+def gen_fu_stage2_experiments(run_tag: str = "", sweep_filter: Optional[str] = None):
+    cases = []
 
-            AR=0,
-            LR=0,
-            XR=2*x,
-            XRR=2*x,
-            FR=x,
+    for base_rsrs in [16, 8, 4, 2]:
+        cases.append(
+            ExperimentCase(
+                FuStageSynth(
+                    RS=base_rsrs,
+                    CM=base_rsrs * 2,
+                    AC=base_rsrs,
+                    LC=base_rsrs*2,
+                    FC=base_rsrs*2,
+                    NX=0,
+                    XR=0,
+                    XRR=0,
+                    XW=1,
+                    XC=0,
+                    PI=False
+                ),
+                "fu_stage2",
+                "separate",
+                "separate_units",
+                x=base_rsrs,
+                notes="Separate ALU/LSU units.",
+            )
+        )
 
-            AC=0,
-            LC=0,
-            XC=4*x,
-            FC=2*x,
+        cases.append(
+            ExperimentCase(
+                FuStageSynth(
+                    UAL=True,
+                    NA=0,
+                    AR=0,
+                    AC=0,
+                    NL=0,
+                    LR=0,
+                    LC=0,
+                    NF=1,
+                    FR=base_rsrs,
+                    FC=base_rsrs * 2,
+                    NX=3,
+                    XR=base_rsrs * 2,
+                    XRR=base_rsrs * 2,
+                    XW=1,
+                    XC=base_rsrs * 4,
+                    PI=False
+                ),
+                "fu_stage2",
+                "combined",
+                "combined_iso_result_capacity",
+                x=base_rsrs,
+            )
+        )
 
-            UAL=True,
-            XW=2,
-            XRP=2,
-            PI=False,
-        ))
+        cases.append(
+            ExperimentCase(
+                FuStageSynth(
+                    UAL=True,
+                    NA=0,
+                    AR=0,
+                    AC=0,
+                    NL=0,
+                    LR=0,
+                    LC=0,
+                    NF=1,
+                    FR=base_rsrs,
+                    FC=base_rsrs * 2,
+                    NX=3,
+                    XR=base_rsrs,
+                    XRR=base_rsrs * 2,
+                    XW=2,
+                    XC=base_rsrs * 2,
+                    PI=True
+                ),
+                "fu_stage2",
+                "postinc",
+                "combined_half_issue_postinc",
+                x=base_rsrs,
+            )
+        )
 
-        # Post-increment final candidate:
-        # issue slots reduced to x while result slots stay 2x.
-        suite.append(SchnizoSynth(
-            NA=0,
-            NL=0,
-            NX=3,
-            NF=1,
+        cases.append(
+            ExperimentCase(
+                FuStageSynth(
+                    UAL=True,
+                    NA=0,
+                    AR=0,
+                    AC=0,
+                    NL=0,
+                    LR=0,
+                    LC=0,
+                    NF=1,
+                    FR=base_rsrs,
+                    FC=base_rsrs * 2,
+                    NX=3,
+                    XR=base_rsrs,
+                    XRR=base_rsrs * 2,
+                    XW=1,
+                    XC=base_rsrs * 2,
+                    PI=False
+                ),
+                "fu_stage2",
+                "half_issue",
+                "combined_half_issue",
+                x=base_rsrs,
+            )
+        )
 
-            AR=0,
-            LR=0,
-            XR=x,
-            XRR=2*x,
-            FR=x,
+        cases.append(
+            ExperimentCase(
+                FuStageSynth(
+                    UAL=True,
+                    NA=0,
+                    AR=0,
+                    AC=0,
+                    NL=0,
+                    LR=0,
+                    LC=0,
+                    NF=1,
+                    FR=base_rsrs,
+                    FC=base_rsrs * 2,
+                    NX=3,
+                    XR=base_rsrs,
+                    XRR=base_rsrs * 2,
+                    XW=1,
+                    XC=base_rsrs * 2,
+                    PI=True
+                ),
+                "fu_stage2",
+                "half_issue_2dest",
+                "combined_half_issue_2dest",
+                x=base_rsrs,
+            )
+        )
 
-            AC=0,
-            LC=0,
-            XC=2*x,
-            FC=2*x,
+        cases.append(
+            ExperimentCase(
+                FuStageSynth(
+                    UAL=True,
+                    NA=0,
+                    AR=0,
+                    AC=0,
+                    NL=0,
+                    LR=0,
+                    LC=0,
+                    NF=1,
+                    FR=base_rsrs,
+                    FC=base_rsrs * 2,
+                    NX=3,
+                    XR=base_rsrs,
+                    XRR=base_rsrs * 2,
+                    XW=2,
+                    XC=base_rsrs * 2,
+                    PI=False
+                ),
+                "fu_stage2",
+                "half_issue_2res",
+                "combined_half_issue_2res",
+                x=base_rsrs,
+            )
+        )
 
-            UAL=True,
-            XW=2,
-            XRP=2,
-            PI=True,
-        ))
+    if sweep_filter:
+        cases = [c for c in cases if c.sweep == sweep_filter]
 
-    experiments = [e.to_exp() for e in suite]
+    experiments = [c.to_exp(run_tag=run_tag) for c in cases]
+    setup_scratch('area_cache_fu_stage2', 'synth_fu_stage2')
+    return experiments
+
+
+def gen_schnizo_experiments(run_tag: str = "", sweep_filter: Optional[str] = None):
+    cases = []
+
+    for x in [4, 8, 16, 32]:
+        cases.append(
+            ExperimentCase(
+                SchnizoSynth(
+                    AR=x,
+                    LR=x,
+                    FR=x,
+                    AC=2 * x,
+                    LC=2 * x,
+                    FC=2 * x,
+                    NX=0,
+                    XR=0,
+                    XRR=0,
+                    XC=0,
+                    UAL=False,
+                    PI=False,
+                ),
+                "schnizo",
+                "schnizo",
+                "separate_units",
+                x=x,
+                notes="Baseline Schnizo: 3 ALUs + 3 LSUs + 1 FPU.",
+            )
+        )
+
+        cases.append(
+            ExperimentCase(
+                SchnizoSynth(
+                    NA=0,
+                    NL=0,
+                    NX=3,
+                    NF=1,
+                    AR=0,
+                    LR=0,
+                    XR=2 * x,
+                    XRR=2 * x,
+                    FR=x,
+                    AC=0,
+                    LC=0,
+                    XC=4 * x,
+                    FC=2 * x,
+                    UAL=True,
+                    XW=1,
+                    XRP=2,
+                    PI=False,
+                ),
+                "schnizo",
+                "schnizo",
+                "combined_alu_lsu_x2_issue_x2_result_one_port",
+                x=x,
+            )
+        )
+
+
+        cases.append(
+            ExperimentCase(
+                SchnizoSynth(
+                    NA=0,
+                    NL=0,
+                    NX=3,
+                    NF=1,
+                    AR=0,
+                    LR=0,
+                    XR=x,
+                    XRR=2 * x,
+                    FR=x,
+                    AC=0,
+                    LC=0,
+                    XC=2 * x,
+                    FC=2 * x,
+                    UAL=True,
+                    XW=2,
+                    XRP=2,
+                    PI=True,
+                ),
+                "schnizo",
+                "schnizo",
+                "combined_x_issue_x2_result_postinc",
+                x=x,
+            )
+        )
+
+    if sweep_filter:
+        cases = [c for c in cases if c.sweep == sweep_filter]
+
+    experiments = [c.to_exp(run_tag=run_tag) for c in cases]
     setup_scratch("area_cache_schnizo", 'synth_schnizo')
     return experiments
+
+
+def gen_schnizo_pareto_experiments(run_tag: str = "", sweep_filter: Optional[str] = None):
+    cases = []
+
+    cases.append(
+        ExperimentCase(
+            SchnizoSynth(
+                NA=3,
+                NL=3,
+                NX=0,
+                NF=1,
+                AR=1,
+                LR=3,
+                FR=4,
+                AC=1,
+                LC=6,
+                FC=8,
+                XR=0,
+                XRR=0,
+                XC=0,
+                UAL=False,
+                PI=False,
+            ),
+            "schnizo",
+            "schnizo_baseline",
+            "schnizo_baseline",
+            notes="Baseline Schnizo: 3 ALUs + 3 LSUs + 1 FPU.",
+        )
+    )
+
+    cases.append(
+        ExperimentCase(
+            SchnizoSynth(
+                NA=0,
+                NL=0,
+                NX=3,
+                NF=1,
+                AR=0,
+                LR=0,
+                XR=4,
+                XRR=4,
+                FR=4,
+                AC=0,
+                LC=0,
+                XC=2 * 4,
+                FC=2 * 4,
+                UAL=True,
+                XW=1,
+                PI=False,
+            ),
+            "schnizo",
+            "schnizo_alu_lsu_unroll4",
+            "schnizo_alu_lsu_unroll4",
+            notes="Baseline Schnizo: 3 ALU_LSUs + 1 FPU. 4 Slots for each.",
+        )
+    )
+
+
+    cases.append(
+        ExperimentCase(
+            SchnizoSynth(
+                NA=0,
+                NL=0,
+                NX=3,
+                NF=1,
+                AR=0,
+                LR=0,
+                XR=11,
+                XRR=11,
+                FR=10,
+                AC=0,
+                LC=0,
+                XC=2 * 11,
+                FC=2 * 10,
+                UAL=True,
+                XW=1,
+                PI=False,
+            ),
+            "schnizo",
+            "schnizo_alu_lsu_unroll10",
+            "schnizo_alu_lsu_unroll10",
+            notes="Baseline Schnizo: 3 ALU_LSUs + 1 FPU. For 10x unrolling.",
+        )
+    )
+
+
+    cases.append(
+        ExperimentCase(
+            SchnizoSynth(
+                NA=0,
+                NL=0,
+                NX=3,
+                NF=1,
+                AR=0,
+                LR=0,
+                XR=3,
+                XRR=6,
+                FR=4,
+                AC=0,
+                LC=0,
+                XC=2 * 3,
+                FC=2 * 4,
+                UAL=True,
+                XW=2,
+                PI=True,
+            ),
+            "schnizo",
+            "schnizo_alu_lsu_postincrement",
+            "schnizo_alu_lsu_postincrement",
+            notes="Baseline Schnizo: 3 ALU_LSUs + 1 FPU. With Post-Increment Extension.",
+        )
+    )
+
+    experiments = [c.to_exp(run_tag=run_tag) for c in cases]
+    setup_scratch("area_cache_schnizo_pareto", 'synth_schnizo_pareto')
+    return experiments
+
+
+def make_summary_from_results(results, experiments, final_stage: str, dry_run: bool = False):
+    """
+    Build a CSV-friendly summary.
+
+    Includes:
+    - config/design
+    - metadata
+    - all HDL params as columns
+    - QoR fields
+    """
+    exp_by_config = {exp["config"]: exp for exp in experiments}
+
+    summary = []
+
+    if dry_run:
+        iterable = [{"config": exp["config"]} for exp in experiments]
+    else:
+        iterable = (row for _, row in results.iterrows())
+
+    for row in iterable:
+        config = row["config"]
+        exp = exp_by_config.get(config)
+
+        if exp is None:
+            # Should not happen, but avoid silently losing a result.
+            exp = {
+                "design": None,
+                "config": config,
+                "hdl_params": {},
+                "meta": {},
+            }
+
+        if dry_run:
+            std_cell_area = 0.0
+            wns = 0.0
+            has_qor = 0
+        else:
+            synth_results = row.get("synth_results", {})
+            qor = synth_results.get(final_stage, {}).get("qor_summary", {})
+
+            std_cell_area = qor.get("StdCellArea", math.nan)
+            wns = qor.get("WNS", math.nan)
+            has_qor = int(not pd.isna(std_cell_area))
+
+        out = {
+            "config": config,
+            "design": exp["design"],
+            "stage": final_stage,
+            "StdCellArea": std_cell_area,
+            "AreaKGE": area_to_kge(std_cell_area),
+            "WNS": wns,
+            "has_qor": has_qor,
+        }
+
+        out.update(exp.get("meta", {}))
+
+        # Flatten HDL params into columns. Different experiments can have
+        # different param columns; pandas will fill missing ones with NaN.
+        for k, v in exp.get("hdl_params", {}).items():
+            if isinstance(v, bool):
+                v = int(v)
+            out[k] = v
+
+        summary.append(out)
+
+    return pd.DataFrame(summary)
 
 
 def main():
@@ -510,40 +1394,69 @@ def main():
     parser = run.get_parser()
     parser.add_argument('--actions', nargs='+', default='none', choices=eu.ACTIONS, help='List of actions')
     parser.add_argument('--clean', nargs='+', default='none', choices=eu.CLEAN_ACTIONS, help='List of actions')
-    parser.add_argument('--experiment', default='none', choices=['res_stat', 'fu', 'fu_stage', 'schnizo'],
+    parser.add_argument('--experiment', default='none', choices=['res_stat', 'fu', 'fu_stage', 'fu_stage2', 'schnizo', 'schnizo_pareto'],
                         help='Which experiment', required=True)
+    parser.add_argument('--sweep', default=None,
+                        help='Only run cases matching this sweep name.')
+    parser.add_argument('--run-tag', default='',
+                        help='Optional suffix added to config names, useful for retries without overwriting old runs.')
+    parser.add_argument('--final-stage', default=None,
+                        help='Override QoR stage extraction. Defaults to 6 for fast_synth, 9 otherwise.')
+
     args = parser.parse_args()
 
     if args.experiment == 'res_stat':
-        experiments = gen_res_stat_experiments()
+        experiments = gen_res_stat_experiments(run_tag=args.run_tag, sweep_filter=args.sweep)
     elif args.experiment == 'fu':
-        experiments = gen_fu_experiments()
+        experiments = gen_fu_experiments(run_tag=args.run_tag, sweep_filter=args.sweep)
     elif args.experiment == 'fu_stage':
-        experiments = gen_fu_stage_experiments()
+        experiments = gen_fu_stage_experiments(run_tag=args.run_tag, sweep_filter=args.sweep)
+    elif args.experiment == 'fu_stage2':
+        experiments = gen_fu_stage2_experiments(run_tag=args.run_tag, sweep_filter=args.sweep)
     elif args.experiment == 'schnizo':
-        experiments = gen_schnizo_experiments()
+        experiments = gen_schnizo_experiments(run_tag=args.run_tag, sweep_filter=args.sweep)
+    elif args.experiment == 'schnizo_pareto':
+        experiments = gen_schnizo_pareto_experiments(run_tag=args.run_tag, sweep_filter=args.sweep)
     else:
         print("Provide an --experiment!")
-        sys.exit()
+        sys.exit(1)
+
+    check_experiments(experiments)
+
+    print("\nPlanned experiments:")
+    print_experiment_table(experiments)
+    print("")
+
+    final_stage = infer_final_stage(args)
+
+    os.makedirs(f"results/results_{args.experiment}", exist_ok=True)
+
+    if args.dry_run:
+        summary_df = make_summary_from_results(
+            results=None,
+            experiments=experiments,
+            final_stage=final_stage,
+            dry_run=True,
+        )
+        summary_df.to_csv(f"results/results_{args.experiment}/summary.csv", index=False)
+        print(f"Dry run only. Wrote results/results_{args.experiment}/summary.csv")
+        return
 
     mgr = Manager(experiments=experiments, args=args, parse_args=False, synth_name=f"synth_{args.experiment}")
     mgr.run()
-    
-    # Results Processing
+
     results = mgr.get_results()
-    summary = []
+    results.to_pickle(f"results/results_{args.experiment}/results.pkl")
 
-    for _, row in results.iterrows():
-        qor = row["synth_results"].get(FINAL_STAGE, {}).get("qor_summary", {})
+    summary_df = make_summary_from_results(
+        results=results,
+        experiments=experiments,
+        final_stage=final_stage,
+        dry_run=False,
+    )
 
-        summary.append({
-            "config": row["config"],
-            "StdCellArea": qor.get("StdCellArea"),
-            "WNS": qor.get("WNS"),
-        })
+    summary_df.to_csv(f"results/results_{args.experiment}/summary.csv", index=False)
 
-    os.makedirs(f"results_{args.experiment}", exist_ok=True)
-    pd.DataFrame(summary).to_csv(f"results_{args.experiment}/summary.csv", index=False)
 
 if __name__ == '__main__':
     main()
