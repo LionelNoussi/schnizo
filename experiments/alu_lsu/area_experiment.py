@@ -2,6 +2,7 @@
 # Copyright 2026 ETH Zurich and University of Bologna.
 
 import os
+import copy
 import shutil
 from pathlib import Path
 from dataclasses import dataclass, asdict, fields, MISSING, field
@@ -425,7 +426,7 @@ class Manager(eu.ExperimentManager):
 
 # --- MAIN ---
 
-def check_experiments(experiments):
+def check_experiments(experiments, allow_duplicate_params: bool = False):
     """
     Fail early on duplicate config names or duplicate HDL params per design.
     """
@@ -443,7 +444,7 @@ def check_experiments(experiments):
             tuple(sorted(exp["hdl_params"].items())),
         )
 
-        if key in seen_params:
+        if not allow_duplicate_params and key in seen_params:
             other = seen_params[key]["config"]
             raise ValueError(
                 "Duplicate HDL parameterization detected:\n"
@@ -454,6 +455,50 @@ def check_experiments(experiments):
             )
 
         seen_params[key] = exp
+
+
+def select_experiments(experiments, sweep_filter=None, case_filter=None):
+    selected = experiments
+
+    if sweep_filter:
+        selected = [
+            exp for exp in selected
+            if exp.get("meta", {}).get("sweep") == sweep_filter
+        ]
+
+    if case_filter:
+        selected = [
+            exp for exp in selected
+            if exp["config"] == case_filter
+        ]
+
+    if (sweep_filter or case_filter) and not selected:
+        filters = []
+        if sweep_filter:
+            filters.append(f"sweep={sweep_filter}")
+        if case_filter:
+            filters.append(f"case={case_filter}")
+        raise ValueError(f"No experiments selected for {', '.join(filters)}")
+
+    return selected
+
+
+def add_run_tag(experiments, run_tag: str):
+    if not run_tag:
+        return experiments
+
+    tagged = []
+
+    for exp in experiments:
+        exp = copy.deepcopy(exp)
+        exp["config"] = sanitize_token(
+            f"{exp['config']}_{run_tag}",
+            max_len=100,
+        )
+        exp.setdefault("meta", {})["run_tag"] = run_tag
+        tagged.append(exp)
+
+    return tagged
 
 
 def print_experiment_table(experiments):
@@ -1114,14 +1159,14 @@ def gen_fu_stage2_experiments(run_tag: str = "", sweep_filter: Optional[str] = N
 def gen_schnizo_experiments(run_tag: str = "", sweep_filter: Optional[str] = None):
     cases = []
 
-    for x in [4, 8, 16, 32]:
+    for x in [2, 4, 8, 16]:
         cases.append(
             ExperimentCase(
                 SchnizoSynth(
                     AR=x,
                     LR=x,
                     FR=x,
-                    AC=2 * x,
+                    AC=x,
                     LC=2 * x,
                     FC=2 * x,
                     NX=0,
@@ -1132,8 +1177,8 @@ def gen_schnizo_experiments(run_tag: str = "", sweep_filter: Optional[str] = Non
                     PI=False,
                 ),
                 "schnizo",
-                "schnizo",
-                "separate_units",
+                "separate",
+                "separate",
                 x=x,
                 notes="Baseline Schnizo: 3 ALUs + 3 LSUs + 1 FPU.",
             )
@@ -1157,12 +1202,11 @@ def gen_schnizo_experiments(run_tag: str = "", sweep_filter: Optional[str] = Non
                     FC=2 * x,
                     UAL=True,
                     XW=1,
-                    XRP=2,
                     PI=False,
                 ),
                 "schnizo",
-                "schnizo",
-                "combined_alu_lsu_x2_issue_x2_result_one_port",
+                "combined",
+                "combined",
                 x=x,
             )
         )
@@ -1186,12 +1230,11 @@ def gen_schnizo_experiments(run_tag: str = "", sweep_filter: Optional[str] = Non
                     FC=2 * x,
                     UAL=True,
                     XW=2,
-                    XRP=2,
                     PI=True,
                 ),
                 "schnizo",
-                "schnizo",
-                "combined_x_issue_x2_result_postinc",
+                "postinc",
+                "postinc",
                 x=x,
             )
         )
@@ -1389,6 +1432,31 @@ def make_summary_from_results(results, experiments, final_stage: str, dry_run: b
     return pd.DataFrame(summary)
 
 
+def get_synth_results_allow_missing(mgr: Manager) -> pd.DataFrame:
+    """
+    Extract synthesis results without dropping every row when one run is missing.
+
+    ExperimentManager.get_results() catches FileNotFoundError around the whole
+    SynthResults column. That makes a partial retry look like all old cached
+    results disappeared if the new tagged retry directory does not exist yet.
+    """
+    synth_results_cls = getattr(eu, "SynthResults", None)
+    if synth_results_cls is None:
+        return mgr.get_results()
+
+    rows = []
+
+    for exp in mgr.experiments:
+        row = exp["axes"].copy()
+        try:
+            row["synth_results"] = synth_results_cls(exp["synth_dir"])
+        except FileNotFoundError:
+            row["synth_results"] = {}
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
 def main():
 
     parser = run.get_parser()
@@ -1398,59 +1466,83 @@ def main():
                         help='Which experiment', required=True)
     parser.add_argument('--sweep', default=None,
                         help='Only run cases matching this sweep name.')
+    parser.add_argument('--case', default=None, metavar='CONFIG',
+                        help='Only run one case. Must match the config column before --run-tag is applied.')
     parser.add_argument('--run-tag', default='',
-                        help='Optional suffix added to config names, useful for retries without overwriting old runs.')
-    parser.add_argument('--final-stage', default=None,
+                        help='Optional suffix added to selected run config names; tagged runs are appended to result extraction.')
+    parser.add_argument('--final-stage', default=6,
                         help='Override QoR stage extraction. Defaults to 6 for fast_synth, 9 otherwise.')
 
     args = parser.parse_args()
 
     if args.experiment == 'res_stat':
-        experiments = gen_res_stat_experiments(run_tag=args.run_tag, sweep_filter=args.sweep)
+        all_experiments = gen_res_stat_experiments()
     elif args.experiment == 'fu':
-        experiments = gen_fu_experiments(run_tag=args.run_tag, sweep_filter=args.sweep)
+        all_experiments = gen_fu_experiments()
     elif args.experiment == 'fu_stage':
-        experiments = gen_fu_stage_experiments(run_tag=args.run_tag, sweep_filter=args.sweep)
+        all_experiments = gen_fu_stage_experiments()
     elif args.experiment == 'fu_stage2':
-        experiments = gen_fu_stage2_experiments(run_tag=args.run_tag, sweep_filter=args.sweep)
+        all_experiments = gen_fu_stage2_experiments()
     elif args.experiment == 'schnizo':
-        experiments = gen_schnizo_experiments(run_tag=args.run_tag, sweep_filter=args.sweep)
+        all_experiments = gen_schnizo_experiments()
     elif args.experiment == 'schnizo_pareto':
-        experiments = gen_schnizo_pareto_experiments(run_tag=args.run_tag, sweep_filter=args.sweep)
+        all_experiments = gen_schnizo_pareto_experiments()
     else:
         print("Provide an --experiment!")
         sys.exit(1)
 
-    check_experiments(experiments)
+    check_experiments(all_experiments)
 
-    print("\nPlanned experiments:")
-    print_experiment_table(experiments)
+    selected_experiments = select_experiments(
+        all_experiments,
+        sweep_filter=args.sweep,
+        case_filter=args.case,
+    )
+    run_experiments = add_run_tag(selected_experiments, args.run_tag)
+
+    if args.run_tag:
+        result_experiments = all_experiments + run_experiments
+    else:
+        result_experiments = all_experiments
+
+    check_experiments(run_experiments)
+    check_experiments(
+        result_experiments,
+        allow_duplicate_params=bool(args.run_tag),
+    )
+
+    print("\nPlanned experiments for this run:")
+    print_experiment_table(run_experiments)
+    if len(result_experiments) != len(run_experiments):
+        print(f"\nResult extraction will cover {len(result_experiments)} total experiments.")
     print("")
 
-    final_stage = infer_final_stage(args)
+    final_stage = FINAL_STAGE # infer_final_stage(args)
 
     os.makedirs(f"results/results_{args.experiment}", exist_ok=True)
 
     if args.dry_run:
         summary_df = make_summary_from_results(
             results=None,
-            experiments=experiments,
+            experiments=result_experiments,
             final_stage=final_stage,
             dry_run=True,
         )
-        summary_df.to_csv(f"results/results_{args.experiment}/summary.csv", index=False)
-        print(f"Dry run only. Wrote results/results_{args.experiment}/summary.csv")
+        dry_run_path = f"results/results_{args.experiment}/summary_dry_run.csv"
+        summary_df.to_csv(dry_run_path, index=False)
+        print(f"Dry run only. Wrote {dry_run_path}")
         return
 
-    mgr = Manager(experiments=experiments, args=args, parse_args=False, synth_name=f"synth_{args.experiment}")
-    mgr.run()
+    run_mgr = Manager(experiments=run_experiments, args=args, parse_args=False, synth_name=f"synth_{args.experiment}")
+    run_mgr.run()
 
-    results = mgr.get_results()
+    extract_mgr = Manager(experiments=result_experiments, args=args, parse_args=False, synth_name=f"synth_{args.experiment}")
+    results = get_synth_results_allow_missing(extract_mgr)
     results.to_pickle(f"results/results_{args.experiment}/results.pkl")
 
     summary_df = make_summary_from_results(
         results=results,
-        experiments=experiments,
+        experiments=result_experiments,
         final_stage=final_stage,
         dry_run=False,
     )
