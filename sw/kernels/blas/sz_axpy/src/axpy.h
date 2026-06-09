@@ -234,7 +234,7 @@ static inline void axpy_unrolled_schnizo(uint32_t n, double a, double *x, double
 }
 
 
-static inline void axpy_peeled_schnizo(uint32_t n, double a, double *x, double *y, double *z) {
+static inline void axpy_peeled_10x_schnizo(uint32_t n, double a, double *x, double *y, double *z) {
     int core_idx = snrt_cluster_core_idx();
     int num_cores = snrt_cluster_compute_core_num();
     
@@ -359,81 +359,81 @@ static inline void axpy_peeled_schnizo(uint32_t n, double a, double *x, double *
 }
 
 
-// static inline void axpy_peeled_schnizo(uint32_t n, double a, double *x, double *y, double *z) {
-//     int core_idx = snrt_cluster_core_idx();
-//     int num_cores = snrt_cluster_compute_core_num();
+static inline void axpy_peeled_schnizo(uint32_t n, double a, double *x, double *y, double *z) {
+    int core_idx = snrt_cluster_core_idx();
+    int num_cores = snrt_cluster_compute_core_num();
     
-//     // FIX 1: The core offset must account for the unroll factor.
-//     // Each core handles a block of 4 elements.
-//     int offset = core_idx * 4;
+    // FIX 1: The core offset must account for the unroll factor.
+    // Each core handles a block of 4 elements.
+    int offset = core_idx * 4;
     
-//     // FIX 2: Each loop iteration moves the core ahead by (cores * unroll_factor)
-//     int stride = num_cores * 4;
-//     int frac = n / stride;
+    // FIX 2: Each loop iteration moves the core ahead by (cores * unroll_factor)
+    int stride = num_cores * 4;
+    int frac = n / stride;
 
-//     double *x_addr = &x[offset];
-//     double *y_addr = &y[offset];
-//     double *z_addr = &z[offset] - stride;
+    double *x_addr = &x[offset];
+    double *y_addr = &y[offset];
+    double *z_addr = &z[offset] - stride;
 
-//     snrt_mcycle();
+    snrt_mcycle();
 
-//     asm volatile(
-//         // Loop beginning
-//         "fld     ft0, 0(%[xa])        \n"
-//         "fld     ft1, 0(%[ya])        \n"
-//         "fld     ft2, 8(%[xa])        \n"
-//         "fld     ft3, 8(%[ya])        \n"
-//         "fld     ft4, 16(%[xa])        \n"
-//         "fld     ft5, 16(%[ya])        \n"
-//         "fld     ft6, 24(%[xa])        \n"
-//         "fld     ft7, 24(%[ya])        \n"
+    asm volatile(
+        // Loop beginning
+        "fld     ft0, 0(%[xa])        \n"
+        "fld     ft1, 0(%[ya])        \n"
+        "fld     ft2, 8(%[xa])        \n"
+        "fld     ft3, 8(%[ya])        \n"
+        "fld     ft4, 16(%[xa])        \n"
+        "fld     ft5, 16(%[ya])        \n"
+        "fld     ft6, 24(%[xa])        \n"
+        "fld     ft7, 24(%[ya])        \n"
 
-//         // Loop Start
-//         "frep.o  %[n_frep], 19, 0     \n"
+        // Loop Start
+        "frep.o  %[n_frep], 19, 0     \n"
 
-//         "fmadd.d ft8, %[a], ft0, ft1  \n"
-//         "fmadd.d ft9, %[a], ft2, ft3  \n"
-//         "fmadd.d ft10, %[a], ft4, ft5  \n"
-//         "fmadd.d ft11, %[a], ft6, ft7  \n"
+        "fmadd.d ft8, %[a], ft0, ft1  \n"
+        "fmadd.d ft9, %[a], ft2, ft3  \n"
+        "fmadd.d ft10, %[a], ft4, ft5  \n"
+        "fmadd.d ft11, %[a], ft6, ft7  \n"
 
-//         "add     %[xa], %[xa], %[inc] \n"
-//         "add     %[ya], %[ya], %[inc] \n"
-//         "add     %[za], %[za], %[inc] \n"
+        "add     %[xa], %[xa], %[inc] \n"
+        "add     %[ya], %[ya], %[inc] \n"
+        "add     %[za], %[za], %[inc] \n"
         
-//         "fld     ft0, 0(%[xa])        \n"
-//         "fld     ft1, 0(%[ya])        \n"
-//         "fld     ft2, 8(%[xa])        \n"
-//         "fld     ft3, 8(%[ya])        \n"
-//         "fld     ft4, 16(%[xa])        \n"
-//         "fld     ft5, 16(%[ya])        \n"
-//         "fld     ft6, 24(%[xa])        \n"
-//         "fld     ft7, 24(%[ya])        \n"
+        "fld     ft0, 0(%[xa])        \n"
+        "fld     ft1, 0(%[ya])        \n"
+        "fld     ft2, 8(%[xa])        \n"
+        "fld     ft3, 8(%[ya])        \n"
+        "fld     ft4, 16(%[xa])        \n"
+        "fld     ft5, 16(%[ya])        \n"
+        "fld     ft6, 24(%[xa])        \n"
+        "fld     ft7, 24(%[ya])        \n"
 
-//         "fsd     ft8, 0(%[za])        \n"
-//         "fsd     ft9, 8(%[za])        \n"
-//         "fsd     ft10, 16(%[za])        \n"
-//         "fsd     ft11, 24(%[za])        \n"
+        "fsd     ft8, 0(%[za])        \n"
+        "fsd     ft9, 8(%[za])        \n"
+        "fsd     ft10, 16(%[za])        \n"
+        "fsd     ft11, 24(%[za])        \n"
 
-//         // Final Block
-//         "fmadd.d ft8, %[a], ft0, ft1  \n"
-//         "fmadd.d ft9, %[a], ft2, ft3  \n"
-//         "fmadd.d ft10, %[a], ft4, ft5  \n"
-//         "fmadd.d ft11, %[a], ft6, ft7  \n"
+        // Final Block
+        "fmadd.d ft8, %[a], ft0, ft1  \n"
+        "fmadd.d ft9, %[a], ft2, ft3  \n"
+        "fmadd.d ft10, %[a], ft4, ft5  \n"
+        "fmadd.d ft11, %[a], ft6, ft7  \n"
 
-//         "add     %[za], %[za], %[inc] \n"
+        "add     %[za], %[za], %[inc] \n"
 
-//         "fsd     ft8, 0(%[za])        \n"
-//         "fsd     ft9, 8(%[za])        \n"
-//         "fsd     ft10, 16(%[za])        \n"
-//         "fsd     ft11, 24(%[za])        \n"
+        "fsd     ft8, 0(%[za])        \n"
+        "fsd     ft9, 8(%[za])        \n"
+        "fsd     ft10, 16(%[za])        \n"
+        "fsd     ft11, 24(%[za])        \n"
         
-//         : [ xa ] "+r"(x_addr), [ ya ] "+r"(y_addr), [ za ] "+r"(z_addr)
-//         : [ n_frep ] "r"(frac - 2), [ a ] "f"(a),
-//           [ inc ] "r"(stride * sizeof(double))
-//         : "ft0", "ft1", "ft2", "ft3", "ft4", "ft5", "ft6", "ft7", "ft8", "ft9", "ft10", "ft11", "memory" 
-//     );
-//     snrt_mcycle();
-// }
+        : [ xa ] "+r"(x_addr), [ ya ] "+r"(y_addr), [ za ] "+r"(z_addr)
+        : [ n_frep ] "r"(frac - 2), [ a ] "f"(a),
+          [ inc ] "r"(stride * sizeof(double))
+        : "ft0", "ft1", "ft2", "ft3", "ft4", "ft5", "ft6", "ft7", "ft8", "ft9", "ft10", "ft11", "memory" 
+    );
+    snrt_mcycle();
+}
 
 
 static inline void axpy_job(axpy_args_t *args) {
