@@ -31,9 +31,12 @@ package schnizo_tracer_pkg;
     longint rs2;
     longint rs3; // for fused FPU instructions
     longint rd;
+    longint rd2;
+    longint use_rd2;
     longint rs1_is_fp;
     longint rs2_is_fp;
     longint rd_is_fp;
+    longint rd2_is_fp;
     longint is_branch; // jal & jalr are handled via pc_d (add goto if pc_d != pc_q + 4)
     longint branch_taken;
     // FU selection - with known number of FUs and RSS we can reconstruct which FU it was.
@@ -42,6 +45,14 @@ package schnizo_tracer_pkg;
     string fu_type;
     string disp_resp;
   } schnizo_dispatch_trace_t;
+
+  typedef struct {
+    longint rd;
+    longint rd_is_fp;
+    longint rd2;
+    longint use_rd2;
+    longint rd2_is_fp;
+  } schnizo_rs_dispatch_trace_t;
 
   typedef struct {
     logic   valid; // high if handshake happens
@@ -64,6 +75,22 @@ package schnizo_tracer_pkg;
     longint lsu_amo;
     // we don't track the stored data
   } issue_lsu_trace_t;
+
+  typedef struct {
+    logic   valid; // high if handshake happens
+    longint instr_iter;
+    string  producer;
+    longint sel_alu;
+    longint alu_opa;
+    longint alu_opb;
+    longint lsu_store_data;
+    longint lsu_is_float;
+    longint lsu_is_load;
+    longint lsu_is_store;
+    longint lsu_addr; // the computed memory address
+    longint lsu_size;
+    longint lsu_amo;
+  } issue_alu_lsu_trace_t;
 
   typedef struct {
     logic   valid; // high if handshake happens
@@ -96,7 +123,9 @@ package schnizo_tracer_pkg;
 
   // retirements
   typedef struct {
-    logic   valid; // high if handshake happens
+    logic   valid; // high if handshake happens for either result port
+    longint rd;
+    longint rd_is_fp;
     string  producer;
   } retire_fu_trace_t;
 
@@ -142,7 +171,7 @@ package schnizo_tracer_pkg;
     string extras = "";
     if (!trace.valid) begin
       return "";
-    end
+    end           // TODO(lnoussi): Add rd2 and use_rd2 to trace (bascially both tags and if the other one is used)
     extras = $sformatf("%s'%s':\"%s\", ", extras, "fu_type", trace.fu_type);
     extras = $sformatf("%s'%s':\"%s\", ", extras, "disp_resp", trace.disp_resp);
     extras = $sformatf("%s'%s':0x%08x, ", extras, "pc_q", trace.pc_q);
@@ -152,11 +181,24 @@ package schnizo_tracer_pkg;
     extras = $sformatf("%s'%s':0x%02x, ", extras, "rs2", trace.rs2);
     extras = $sformatf("%s'%s':0x%02x, ", extras, "rs3", trace.rs3);
     extras = $sformatf("%s'%s':0x%02x, ", extras, "rd", trace.rd);
+    extras = $sformatf("%s'%s':0x%02x, ", extras, "rd2", trace.rd2);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "use_rd2", trace.use_rd2);
     extras = $sformatf("%s'%s':0x%0x, ", extras, "rs1_is_fp", trace.rs1_is_fp);
     extras = $sformatf("%s'%s':0x%0x, ", extras, "rs2_is_fp", trace.rs2_is_fp);
     extras = $sformatf("%s'%s':0x%0x, ", extras, "rd_is_fp", trace.rd_is_fp);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "rd2_is_fp", trace.rd2_is_fp);
     extras = $sformatf("%s'%s':0x%0x, ", extras, "is_branch", trace.is_branch);
     extras = $sformatf("%s'%s':0x%0x, ", extras, "branch_taken", trace.branch_taken);
+    return extras;
+  endfunction
+
+  function automatic string format_rss_dispatch_extras(schnizo_rs_dispatch_trace_t trace);
+    string extras = "";
+    extras = $sformatf("%s'%s':0x%02x, ", extras, "rd", trace.rd);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "rd_is_fp", trace.rd_is_fp);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "use_rd2", trace.use_rd2);
+    extras = $sformatf("%s'%s':0x%02x, ", extras, "rd2", trace.rd2);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "rd2_is_fp", trace.rd2_is_fp);
     return extras;
   endfunction
 
@@ -179,6 +221,26 @@ package schnizo_tracer_pkg;
     end
     extras = $sformatf("%s'%s':0x%0x, ", extras, "instr_iter", trace.instr_iter);
     extras = $sformatf("%s'%s':\"%s\", ", extras, "producer", trace.producer);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_store_data", trace.lsu_store_data);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_is_float", trace.lsu_is_float);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_is_load", trace.lsu_is_load);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_is_store", trace.lsu_is_store);
+    extras = $sformatf("%s'%s':0x%08x, ", extras, "lsu_addr", trace.lsu_addr);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_size", trace.lsu_size);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_amo", trace.lsu_amo);
+    return extras;
+  endfunction
+
+  function automatic string format_alu_lsu_trace(issue_alu_lsu_trace_t trace);
+    string extras = "";
+    if (!trace.valid) begin
+      return "";
+    end
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "instr_iter", trace.instr_iter);
+    extras = $sformatf("%s'%s':\"%s\", ", extras, "producer", trace.producer);
+    extras = $sformatf("%s'%s':0x%08x, ", extras, "sel_alu", trace.sel_alu);
+    extras = $sformatf("%s'%s':0x%08x, ", extras, "alu_opa", trace.alu_opa);
+    extras = $sformatf("%s'%s':0x%08x, ", extras, "alu_opb", trace.alu_opb);
     extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_store_data", trace.lsu_store_data);
     extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_is_float", trace.lsu_is_float);
     extras = $sformatf("%s'%s':0x%0x, ", extras, "lsu_is_load", trace.lsu_is_load);
@@ -230,12 +292,15 @@ package schnizo_tracer_pkg;
     return extras;
   endfunction
 
+  // TODO(lnoussi): Remove valids and add tag instead
   function automatic string format_fu_retire_trace(retire_fu_trace_t trace);
     string extras = "";
     if (!trace.valid) begin
       return "";
     end
     extras = $sformatf("%s'%s':\"%s\", ", extras, "producer", trace.producer);
+    extras = $sformatf("%s'%s':0x%02x, ", extras, "rd", trace.rd);
+    extras = $sformatf("%s'%s':0x%0x, ", extras, "rd_is_fp", trace.rd_is_fp);
     return extras;
   endfunction
 
