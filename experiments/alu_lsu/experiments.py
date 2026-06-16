@@ -109,8 +109,8 @@ def main():
 
     # Post-Increment test
     hw_post_inc = ['sz_alu_lsu_post_increment']
-    axpy_post_inc = ['post_increment']
-    dot_post_inc = ['post_increment']
+    axpy_post_inc = ['superscalar', 'post_increment']
+    dot_post_inc = ['superscalar', 'post_increment']
     experiments.extend(gen_experiments(hw_post_inc, sizes, axpy_post_inc, dot_post_inc))
 
     manager = FrepExperimentManager(experiments=experiments)

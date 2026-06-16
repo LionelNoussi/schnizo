@@ -64,71 +64,27 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   input  logic caq_rsp_valid_i,
   output logic caq_rsp_valid_o
 );
-  
-  alu_lsu_issue_req_t issue_req_in;
-  always_comb begin
-    // 1. Default tie-off clears out all FPU fields (fpu_op, fpu_fmt_src, fpu_fmt_dst, fpu_rnd_mode)
-    issue_req_in.fu_data = '0;
-
-    // 3. Map required functional unit steering and opcodes
-    issue_req_in.fu_data.fu       = issue_req_i.fu_data.fu;
-    issue_req_in.fu_data.alu_op   = issue_req_i.fu_data.alu_op;
-    issue_req_in.fu_data.lsu_op   = issue_req_i.fu_data.lsu_op;
-    issue_req_in.fu_data.csr_op   = issue_req_i.fu_data.csr_op;
-
-    // 4. Map the source operands and their valid qualifiers
-    issue_req_in.fu_data.operand_a     = issue_req_i.fu_data.operand_a;
-    issue_req_in.fu_data.use_operand_a = issue_req_i.fu_data.use_operand_a;
-    issue_req_in.fu_data.operand_b     = issue_req_i.fu_data.operand_b;
-    issue_req_in.fu_data.use_operand_b = issue_req_i.fu_data.use_operand_b;
-
-    // 5. Map immediate and memory size configurations
-    issue_req_in.fu_data.imm           = issue_req_i.fu_data.imm;
-    issue_req_in.fu_data.use_imm       = issue_req_i.fu_data.use_imm;
-    issue_req_in.fu_data.lsu_size      = issue_req_i.fu_data.lsu_size;
-  end
-
-  assign issue_req_in.tag = issue_req_i.tag;
-  generate
-    if (PostIncrement) begin
-      assign issue_req_in.tag2 = issue_req_i.tag2; // Used by ALU_LSU_LOAD
-    end else begin
-      assign issue_req_in.tag2 = '0;
-    end
-  endgenerate
-
-  ///////////
-  // DEMUX //
-  ///////////
 
   localparam bit NeedsInstrBuffer      = PostIncrement;
-  localparam bit NeedsInFlightTracking = 1'b1;
+  localparam bit InOrderWriteback = NofResPorts != 2;
 
   logic alu_issue_req_valid, alu_issue_req_ready;
-  logic lsu_issue_req_valid, lsu_issue_req_ready;
-  logic lsu_result_valid, lsu_result_ready;
   logic alu_result_valid, alu_result_ready;
 
-  logic alu_issue_fire, lsu_issue_fire;
-  assign alu_issue_fire = alu_issue_req_valid & alu_issue_req_ready;
-  assign lsu_issue_fire = lsu_issue_req_valid & lsu_issue_req_ready;
+  logic lsu_result_valid, lsu_result_ready;
+  logic lsu_issue_req_valid, lsu_issue_req_ready;
+
+  logic alu_issue_hs, lsu_issue_hs;
+  assign alu_issue_hs = alu_issue_req_valid & alu_issue_req_ready;
+  assign lsu_issue_hs = lsu_issue_req_valid & lsu_issue_req_ready;
 
   // Active instruction after optional buffering.
-  alu_lsu_issue_req_t active_req;
-  logic               active_req_valid;
-  logic               issue_commit;
-
-  // These are only meaningful when the instruction buffer exists.
-  logic alu_part_issued;
-  logic lsu_part_issued;
-  logic buffering_busy;
-
-  // Mutual-exclusion issue gate. For two result ports, this becomes constant 1
-  // and the in-flight tracking logic is not instantiated.
-  logic issue_allowed;
+  alu_lsu_issue_req_t active_issue_req;
+  logic               active_issue_req_valid;
+  logic               active_issue_commit;
 
   // ---------------------------------------------------------
-  // Select Functional Unit
+  // Select Functional Units
   // ---------------------------------------------------------
 
   logic sel_alu, sel_lsu, is_store;
@@ -140,33 +96,24 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
         sel_lsu  = 1'b0;
         is_store = 1'b0;
 
-        unique case (active_req.fu_data.fu)
+        unique case (active_issue_req.fu_data.fu)
           schnizo_pkg::MUL,
           schnizo_pkg::CTRL_FLOW,
-          schnizo_pkg::ALU: begin
-            sel_alu = 1'b1;
-          end
-
-          schnizo_pkg::LOAD: begin
-            sel_lsu = 1'b1;
-          end
-
+          schnizo_pkg::ALU: sel_alu = 1'b1;
+          schnizo_pkg::LOAD: sel_lsu = 1'b1;
           schnizo_pkg::STORE: begin
             sel_lsu  = 1'b1;
             is_store = 1'b1;
           end
-
           schnizo_pkg::ALU_LSU_LOAD: begin
             sel_alu = 1'b1;
             sel_lsu = 1'b1;
           end
-
           schnizo_pkg::ALU_LSU_STORE: begin
             sel_alu  = 1'b1;
             sel_lsu  = 1'b1;
             is_store = 1'b1;
           end
-
           default: ;
         endcase
       end
@@ -176,15 +123,11 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
         sel_lsu  = 1'b0;
         is_store = 1'b0;
 
-        unique case (active_req.fu_data.fu)
+        unique case (active_issue_req.fu_data.fu)
           schnizo_pkg::MUL,
           schnizo_pkg::CTRL_FLOW,
-          schnizo_pkg::ALU: begin
-            sel_alu = 1'b1;
-          end
-          schnizo_pkg::LOAD: begin
-            sel_lsu = 1'b1;
-          end
+          schnizo_pkg::ALU: sel_alu = 1'b1;
+          schnizo_pkg::LOAD: sel_lsu = 1'b1;
           schnizo_pkg::STORE: begin
             sel_lsu  = 1'b1;
             is_store = 1'b1;
@@ -196,62 +139,29 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   endgenerate
 
   // ---------------------------------------------------------
-  // Optional in-flight tracking
+  // Enforcing In-Order Writeback to prevent deadlocks
   // ---------------------------------------------------------
-  // Only needed for a single result port. With two result ports, ALU and LSU
-  // results can be returned independently, so this issue filter is removed.
+
+  logic issue_allowed;
 
   generate
-    if (NeedsInFlightTracking) begin : gen_in_flight_tracking
+    if (InOrderWriteback) begin : gen_enforce_in_order_writeback
 
-      logic [4:0] alu_pending_results_d, alu_pending_results_q;
-      logic [4:0] lsu_pending_results_d, lsu_pending_results_q;
+      logic [2:0] outstanding_loads_q;
+      logic lsu_result_hs;
 
-      logic alu_result_fire;
-      logic lsu_result_fire;
+      assign lsu_result_hs = lsu_result_ready & lsu_result_valid;
 
-      assign alu_result_fire = alu_result_valid & alu_result_ready;
-      assign lsu_result_fire = lsu_result_valid & lsu_result_ready;
-
-      // With one result port, avoid mixing independently issued ALU and LSU
-      // operations whose results may complete in a different order.
-      //
-      // Combined ALU_LSU instructions are allowed because they represent one
-      // architectural instruction split into ALU and LSU parts.
-      assign issue_allowed = (sel_alu & sel_lsu) ? 1'b1 :
-                             (sel_alu ? (lsu_pending_results_q == '0)
-                                      : (alu_pending_results_q == '0));
-
-      always_comb begin
-        alu_pending_results_d = alu_pending_results_q;
-        lsu_pending_results_d = lsu_pending_results_q;
-
-        alu_pending_results_d = alu_pending_results_q
-                              + alu_issue_fire
-                              - alu_result_fire;
-
-        // Stores do not produce a result handshake.
-        lsu_pending_results_d = lsu_pending_results_q
-                              + (lsu_issue_fire & ~is_store)
-                              - lsu_result_fire;
+      always_ff @ (posedge clk_i, posedge rst_i) begin
+        if (rst_i) outstanding_loads_q <= '0;
+        else       outstanding_loads_q <= outstanding_loads_q + (lsu_issue_hs & !is_store) - lsu_result_hs;
       end
 
-      always_ff @(posedge clk_i or posedge rst_i) begin
-        if (rst_i) begin
-          alu_pending_results_q <= '0;
-          lsu_pending_results_q <= '0;
-        end else begin
-          alu_pending_results_q <= alu_pending_results_d;
-          lsu_pending_results_q <= lsu_pending_results_d;
-        end
-      end
+      // Allow ALU instruction to be issued only if the lsu is not busy loading
+      assign issue_allowed = sel_alu ? (outstanding_loads_q == '0) : 1'b1;
 
     end else begin : gen_no_in_flight_tracking
-
-      // With separate result ports, ALU and LSU completion ordering no longer
-      // needs to be serialized by this unit.
       assign issue_allowed = 1'b1;
-
     end
   endgenerate
 
@@ -261,6 +171,10 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // Only needed for post-increment instructions, where one architectural
   // instruction may need to issue to both ALU and LSU. If only one side accepts
   // the instruction, the other side must still see the same instruction later.
+
+  logic alu_part_issued;
+  logic lsu_part_issued;
+  logic buffering_busy;
 
   generate
     if (NeedsInstrBuffer) begin : gen_instr_buffer
@@ -272,9 +186,9 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
       logic alu_part_issued_d,  alu_part_issued_q;
       logic lsu_part_issued_d,  lsu_part_issued_q;
 
-      assign active_req       = is_buffering_q ? issue_buf_q : issue_req_in;
-      assign active_req_valid = is_buffering_q | (issue_req_valid_i & issue_allowed);
-      assign issue_commit     = is_buffering_q ? buffer_committed_q : issue_commit_i;
+      assign active_issue_req       = is_buffering_q ? issue_buf_q : issue_req_i;
+      assign active_issue_req_valid = is_buffering_q | (issue_req_valid_i & issue_allowed);
+      assign active_issue_commit    = is_buffering_q ? buffer_committed_q : issue_commit_i;
 
       assign alu_part_issued  = alu_part_issued_q;
       assign lsu_part_issued  = lsu_part_issued_q;
@@ -284,42 +198,39 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
       // holding a partially issued one and the issue filter permits it.
       assign issue_req_ready_o = ~is_buffering_q & issue_allowed;
 
-      // An instruction completes its issue phase when all required parts fired.
+      // An instruction completes its issue phase when all required FUs have issued.
       logic issue_complete;
       assign issue_complete =
-          active_req_valid
-        & (sel_alu ? (alu_part_issued_q | alu_issue_fire) : 1'b1)
-        & (sel_lsu ? (lsu_part_issued_q | lsu_issue_fire) : 1'b1);
+        active_issue_req_valid &
+        (sel_alu ? (alu_part_issued_q | alu_issue_hs) : 1'b1) &
+        (sel_lsu ? (lsu_part_issued_q | lsu_issue_hs) : 1'b1);
 
       always_comb begin
         is_buffering_d     = is_buffering_q;
         issue_buf_d        = issue_buf_q;
-        alu_part_issued_d  = alu_part_issued_q;
-        lsu_part_issued_d  = lsu_part_issued_q;
         buffer_committed_d = buffer_committed_q;
 
-        if (active_req_valid) begin
+        alu_part_issued_d = alu_issue_hs ? 1'b1 : alu_part_issued_q;
+        lsu_part_issued_d = lsu_issue_hs ? 1'b1 : lsu_part_issued_q;
+
+        if (active_issue_req_valid) begin
           if (issue_complete) begin
+            // Reset buffer and make ready for new instruction.
             is_buffering_d     = 1'b0;
             alu_part_issued_d  = 1'b0;
             lsu_part_issued_d  = 1'b0;
             buffer_committed_d = 1'b0;
           end else begin
+            // Issue not completed. Start or keep buffering instruction.
             is_buffering_d = 1'b1;
 
+            // Previously not buffering --> capture incoming instruction
             if (!is_buffering_q) begin
-              issue_buf_d        = issue_req_in;
+              issue_buf_d        = issue_req_i;
               buffer_committed_d = issue_commit_i;
-            end else begin
+            end else begin  // Else keep buffering same instruction
+              issue_buf_d        = issue_buf_q;
               buffer_committed_d = buffer_committed_q | issue_commit_i;
-            end
-
-            if (alu_issue_fire) begin
-              alu_part_issued_d = 1'b1;
-            end
-
-            if (lsu_issue_fire) begin
-              lsu_part_issued_d = 1'b1;
             end
           end
         end
@@ -343,21 +254,18 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
 
     end else begin : gen_no_instr_buffer
 
-      assign active_req       = issue_req_in;
-      assign active_req_valid = issue_req_valid_i & issue_allowed;
-      assign issue_commit     = issue_commit_i;
+      assign active_issue_req       = issue_req_i;
+      assign active_issue_req_valid = issue_req_valid_i & issue_allowed;
+      assign active_issue_commit    = issue_commit_i;
 
       assign alu_part_issued  = 1'b0;
       assign lsu_part_issued  = 1'b0;
       assign buffering_busy   = 1'b0;
 
-      // In the non-post-increment configuration, instructions should target
-      // only one side of the combined FU. Therefore no partial-issue buffer is
-      // needed.
-      assign issue_req_ready_o =
-          issue_allowed
-        & (sel_alu ? alu_issue_req_ready : 1'b1)
-        & (sel_lsu ? lsu_issue_req_ready : 1'b1);
+      assign issue_req_ready_o = 
+        issue_allowed &
+        (sel_alu ? alu_issue_req_ready : 1'b1) &
+        (sel_lsu ? lsu_issue_req_ready : 1'b1);
 
     end
   endgenerate
@@ -366,8 +274,8 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   // Demux valid handshakes
   // ---------------------------------------------------------
 
-  assign alu_issue_req_valid = active_req_valid & sel_alu & ~alu_part_issued;
-  assign lsu_issue_req_valid = active_req_valid & sel_lsu & ~lsu_part_issued;
+  assign alu_issue_req_valid = active_issue_req_valid & sel_alu & ~alu_part_issued;
+  assign lsu_issue_req_valid = active_issue_req_valid & sel_lsu & ~lsu_part_issued;
 
 
   /////////
@@ -377,21 +285,19 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   alu_res_val_t alu_result_value;
   alu_lsu_instr_tag_t alu_tag;
   logic alu_busy;
+
   // pragma translate_off
   issue_alu_trace_t alu_trace;
   // pragma translate_on
 
   fu_issue_req_t alu_issue_req;
-
-  always_comb begin
-    alu_issue_req.fu_data = active_req.fu_data;
-    alu_issue_req.tag = active_req.tag;
-  end
+  assign alu_issue_req.fu_data = active_issue_req.fu_data;
+  assign alu_issue_req.tag = active_issue_req.tag;
 
   schnizo_alu #(
     .XLEN         (XLEN),
-    .HasBranch    (HasBranch), // only the first ALU has the branch logic
-    .HasMultiplier(HasMultiplier), // only the first ALU has the multiplier
+    .HasBranch    (HasBranch),
+    .HasMultiplier(HasMultiplier),
     .issue_req_t  (fu_issue_req_t),
     .instr_tag_t  (alu_lsu_instr_tag_t)
   ) i_alu (
@@ -418,34 +324,43 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
   data_t lsu_result_value;
   alu_lsu_instr_tag_t lsu_tag;
   logic lsu_busy;
+
   // pragma translate_off
   issue_lsu_trace_t lsu_trace;
   // pragma translate_on
 
   fu_issue_req_t lsu_issue_req;
+
+  // Assign issue request
   generate
     if (PostIncrement) begin
-
       always_comb begin
-        lsu_issue_req.fu_data = active_req.fu_data;
+        lsu_issue_req.fu_data = active_issue_req.fu_data;
 
-        if (active_req.fu_data.fu == schnizo_pkg::ALU_LSU_STORE) begin
-          lsu_issue_req.fu_data.operand_b = active_req.fu_data.imm;
+        // For Post-Increment Store Instructions, we have to re-order the operands
+        // to be in the correct order for the LSU. This has to be done for the
+        // LSU as opposed to for the ALU, because we need 3 operands from registers,
+        // meaning that the third operand needs to be loaded through the immediate.
+        // In the existing schnizo configuration, only FP registers can be loaded like
+        // this. So for the Post-Increment Store, we need the value from the FP register
+        // to be in the imm field. However, for stores, the LSU expects the value to store
+        // to be in operand_b.
+        if (active_issue_req.fu_data.fu == schnizo_pkg::ALU_LSU_STORE) begin
+          lsu_issue_req.fu_data.operand_b = active_issue_req.fu_data.imm;
           lsu_issue_req.fu_data.imm = '0;
         end
 
-        if (active_req.fu_data.fu == schnizo_pkg::ALU_LSU_LOAD) begin
-          lsu_issue_req.tag = active_req.tag2;
+        // For Post-Increment Load instructions, we have two destinations.
+        // The LSU uses the second tag, whereas the ALU uses the first tag.
+        if (active_issue_req.fu_data.fu == schnizo_pkg::ALU_LSU_LOAD) begin
+          lsu_issue_req.tag = active_issue_req.tag2;
         end else begin
-          lsu_issue_req.tag = active_req.tag;
+          lsu_issue_req.tag = active_issue_req.tag;
         end
       end
-
     end else begin
-
-      assign lsu_issue_req.fu_data = active_req.fu_data;
-      assign lsu_issue_req.tag = active_req.tag;
-
+      assign lsu_issue_req.fu_data = active_issue_req.fu_data;
+      assign lsu_issue_req.tag = active_issue_req.tag;
     end
   endgenerate
 
@@ -472,7 +387,7 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
     // pragma translate_on
     .issue_req_i      (lsu_issue_req),
     .issue_req_valid_i(lsu_issue_req_valid),
-    .issue_commit_i   (issue_commit),
+    .issue_commit_i   (active_issue_commit),
     .issue_req_ready_o(lsu_issue_req_ready),
     .result_o         (lsu_result_value),
     .tag_o            (lsu_tag),
@@ -535,8 +450,8 @@ module schnizo_alu_lsu import schnizo_pkg::*, schnizo_tracer_pkg::*; #(
       .inp_valid_i({alu_result_valid, lsu_result_valid}),
       .inp_ready_o({alu_result_ready, lsu_result_ready}),
       .oup_data_o (result_and_tag),
-      .oup_valid_o(result_valid_o),
-      .oup_ready_i(result_ready_i)
+      .oup_valid_o(result_valid_o[0]),
+      .oup_ready_i(result_ready_i[0])
     );
 
     assign result_o[0] = result_and_tag.value;
