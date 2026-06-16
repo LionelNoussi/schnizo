@@ -39,7 +39,7 @@ import formatter
 from formatter import int_lit, flt_lit, flt_fmt
 from architecture import REG_ABI_NAMES_I, REG_ABI_NAMES_F, get_fu_type, CSR_NAMES
 from architecture import LSU_SIZE_TO_FLOAT
-from architecture import FU_LSU, FU_FPU, FU_CSR, FU_ACC, FU_MULDIV, FU_DMA, FU_NONE
+from architecture import FU_LSU, FU_FPU, FU_ALU_LSU, FU_CSR, FU_ACC, FU_MULDIV, FU_DMA, FU_NONE, FU_ALU
 from processor import ProcessorState
 
 
@@ -120,7 +120,10 @@ def gen_dispatch_trace(loop_state, extras, proc_state, mc_exec) -> str:
     # Recover the FU type from the LEP producer
     # TODO(colluca): can't we use the same extras format for both LEP and other states?
     if loop_state == LOOP_LEP:
-        extras['fu_type'] = get_fu_type(extras['producer'])
+        if 'sel_alu' not in extras:
+            extras['fu_type'] = get_fu_type(extras['producer'])
+        else:
+            extras['fu_type'] = "ALU" if extras['sel_alu'] else "LSU"
 
     # Format extras, returns a collection of comments
     comments = formatter.format_extras(extras)
@@ -184,7 +187,8 @@ def gen_rescap_trace(extras):
 
 
 def handle_dispatch_event(sim_time, cycle, priv_lvl, loop_state, extras,
-                          lsu_pipelines, fpu_pipelines, perf_metrics):
+                          lsu_pipelines, alu_lsu_pipelines, fpu_pipelines,
+                          perf_metrics):
     if extras['stall'] and not (loop_state in {LOOP_LEP}):
         return
 
@@ -222,13 +226,16 @@ def handle_dispatch_event(sim_time, cycle, priv_lvl, loop_state, extras,
 
     # LSU
     is_lsu = False
+    is_alu_lsu = False
     lsu_id = ""
-    if ('fu_type' in extras):
+    if ('disp_resp' in extras):
         is_lsu = extras['disp_resp'].startswith(FU_LSU)
+        is_alu_lsu = extras['disp_resp'].startswith(FU_ALU_LSU)
         # keep only the first characters and all number until the first .
         lsu_id = extras['disp_resp'].split('.')[0]
     elif ('producer' in extras):
         is_lsu = extras['producer'].startswith(FU_LSU)
+        is_alu_lsu = extras['producer'].startswith(FU_ALU_LSU)
         lsu_id = extras['producer'].split('.')[0]
 
     if (is_lsu):
@@ -246,16 +253,41 @@ def handle_dispatch_event(sim_time, cycle, priv_lvl, loop_state, extras,
             else:
                 perf_metrics[-1]['int_store_issues'] += 1
 
+    if (is_alu_lsu):
+        if (extras['lsu_is_load']):
+            perf_metrics[-1]['load_issues'] += 1
+            alu_lsu_pipelines[lsu_id].appendleft((cycle, extras['lsu_is_float']))
+            if (extras['lsu_is_float']):  # save also float format for writeback float literal
+                perf_metrics[-1]['fp_load_issues'] += 1
+            else:
+                perf_metrics[-1]['int_load_issues'] += 1
+        elif (extras['lsu_is_store']):
+            perf_metrics[-1]['store_issues'] += 1
+            if (extras['lsu_is_float']):
+                perf_metrics[-1]['fp_store_issues'] += 1
+            else:
+                perf_metrics[-1]['int_store_issues'] += 1
+
     return 0
 
 
 def handle_retirement_event(cycle, priv_lvl, loop_state, extras,
-                            lsu_pipelines, fpu_pipelines, perf_metrics, permissive):
-    if (extras['producer'].startswith(FU_LSU) or extras['producer'].startswith(FU_FPU)):
+                            lsu_pipelines, alu_lsu_pipelines, fpu_pipelines, perf_metrics, permissive):
+    if (extras['producer'].startswith(FU_LSU) or extras['producer'].startswith(FU_FPU) or extras['producer'].startswith(FU_ALU_LSU)):
         try:
             fu_id = extras['producer'].split('.')[0]
-            if (extras['producer'].startswith(FU_LSU)):
+            if extras['producer'].startswith(FU_LSU):
                 start_time, is_fp = lsu_pipelines[fu_id].pop()
+                # We define the latency as the number of cycles we need, i.e., the duration
+                # Thus we do +1
+                latency = cycle - start_time + 1
+                perf_metrics[-1]['load_latency'] += latency
+                if (is_fp):
+                    perf_metrics[-1]['fp_load_latency'] += latency
+                else:
+                    perf_metrics[-1]['int_load_latency'] += latency
+            if extras['producer'].startswith(FU_ALU_LSU):
+                start_time, is_fp = alu_lsu_pipelines[fu_id].pop()
                 # We define the latency as the number of cycles we need, i.e., the duration
                 # Thus we do +1
                 latency = cycle - start_time + 1
@@ -269,6 +301,9 @@ def handle_retirement_event(cycle, priv_lvl, loop_state, extras,
                 latency = cycle - start_time + 1
                 perf_metrics[-1]['fpu_latency'] += latency
         except IndexError:
+            if extras['producer'].startswith(FU_ALU_LSU):
+                # ALU_LSU can retire without in-flight instruciton due to ALU
+                return
             producer = extras['producer']
             message = (
                 f"Retirement: In cycle {cycle}, {producer} tried to "
@@ -313,17 +348,33 @@ def gen_dispatch_perfetto(sim_time, cycle, priv_lvl, loop_state, extras,
         annotations.update({'iteration': iter_count})
 
     # Emit Perfetto slice begin event
-    trace.start_insn(fu_str, mnemonic, cycle * CLOCK_PERIOD_NS, annotations)
+    if 'rd' in extras and 'rd_is_fp' in extras:
+        tag1 = str(extras['rd']) + ("f" if extras['rd_is_fp'] else "")
+        mnemonic1 = mnemonic + (" (ALU)" if 'use_rd2' in extras and extras['use_rd2'] else "")
+        insn_uuid1 = trace.start_insn(fu_str, mnemonic1, cycle * CLOCK_PERIOD_NS, annotations, tag=tag1)
+        if 'use_rd2' in extras and extras['use_rd2']:
+            tag2 = f"{extras['rd2']}" + ("f" if extras['rd2_is_fp'] else "")
+            trace.start_insn(fu_str, mnemonic + " (LSU)", cycle * CLOCK_PERIOD_NS, annotations, tag=tag2)
+    else:
+        tag1 = "default"
+        insn_uuid1 = trace.start_insn(fu_str, mnemonic, cycle * CLOCK_PERIOD_NS, annotations, tag=tag1)
 
     # Immediately end instructions for FU_NONE as there is no retirement event.
     if (fu_str == FU_NONE):
         # The instruction ends in this cycle. Thus the event is at the end of this cycle.
-        trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS)
+        trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid1, tag=tag1)
     # Immediately end store instructions as there is no retirement event.
-    if (fu_str.startswith(FU_LSU)):
+    if fu_str.startswith(FU_LSU):
         if (extras['lsu_is_store']):
             # The instruction ends in this cycle. Thus the event is at the end of this cycle.
-            trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS)
+            trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid1, tag=tag1)
+    if fu_str.startswith(FU_ACC):
+        if mnemonic.startswith('dmsrc') or mnemonic.startswith('dmdst'):
+            trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid1, tag=tag1)
+    if fu_str.startswith(FU_ALU_LSU):
+        if extras['fu_type'] == FU_LSU and extras['lsu_is_store']:
+            # The instruction ends in this cycle. Thus the event is at the end of this cycle.
+            trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, insn_uuid1, tag=tag1)
 
 
 def gen_retirement_perfetto(sim_time, cycle, priv_lvl, loop_state, extras, trace):
@@ -336,17 +387,19 @@ def gen_retirement_perfetto(sim_time, cycle, priv_lvl, loop_state, extras, trace
         if (fu_str not in {FU_CSR, FU_ACC, FU_NONE}):
             fu_str = f"{fu_str}.0"
         # The instruction ends in this cycle. Thus the event is at the end of this cycle.
-        trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS)
+        tag = f"{extras['rd']}" + ("f" if extras['rd_is_fp'] else "")
+        trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, tag=tag)
 
 
 def gen_rescap_perfetto(sim_time, cycle, priv_lvl, loop_state, extras, trace):
     fu_str = extras['producer']
     # The instruction ends in this cycle. Thus the event is at the end of this cycle.
-    trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS)
+    tag = f"{extras['rd']}" + ("f" if extras['rd_is_fp'] else "")
+    trace.end_insn(fu_str, (cycle+1) * CLOCK_PERIOD_NS, tag=tag)
 
 
 def gen_trace_line(line, mc_exec,
-                   lsu_pipelines, fpu_pipelines, trace,
+                   lsu_pipelines, alu_lsu_pipelines, fpu_pipelines, trace,
                    perf_metrics, proc_state, permissive) -> tuple[str, int, int]:
     data = parse_line(line)
 
@@ -367,7 +420,7 @@ def gen_trace_line(line, mc_exec,
         # We must however prevent that they are parsed, since they may contain illegal data.
         if not data['exception']:
             handle_dispatch_event(sim_time, cycle, priv_lvl, loop_state, data,
-                                  lsu_pipelines, fpu_pipelines,
+                                  lsu_pipelines, alu_lsu_pipelines, fpu_pipelines,
                                   perf_metrics)
             trace_body = gen_dispatch_trace(loop_state, data, proc_state, mc_exec)
             gen_dispatch_perfetto(sim_time, cycle, priv_lvl, loop_state, data,
@@ -379,12 +432,12 @@ def gen_trace_line(line, mc_exec,
         # Nothing statefull to handle
         trace_body = gen_resreq_trace(data)
     elif (data['event'] == EVENT_RESCAP):
-        proc_state.capture_result(data['producer'], data)
+        # proc_state.capture_result(data['producer'], data)
         trace_body = gen_rescap_trace(data)
         gen_rescap_perfetto(sim_time, cycle, priv_lvl, loop_state, data, trace)
     elif (data['event'] == EVENT_RETIREMENT):
         handle_retirement_event(cycle, priv_lvl, loop_state, data,
-                                lsu_pipelines, fpu_pipelines, perf_metrics, permissive)
+                                lsu_pipelines, alu_lsu_pipelines, fpu_pipelines, perf_metrics, permissive)
         gen_retirement_perfetto(sim_time, cycle, priv_lvl, loop_state, data, trace)
     else:
         raise ValueError(f"Not a valid event type: {data['event']}\n")
@@ -537,6 +590,7 @@ def main():
         # Setup stateful structures
         # Dicts to store information about LSU pipeline (for latency). A dict for each LSU.
         lsu_pipelines = defaultdict(deque)
+        alu_lsu_pipelines = defaultdict(deque)
         fpu_pipelines = defaultdict(deque)
         # ProcessorState tracking active RSS slots during FREP loops
         proc_state = ProcessorState()
@@ -544,7 +598,7 @@ def main():
         perf_metrics = [
             defaultdict(int)
         ]  # all values initially 0, also 'start' time of measurement 0
-        perf_metrics[0]['start'] = None
+        perf_metrics[0]['start'] = None # type: ignore
 
         # dma_trans = [{'rep': 1}]
 
@@ -554,8 +608,8 @@ def main():
                 try:
                     # Process each event independently
                     trace_line, sim_time, cycle = gen_trace_line(line, args.mc_exec,
-                                                                 lsu_pipelines, fpu_pipelines,
-                                                                 trace, perf_metrics,
+                                                                 lsu_pipelines, alu_lsu_pipelines, 
+                                                                 fpu_pipelines, trace, perf_metrics,
                                                                  proc_state, args.permissive)
                     # The newline character is in the trace line. This way the trace line can also
                     # be empty.
@@ -606,6 +660,10 @@ def main():
     for lsu, pipeline in lsu_pipelines.items():
         if len(pipeline) != 0:
             print_warning(f"{len(pipeline)} unfinished load operations detected for {lsu}.")
+
+    for alu_lsu, pipeline in alu_lsu_pipelines.items():
+        if len(pipeline) != 0:
+            print_warning(f"{len(pipeline)} unfinished load operations detected for {alu_lsu}.")
 
     for fpu, pipeline in fpu_pipelines.items():
         if len(pipeline) != 0:
