@@ -36,7 +36,7 @@ except ImportError as e:
 
 
 ACTIONS = ['sw', 'hw', 'run', 'verify', 'traces', 'annotate', 'perf', 'roi', 'visual-trace', 'power', 'all',
-           'elab', 'synth', 'none']
+           'elab', 'fast_synth', 'synth', 'none']
 
 CLEAN_ACTIONS = ['sw', 'hw', 'runs', 'verify', 'all', 'none']
 

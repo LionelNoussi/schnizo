@@ -4,6 +4,9 @@
 
 module schnizo_synth #(
 	parameter bit          Xfrep  = 1'b1,
+	parameter bit          MulInAlu0 = 1'b1,
+	parameter bit		   UseAluLsu = 1'b0,
+	parameter bit          PostIncrement  = 1'b0,
 	parameter int unsigned NofAlus  = 3,
 	parameter int unsigned NofLsus  = 3,
 	parameter int unsigned NofAluLsus  = 0,
@@ -18,9 +21,6 @@ module schnizo_synth #(
 	parameter int unsigned AluLsuNofConstants  = 4,
 	parameter int unsigned FpuNofConstants  = 4,
 	parameter int unsigned AluLsuNofResPorts  = 2,
-	parameter bit		   UseAluLsu = 1'b0,
-	parameter bit          PostIncrement  = 1'b0,
-	parameter bit          MulInAlu0 = 1'b1,
 	parameter integer unsigned AluNofResRspPorts = 2,
 	parameter integer unsigned LsuNofResRspPorts = 2,
 	parameter integer unsigned AluLsuNofResRspPorts = 2,
@@ -49,6 +49,8 @@ module schnizo_synth #(
 	output logic                                       barrier_o,
 	input  logic                                       barrier_i
 );
+
+	localparam bit En2ndAluLsuResPort = (AluLsuNofResPorts == 2) ? 1'b1 : 1'b0;
 
 	schnizo #(
 		.BootAddr(schnizo_synth_pkg::BootAddr),
@@ -82,7 +84,7 @@ module schnizo_synth #(
 		.LsuNofConstants(LsuNofConstants),
 		.AluLsuNofConstants(AluLsuNofConstants),
 		.FpuNofConstants(FpuNofConstants),
-		.AluLsuNofResPorts(AluLsuNofResPorts),
+		.En2ndAluLsuResPort(En2ndAluLsuResPort),
 		.UseAluLsu(UseAluLsu),
 		.MulInAlu0(MulInAlu0),
 		.AluNofResRspPorts(AluNofResRspPorts),
