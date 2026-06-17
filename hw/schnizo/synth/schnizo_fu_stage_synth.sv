@@ -3,30 +3,30 @@
 // SPDX-License-Identifier: SHL-0.51
 
 module schnizo_fu_stage_synth import cf_math_pkg::*; #(
-  parameter bit          X    = 1,    // Xfrep
-  parameter bit          UAL  = 0,    // UseAluLsu
-  parameter bit          MA0  = 1'b1, // MulInAlu0
-  parameter int unsigned RS   = 0,    // NofRss
-  parameter int unsigned CM   = 0,    // Constant Memory
+  parameter bit          Xfrep = 1,
+  parameter bit          MulInAlu0 = 1'b1,
+  parameter bit          UseAluLsu = 0,
+  parameter bit          PostIncrement = 1'b0,
+  parameter int unsigned NofRss = 0,
+  parameter int unsigned ConstantMemory = 0,
   // ALU
-  parameter int unsigned NA   = 3,    // NofAlus
-  parameter int unsigned AR   = RS,   // AluNofRss
-  parameter int unsigned AC   = CM,    // AluNofConstants
+  parameter int unsigned NofAlus = 3,
+  parameter int unsigned AluNofRss = NofRss,
+  parameter int unsigned AluNofConstants = ConstantMemory,
   // LSU
-  parameter int unsigned NL   = 3,    // NofLsus
-  parameter int unsigned LR   = RS,   // LsuNofRss
-  parameter int unsigned LC   = CM,    // LsuNofConstants
+  parameter int unsigned NofLsus = 3,
+  parameter int unsigned LsuNofRss = NofRss,
+  parameter int unsigned LsuNofConstants = ConstantMemory,
   // ALU-LSU
-  parameter int unsigned NX   = 0,    // NofAluLsus
-  parameter int unsigned XR   = RS,   // AluLsuNofRss
-  parameter int unsigned XRR  = RS,   // AluLsuNofRsrs
-  parameter int unsigned XW   = 2,    // AluLsuNofResPorts
-  parameter int unsigned XC   = 4,    // AluLsuNofConstants
-  parameter bit          PI   = 1'b0,
+  parameter int unsigned NofAluLsus = 0,
+  parameter int unsigned AluLsuNofRsis = 2*NofRss,
+  parameter int unsigned AluLsuNofRsrs = 2*NofRss,
+  parameter int unsigned AluLsuNofResPorts = 2,
+  parameter int unsigned AluLsuNofConstants = 4,
   // FPU
-  parameter int unsigned NF   = 1,    // NofFpus
-  parameter int unsigned FR   = RS,   // FpuNofRss
-  parameter int unsigned FC   = CM    // FpuNofConstants
+  parameter int unsigned NofFpus = 1,
+  parameter int unsigned FpuNofRss = NofRss,
+  parameter int unsigned FpuNofConstants = ConstantMemory
 ) (
   input  logic                                     clk_i,
   input  logic                                     rst_ni,
@@ -37,28 +37,28 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
   output logic                                     all_rs_finish_o,
   input  schnizo_synth_pkg::disp_req_t             disp_req_i,
   input  logic                                     instr_exec_commit_i,
-  input  logic               [iomsb(NA):0]         alu_disp_reqs_valid_i,
-  output logic               [iomsb(NA):0]         alu_disp_reqs_ready_o,
-  output schnizo_synth_pkg::disp_rsp_t [iomsb(NA):0] alu_disp_rsp_o,
-  output logic               [iomsb(NA):0]         alu_rs_full_o,
-  input  logic               [iomsb(NL):0]         lsu_disp_reqs_valid_i,
-  output logic               [iomsb(NL):0]         lsu_disp_reqs_ready_o,
-  output schnizo_synth_pkg::disp_rsp_t [iomsb(NL):0] lsu_disp_rsp_o,
+  input  logic               [iomsb(NofAlus):0]         alu_disp_reqs_valid_i,
+  output logic               [iomsb(NofAlus):0]         alu_disp_reqs_ready_o,
+  output schnizo_synth_pkg::disp_rsp_t [iomsb(NofAlus):0] alu_disp_rsp_o,
+  output logic               [iomsb(NofAlus):0]         alu_rs_full_o,
+  input  logic               [iomsb(NofLsus):0]         lsu_disp_reqs_valid_i,
+  output logic               [iomsb(NofLsus):0]         lsu_disp_reqs_ready_o,
+  output schnizo_synth_pkg::disp_rsp_t [iomsb(NofLsus):0] lsu_disp_rsp_o,
   output logic                                     lsu_empty_o,
   output logic                                     lsu_addr_misaligned_o,
-  output schnizo_synth_pkg::data_req_t [iomsb(NL):0] lsu_dreq_o,
-  input  schnizo_synth_pkg::data_rsp_t [iomsb(NL):0] lsu_drsp_i,
-  output logic               [iomsb(NL):0]         lsu_rs_full_o,
-  input  logic               [iomsb(NX):0]         alu_lsu_disp_reqs_valid_i,
-  output logic               [iomsb(NX):0]         alu_lsu_disp_reqs_ready_o,
-  output schnizo_synth_pkg::disp_rsp_t [iomsb(NX):0][PI:0] alu_lsu_disp_rsp_o,
-  output logic               [iomsb(NX):0]         alu_lsu_rs_full_o,
-  output schnizo_synth_pkg::data_req_t [iomsb(NX):0] alu_lsu_dreq_o,
-  input  schnizo_synth_pkg::data_rsp_t [iomsb(NX):0] alu_lsu_drsp_i,
-  input  logic               [iomsb(NF):0]         fpu_disp_reqs_valid_i,
-  output logic               [iomsb(NF):0]         fpu_disp_reqs_ready_o,
-  output schnizo_synth_pkg::disp_rsp_t [iomsb(NF):0] fpu_disp_rsp_o,
-  output logic               [iomsb(NF):0]         fpu_rs_full_o,
+  output schnizo_synth_pkg::data_req_t [iomsb(NofLsus):0] lsu_dreq_o,
+  input  schnizo_synth_pkg::data_rsp_t [iomsb(NofLsus):0] lsu_drsp_i,
+  output logic               [iomsb(NofLsus):0]         lsu_rs_full_o,
+  input  logic               [iomsb(NofAluLsus):0]         alu_lsu_disp_reqs_valid_i,
+  output logic               [iomsb(NofAluLsus):0]         alu_lsu_disp_reqs_ready_o,
+  output schnizo_synth_pkg::disp_rsp_t [iomsb(NofAluLsus):0][PostIncrement:0] alu_lsu_disp_rsp_o,
+  output logic               [iomsb(NofAluLsus):0]         alu_lsu_rs_full_o,
+  output schnizo_synth_pkg::data_req_t [iomsb(NofAluLsus):0] alu_lsu_dreq_o,
+  input  schnizo_synth_pkg::data_rsp_t [iomsb(NofAluLsus):0] alu_lsu_drsp_i,
+  input  logic               [iomsb(NofFpus):0]         fpu_disp_reqs_valid_i,
+  output logic               [iomsb(NofFpus):0]         fpu_disp_reqs_ready_o,
+  output schnizo_synth_pkg::disp_rsp_t [iomsb(NofFpus):0] fpu_disp_rsp_o,
+  output logic               [iomsb(NofFpus):0]         fpu_rs_full_o,
   output fpnew_pkg::status_t                       fpu_status_o,
   output logic                                     fpu_status_valid_o,
   output schnizo_synth_pkg::alu_result_t           alu_wb_result_o,
@@ -70,28 +70,24 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
   output schnizo_pkg::instr_tag_t                  lsu_wb_result_tag_o,
   output logic                                     lsu_wb_result_valid_o,
   input  logic                                     lsu_wb_result_ready_i,
-  output schnizo_synth_pkg::alu_lsu_result_t [XW-1:0] alu_lsu_wb_results_o,
-  output schnizo_pkg::instr_tag_t            [XW-1:0] alu_lsu_wb_result_tags_o,
-  output logic                               [XW-1:0] alu_lsu_wb_results_valid_o,
-  input  logic                               [XW-1:0] alu_lsu_wb_results_ready_i,
+  output schnizo_synth_pkg::alu_lsu_result_t [AluLsuNofResPorts-1:0] alu_lsu_wb_results_o,
+  output schnizo_pkg::instr_tag_t            [AluLsuNofResPorts-1:0] alu_lsu_wb_result_tags_o,
+  output logic                               [AluLsuNofResPorts-1:0] alu_lsu_wb_results_valid_o,
+  input  logic                               [AluLsuNofResPorts-1:0] alu_lsu_wb_results_ready_i,
   output logic [schnizo_synth_pkg::FLEN-1:0]       fpu_wb_result_o,
   output schnizo_pkg::instr_tag_t                  fpu_wb_result_tag_o,
   output logic                                     fpu_wb_result_valid_o,
   input  logic                                     fpu_wb_result_ready_i
 );
 
-  localparam int unsigned AP = 2;
-  localparam int unsigned LP = 2;
-  localparam int unsigned XP = 2;
-  localparam int unsigned FP = 2;
-  localparam int unsigned NOI = NA*2 + NL*3 + NX*3 + NF*3; // NofOperandIfs
-  localparam int unsigned NRI = (NA * AP) + (NL * LP) + (NX * XP) + (NF * FP); // NofResReqIfs
-  localparam int unsigned TotalNofRss = (NA * AR) + (NL * LR) + (NX * XR) + (NF * FR);
-  localparam int unsigned MaxNofRss = (AR >= LR && AR >= XRR && AR >= FR) ? AR :
-                                      (LR >= XRR && LR >= FR)             ? LR :
-                                      (XRR >= FR)                         ? XRR : FR;
+  localparam int unsigned NofOperandIfs = NofAlus*2 + NofLsus*3 + NofAluLsus*3 + NofFpus*3;
+  localparam int unsigned NofResReqIfs = NofAlus + NofLsus + NofAluLsus + NofFpus;
 
-  localparam int unsigned ActualRsIdWidth   = cf_math_pkg::idx_width(NA + NL + NX + NF);
+  localparam int unsigned MaxNofRss = (AluNofRss >= LsuNofRss && AluNofRss >= AluLsuNofRsrs && AluNofRss >= FpuNofRss) ? AluNofRss :
+                                      (LsuNofRss >= AluLsuNofRsrs && LsuNofRss >= FpuNofRss)             ? LsuNofRss :
+                                      (AluLsuNofRsrs >= FpuNofRss)                         ? AluLsuNofRsrs : FpuNofRss;
+
+  localparam int unsigned ActualRsIdWidth   = cf_math_pkg::idx_width(NofAlus + NofLsus + NofAluLsus + NofFpus);
   localparam int unsigned ActualSlotIdWidth = cf_math_pkg::idx_width(MaxNofRss);
 
   typedef logic [ActualSlotIdWidth-1:0] actual_slot_id_t;
@@ -127,28 +123,28 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
   actual_disp_req_t disp_req_casted;
   assign disp_req_casted = disp_req_i; // SV handles truncation of wide package fields to narrow actual fields
 
-  actual_disp_rsp_t [iomsb(NA):0]     alu_disp_rsp_internal;
-  actual_disp_rsp_t [iomsb(NL):0]     lsu_disp_rsp_internal;
-  actual_disp_rsp_t [iomsb(NX):0][PI:0] alu_lsu_disp_rsp_internal;
-  actual_disp_rsp_t [iomsb(NF):0]     fpu_disp_rsp_internal;
+  actual_disp_rsp_t [iomsb(NofAlus):0]     alu_disp_rsp_internal;
+  actual_disp_rsp_t [iomsb(NofLsus):0]     lsu_disp_rsp_internal;
+  actual_disp_rsp_t [iomsb(NofAluLsus):0][PostIncrement:0] alu_lsu_disp_rsp_internal;
+  actual_disp_rsp_t [iomsb(NofFpus):0]     fpu_disp_rsp_internal;
 
   // Cast internal results back to wide package ports
   always_comb begin
     alu_disp_rsp_o = '0;
-    for (int i=0; i<NA; i++) alu_disp_rsp_o[i] = alu_disp_rsp_internal[i];
+    for (int i=0; i<NofAlus; i++) alu_disp_rsp_o[i] = alu_disp_rsp_internal[i];
     lsu_disp_rsp_o = '0;
-    for (int i=0; i<NL; i++) lsu_disp_rsp_o[i] = lsu_disp_rsp_internal[i];
-    for (int i=0; i<NX; i++) begin
+    for (int i=0; i<NofLsus; i++) lsu_disp_rsp_o[i] = lsu_disp_rsp_internal[i];
+    for (int i=0; i<NofAluLsus; i++) begin
       alu_lsu_disp_rsp_o[i][0] = alu_lsu_disp_rsp_internal[i][0];
     end
     fpu_disp_rsp_o = '0;
-    for (int i=0; i<NF; i++) fpu_disp_rsp_o[i] = fpu_disp_rsp_internal[i];
+    for (int i=0; i<NofFpus; i++) fpu_disp_rsp_o[i] = fpu_disp_rsp_internal[i];
   end
 
   generate
-    if (PI) begin
+    if (PostIncrement) begin
       always_comb begin
-        for (int i=0; i<NX; i++) begin
+        for (int i=0; i<NofAluLsus; i++) begin
           alu_lsu_disp_rsp_o[i][1] = alu_lsu_disp_rsp_internal[i][1];
         end
       end
@@ -156,38 +152,38 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
   endgenerate
 
   schnizo_fu_stage #(
-    .Xfrep(X),
-    .MulInAlu0(MA0),
-    .NofAlus(NA),
-    .AluNofRss(AR),
-    .AluNofConstants(AC),
+    .Xfrep(Xfrep),
+    .MulInAlu0(MulInAlu0),
+    .NofAlus(NofAlus),
+    .AluNofRss(AluNofRss),
+    .AluNofConstants(AluNofConstants),
     .AluNofOperands(2),
     .AluNofResReqIfs(1),
-    .AluNofResRspPorts(AP),
-    .NofLsus(NL),
-    .LsuNofRss(LR),
-    .LsuNofConstants(LC),
+    .AluNofResRspPorts(2),
+    .NofLsus(NofLsus),
+    .LsuNofRss(LsuNofRss),
+    .LsuNofConstants(LsuNofConstants),
     .LsuNofOperands(3),
     .LsuNofResReqIfs(1),
-    .LsuNofResRspPorts(LP),
-    .NofFpus(NF),
-    .FpuNofRss(FR),
-    .FpuNofConstants(FC),
+    .LsuNofResRspPorts(2),
+    .NofFpus(NofFpus),
+    .FpuNofRss(FpuNofRss),
+    .FpuNofConstants(FpuNofConstants),
     .FpuNofOperands(3),
     .FpuNofResReqIfs(1),
-    .FpuNofResRspPorts(FP),
-    .UseAluLsu(UAL),
-    .PostIncrement(PI),
-    .NofAluLsus(NX),
-    .AluLsuNofRss(XR),
-    .AluLsuNofRsrs(XRR),
-    .AluLsuNofConstants(XC),
+    .FpuNofResRspPorts(2),
+    .UseAluLsu(UseAluLsu),
+    .PostIncrement(PostIncrement),
+    .NofAluLsus(NofAluLsus),
+    .AluLsuNofRsis(AluLsuNofRsis),
+    .AluLsuNofRsrs(AluLsuNofRsrs),
+    .AluLsuNofConstants(AluLsuNofConstants),
     .AluLsuNofOperands(3),
     .AluLsuNofResReqIfs(1),
-    .AluLsuNofResRspPorts(XP),
-    .AluLsuNofResPorts(XW),
-    .NofOperandIfs(NOI),
-    .NofResReqIfs(NRI),
+    .AluLsuNofResRspPorts(2),
+    .AluLsuNofResPorts(AluLsuNofResPorts),
+    .NofOperandIfs(NofOperandIfs),
+    .NofResReqIfs(NofResReqIfs),
     .XLEN(schnizo_synth_pkg::XLEN),
     .FLEN(schnizo_synth_pkg::FLEN),
     .OpLen(schnizo_synth_pkg::OpLen),
@@ -210,7 +206,7 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
     .RegisterFPUIn(0),
     .RegisterFPUOut(0),
     .producer_id_t(actual_producer_id_t),
-    .slot_id_t(actual_slot_id_t),
+    .result_slot_id_t(actual_slot_id_t),
     .rs_id_t(actual_rs_id_t),
     .operand_id_t(schnizo_synth_pkg::operand_id_t),
     .disp_req_t(actual_disp_req_t),
@@ -222,7 +218,6 @@ module schnizo_fu_stage_synth import cf_math_pkg::*; #(
     .alu_lsu_result_t(schnizo_synth_pkg::alu_lsu_result_t),
     .dreq_t(schnizo_synth_pkg::data_req_t),
     .drsp_t(schnizo_synth_pkg::data_rsp_t)
-
   ) i_fu_stage (
     .clk_i,
     .rst_i(!rst_ni),

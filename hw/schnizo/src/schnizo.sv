@@ -611,7 +611,7 @@ module schnizo import schnizo_pkg::*, schnizo_tracer_pkg::*, cf_math_pkg::*; #(
   logic      [iomsb(NofLsus):0] lsu_rs_full;
   logic      [iomsb(NofAluLsus):0] alu_lsu_disp_req_valid;
   logic      [iomsb(NofAluLsus):0] alu_lsu_disp_req_ready;
-  disp_rsp_t [iomsb(NofAluLsus):0][NumAluLsuDests:0] alu_lsu_disp_rsp;
+  disp_rsp_t [iomsb(NofAluLsus):0][NumAluLsuDests-1:0] alu_lsu_disp_rsp;
   logic      [iomsb(NofAluLsus):0] alu_lsu_rs_full;
   logic                    csr_disp_req_valid;
   logic                    csr_disp_req_ready;
